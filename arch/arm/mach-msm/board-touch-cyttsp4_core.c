@@ -1,6 +1,10 @@
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include "board-8930.h"
+//XpauM BLN
+#if defined(CONFIG_GENERIC_BLN)
+	#include <linux/bln.h>
+#endif
 
 /* cyttsp */
 #include <linux/cyttsp4_bus.h>
@@ -333,6 +337,13 @@ static struct touch_settings cyttsp4_sett_btn_keys = {
 	.size = ARRAY_SIZE(cyttsp4_btn_keys),
 	.tag = 0,
 };
+
+//XPAUM BLN
+static struct bln_implementation bln_data = {
+		.led_set = cyttsp4_led_power_onoff,
+};
+register_bln_implementation(&bln_data);
+///
 
 static struct cyttsp4_core_platform_data _cyttsp4_core_platform_data = {
 	.irq_gpio = CYTTSP4_I2C_IRQ_GPIO,
