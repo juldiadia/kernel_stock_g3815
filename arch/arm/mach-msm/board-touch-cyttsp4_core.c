@@ -339,10 +339,10 @@ static struct touch_settings cyttsp4_sett_btn_keys = {
 };
 
 //XPAUM BLN
-static struct bln_implementation bln_data = {
+static struct bln_implementation _bln_platform = {
 		.led_set = cyttsp4_led_power_onoff,
 };
-register_bln_implementation(&bln_data);
+register_bln_implementation(&_bln_platform);
 ///
 
 static struct cyttsp4_core_platform_data _cyttsp4_core_platform_data = {
