@@ -342,7 +342,7 @@ static struct touch_settings cyttsp4_sett_btn_keys = {
 static struct bln_implementation _bln_platform = {
 		.led_set = cyttsp4_led_power_onoff,
 };
-register_bln_implementation(&_bln_platform);
+//register_bln_implementation(&_bln_platform);
 #endif ///
 
 static struct cyttsp4_core_platform_data _cyttsp4_core_platform_data = {
@@ -498,6 +498,10 @@ static struct i2c_board_info touch_i2c_devices[] = {
 void __init board_tsp_init(void)
 {
 	int ret = 0;
+
+	//XpauM bln init
+	printk("[BLN] initiated  \n");
+	register_bln_implementation(&_bln_platform);
 
 	printk("[TSP] board_tsp_init + \n");
 
