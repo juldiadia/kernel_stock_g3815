@@ -499,10 +499,10 @@ void __init board_tsp_init(void)
 {
 	int ret = 0;
 
-	//XpauM bln init
+#ifdef CONFIG_GENERIC_BLN //XpauM bln init
 	printk("[BLN] initiated  \n");
 	register_bln_implementation(&_bln_platform);
-
+#endif
 	printk("[TSP] board_tsp_init + \n");
 
 	ret = gpio_request(CYTTSP4_I2C_IRQ_GPIO, NULL);
