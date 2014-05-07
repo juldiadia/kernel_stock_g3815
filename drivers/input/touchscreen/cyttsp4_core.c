@@ -970,6 +970,11 @@ static ssize_t touch_led_control(struct device *dev,
         return size;
     }
 
+    //FIX TO GENERIC LIBLIGHTS
+    if (input >1) {
+        input=1;
+    }
+
     if (input != 0 && input != 1) {
         printk(KERN_DEBUG "[TouchKey] %s wrong cmd %x\n",
                 __func__, input);
