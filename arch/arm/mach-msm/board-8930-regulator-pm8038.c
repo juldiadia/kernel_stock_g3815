@@ -497,9 +497,17 @@ msm8930_pm8038_gpio_regulator_pdata[] __devinitdata = {
 /* SAW regulator constraints */
 struct regulator_init_data msm8930_pm8038_saw_regulator_core0_pdata =
 	/*	      ID  vreg_name	       min_uV   max_uV */
+#ifdef CONFIG_CPU_OVERCLOCK
+	SAW_VREG_INIT(S5, "8038_s5",	       850000, 1350000);
+#else
 	SAW_VREG_INIT(S5, "8038_s5",	       850000, 1300000);
+#endif
 struct regulator_init_data msm8930_pm8038_saw_regulator_core1_pdata =
+#ifdef CONFIG_CPU_OVERCLOCK
+	SAW_VREG_INIT(S6, "8038_s6",	       850000, 1350000);
+#else
 	SAW_VREG_INIT(S6, "8038_s6",	       850000, 1300000);
+#endif
 
 /* PM8038 regulator constraints */
 struct pm8xxx_regulator_platform_data
