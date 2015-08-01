@@ -51,6 +51,11 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.name	= ION_VMALLOC_HEAP_NAME,
 	},
 	{
+		.id	= ION_SYSTEM_CONTIG_HEAP_ID,
+		.type	= ION_HEAP_TYPE_SYSTEM_CONTIG,
+		.name	= ION_KMALLOC_HEAP_NAME,
+	},
+	{
 		.id	= ION_CP_MM_HEAP_ID,
 		.type	= ION_HEAP_TYPE_CP,
 		.name	= ION_MM_HEAP_NAME,
@@ -213,7 +218,7 @@ static void allocate_co_memory(struct ion_platform_heap *heap,
 		if (shared_heap) {
 			struct ion_cp_heap_pdata *cp_data =
 			   (struct ion_cp_heap_pdata *) shared_heap->extra_data;
-			if (cp_data->mem_is_fmem && cp_data->fixed_position == FIXED_MIDDLE) {
+			if (cp_data->fixed_position == FIXED_MIDDLE) {
 				const struct fmem_data *fmem_info =
 					fmem_get_info();
 
@@ -649,6 +654,25 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 			return ret;
 		if (copy_to_user((void __user *)arg, &data,
 					sizeof(struct ion_flag_data)))
+			return -EFAULT;
+		break;
+	}
+	case ION_IOC_GET_PHYS:
+	{
+		struct ion_buffer_data data;
+		int ret = 0;
+
+		if (copy_from_user(&data, (void __user *)arg,
+					sizeof(struct ion_buffer_data)))
+			return -EFAULT;
+
+		ret = ion_phys(client, data.handle,
+				(ion_phys_addr_t*)(&data.paddr), &data.length);
+		if (ret < 0)
+			return ret;
+
+		if (copy_to_user((void __user *)arg, &data,
+					sizeof(struct ion_buffer_data)))
 			return -EFAULT;
 		break;
 	}

@@ -1879,7 +1879,7 @@ static int __cpuinit cpufreq_cpu_callback(struct notifier_block *nfb,
 		case CPU_ONLINE_FROZEN:
 			cpufreq_add_dev(dev, NULL);
 #ifdef CONFIG_SEC_DVFS
-			/* if min or max lock is set, online cpu needs to change it's own rate immediately after adding cpufreq_dev */
+			/* if min or max lock is set, online cpu needs to change it's own rate immediately after addind cpufreq_dev */
 			{
 				unsigned int target_freq, min_freq, max_freq;
 				struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
@@ -1899,7 +1899,7 @@ static int __cpuinit cpufreq_cpu_callback(struct notifier_block *nfb,
 					cpufreq_cpu_put(policy);				
 				}
 			}
-#endif						
+#endif			
 			break;
 		case CPU_DOWN_PREPARE:
 		case CPU_DOWN_PREPARE_FROZEN:

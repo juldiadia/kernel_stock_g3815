@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,7 @@ VREG_CONSUMERS(L1) = {
 };
 VREG_CONSUMERS(L2) = {
 	REGULATOR_SUPPLY("8917_l2",		NULL),
- 	REGULATOR_SUPPLY("iris_vdddig",		"wcnss_wlan.0"),
+	REGULATOR_SUPPLY("iris_vdddig",		"wcnss_wlan.0"),
 	REGULATOR_SUPPLY("dsi_vdda",		"mipi_dsi.1"),
 	REGULATOR_SUPPLY("dsi_pll_vdda",	"mdp.0"),
 	REGULATOR_SUPPLY("mipi_csi_vdd",	"msm_csid.0"),
@@ -67,15 +67,11 @@ VREG_CONSUMERS(L7) = {
 VREG_CONSUMERS(L8) = {
 	REGULATOR_SUPPLY("8917_l8",		NULL),
 	REGULATOR_SUPPLY("dsi_vdc",		"mipi_dsi.1"),
-	REGULATOR_SUPPLY("haptic_pwr",		NULL),
+	REGULATOR_SUPPLY("haptic_pwr",	NULL),
 };
 VREG_CONSUMERS(L9) = {
 	REGULATOR_SUPPLY("8917_l9",		NULL),
 	REGULATOR_SUPPLY("sensor_opt",		NULL),
-#if defined CONFIG_JACK_VDD_CTRL
-	REGULATOR_SUPPLY("jack_vdd",	NULL),
-#endif
-	REGULATOR_SUPPLY("barcode_2p85",	NULL),
 	REGULATOR_SUPPLY("vdd_ana",		"3-004a"),
 	REGULATOR_SUPPLY("vdd",			"3-0024"),
 	REGULATOR_SUPPLY("vdd",			"12-0018"),
@@ -155,7 +151,6 @@ VREG_CONSUMERS(L25) = {
 	REGULATOR_SUPPLY("VDDD_CDC_D",		"8-0077"),
 	REGULATOR_SUPPLY("CDC_VDDA_A_1P2V",	"8-0077"),
 	REGULATOR_SUPPLY("mhl_avcc12",		"0-0039"),
-	REGULATOR_SUPPLY("barcode_l25",		NULL),
 };
 VREG_CONSUMERS(L26) = {
 	REGULATOR_SUPPLY("8921_l26",		NULL),
@@ -174,10 +169,6 @@ VREG_CONSUMERS(L29) = {
 };
 VREG_CONSUMERS(L30) = {
 	REGULATOR_SUPPLY("8917_l30",		NULL),
-#if defined(CONFIG_MACH_CRATER_CHN_CTC) \
-	|| defined(CONFIG_FB_MSM_MIPI_ILI9341_BOE_VIDEO_QVGA_PT_PANEL)
-	REGULATOR_SUPPLY("dsi_vdc2",		"mipi_dsi.1"),
-#endif
 };
 VREG_CONSUMERS(L31) = {
 	REGULATOR_SUPPLY("8917_l31",		NULL),
@@ -233,14 +224,13 @@ VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("VDDIO_CDC",		"8-0077"),
 	REGULATOR_SUPPLY("CDC_VDDA_TX",		"8-0077"),
 	REGULATOR_SUPPLY("CDC_VDDA_RX",	"8-0077"),
-	REGULATOR_SUPPLY("vddp",		"0-0048"),
+	REGULATOR_SUPPLY("vcc_i2c",		"0-0048"),
 	REGULATOR_SUPPLY("mhl_iovcc18",		"0-0039"),
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"sitar-slim"),
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"8-000d"),
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"8-0055"),
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"8-0066"),
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"8-0077"),
-	REGULATOR_SUPPLY("barcode_1p8",		NULL),
 	REGULATOR_SUPPLY("dsi_vdc5",		"mipi_dsi.1"),
 };
 VREG_CONSUMERS(S5) = {
@@ -276,7 +266,6 @@ VREG_CONSUMERS(LVS4) = {
 	REGULATOR_SUPPLY("sensor_pwr",		NULL),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-004a"),
 	REGULATOR_SUPPLY("vcc_i2c",		"3-0024"),
-	REGULATOR_SUPPLY("vcc_i2c",		"0-0048"),
 	REGULATOR_SUPPLY("vddio",		"12-0018"),
 	REGULATOR_SUPPLY("vlogic",		"12-0068"),
 };
@@ -286,7 +275,6 @@ VREG_CONSUMERS(LVS5) = {
 	REGULATOR_SUPPLY("cam_vio",		"4-006c"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0048"),
 	REGULATOR_SUPPLY("cam_vio",             "4-0020"),
-	REGULATOR_SUPPLY("dsi_vdc6",		"mipi_dsi.1"),
 };
 VREG_CONSUMERS(LVS6) = {
 	REGULATOR_SUPPLY("8917_lvs6",		NULL),
@@ -635,16 +623,16 @@ msm8930_pm8917_regulator_pdata[] __devinitdata = {
 #elif defined(CONFIG_FB_MSM_MIPI_ILI9341_BOE_VIDEO_QVGA_PT_PANEL)
 	PM8XXX_LDO(L30,      "8917_l30", 0, 1, 1800000, 1800000, 200, NULL,
 		0, 4),
-#elif defined(CONFIG_SAMSUNG_JACK_EXT_LDO)
-	PM8XXX_LDO(L30,      "8917_l30", 1, 1, 2800000, 2800000, 200, NULL,
+#elif defined(CONFIG_MACH_GOLDEN_ATT)
+	PM8XXX_LDO(L30,      "8917_l30", 0, 1, 1800000, 3000000, 200, NULL,
 		0, 4),
 #else
-	PM8XXX_LDO(L30,      "8917_l30", 0, 1, 1800000, 3000000, 200, NULL,
+	PM8XXX_LDO(L30,      "8917_l30", 0, 1, 1800000, 2800000, 200, NULL,
 		0, 4),
 #endif
 	PM8XXX_LDO(L31,      "8917_l31", 0, 1, 1800000, 3300000, 200, NULL,
 		0, 5),
-#if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_LT02_CHN_CTC)
+#if defined(CONFIG_MACH_MELIUS)
 	PM8XXX_LDO(L32,      "8917_l32", 1, 1, 2800000, 2800000, 200, NULL,
 		0, 6),
 #else
@@ -653,14 +641,9 @@ msm8930_pm8917_regulator_pdata[] __devinitdata = {
 #endif
 	PM8XXX_LDO(L33,      "8917_l33", 0, 1, 2800000, 3300000, 200, NULL,
 		0, 7),
-#if defined(CONFIG_MACH_LT02_SEA)
-	PM8XXX_LDO(L34,      "8917_l34", 0, 1, 1800000, 3300000, 200, NULL,
-		0, 8),
-#else
 	PM8XXX_LDO(L34,      "8917_l34", 0, 1, 1800000, 1800000, 200, NULL,
 		0, 8),
-#endif
-#if defined(CONFIG_MACH_CRATER) || defined (CONFIG_MACH_BAFFIN)|| defined(CONFIG_MACH_CRATER_CHN_CTC)
+#if defined(CONFIG_MACH_CRATER) || defined (CONFIG_MACH_BAFFIN) || defined(CONFIG_MACH_CRATER_CHN_CTC)
 	PM8XXX_LDO(L35,      "8917_l35", 0, 1, 1800000, 3300000, 200, NULL,
 		0, 9),
 #else
@@ -668,14 +651,8 @@ msm8930_pm8917_regulator_pdata[] __devinitdata = {
 		0, 9),
 #endif
 #if defined(CONFIG_MACH_CRATER_CHN_CTC)
-    PM8XXX_LDO(L36,      "8917_l36", 0, 1, 1800000, 3300000, 200, NULL,
-      0, 10),
-#elif defined(CONFIG_MACH_WILCOX_EUR_LTE)
-    PM8XXX_LDO(L36,      "8917_l36", 0, 1, 1800000, 3300000, 200, NULL,
-      0, 10),
-#elif defined(CONFIG_MACH_CANE)
-    PM8XXX_LDO(L36,      "8917_l36", 0, 1, 0, 0, 200, NULL,
-      0, 10),
+      PM8XXX_LDO(L36,      "8917_l36", 0, 1, 1800000, 3300000, 200, NULL,
+        0, 10),
 #else
 	PM8XXX_LDO(L36,      "8917_l36", 0, 1, 2200000, 3300000, 200, NULL,
 		0, 10),
@@ -686,7 +663,7 @@ msm8930_pm8917_regulator_pdata[] __devinitdata = {
 	PM8XXX_BOOST(BOOST, "8917_boost", 0,  5000000, 5000000, 500, NULL, 11),
 
 	/*	     ID        name      always_on pd en_t supply    reg_ID */
-#if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_SERRANO) || defined(CONFIG_MACH_CRATER) || defined (CONFIG_MACH_BAFFIN) || defined (CONFIG_MACH_CANE) || defined (CONFIG_MACH_GOLDEN) || defined (CONFIG_MACH_LT02) || defined (CONFIG_MACH_BISCOTTO)  || defined(CONFIG_MACH_LOGANRE)
+#if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_SERRANO) || defined(CONFIG_MACH_CRATER) || defined (CONFIG_MACH_BAFFIN) || defined (CONFIG_MACH_CANE) || defined (CONFIG_MACH_GOLDEN) || defined (CONFIG_MACH_LT02) || defined (CONFIG_MACH_BISCOTTO)
 	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 0, 0,   "8917_boost", 12),
 #else
 	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 1, 0,   "8917_boost", 12),
@@ -719,19 +696,17 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 3300000, NULL,      0, 0),
 #elif defined(CONFIG_FB_MSM_MIPI_ILI9341_BOE_VIDEO_QVGA_PT_PANEL)
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 2800000, NULL,      0, 0),
-#elif defined(CONFIG_MACH_LT02_CHN_CTC)
-	RPM_LDO(L8, 	0, 1, 0, 2850000, 2850000, NULL,	   0, 0),
 #elif defined(CONFIG_S5K5CCGX)
 	RPM_LDO(L8,	 0, 1, 0, 1200000, 3000000, NULL,      0, 0),
 #else
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 3000000, NULL,      0, 0),
 #endif
-#if defined(CONFIG_MACH_CANE)
-	RPM_LDO(L9,	 0, 1, 0, 2850000, 3000000, NULL,      0, 0),
-#else
 	RPM_LDO(L9,	 0, 1, 0, 2850000, 2850000, NULL,      0, 0),
-#endif
+#if defined(CONFIG_MACH_CRATER_CHN_CTC)
+	RPM_LDO(L10,	 0, 1, 0, 2900000, 3300000, NULL,      0, 0),
+#else
 	RPM_LDO(L10,	 0, 1, 0, 2900000, 2900000, NULL,      0, 0),
+#endif
 	RPM_LDO(L11,	 0, 1, 0, 2800000, 2850000, NULL,      0, 0),
 	RPM_LDO(L12,	 0, 1, 0, 1200000, 1200000, "8917_s4", 0, 0),
 	RPM_LDO(L14,	 0, 1, 0, 1800000, 1800000, NULL,      0, 0),
@@ -742,6 +717,8 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L21,	 0, 1, 0, 1900000, 1900000, "8917_s8", 0, 0),
 #ifdef CONFIG_MACH_LT02
 	RPM_LDO(L22,	 0, 1, 0, 2850000, 2850000, NULL,      0, 0),
+#elif defined(CONFIG_MACH_CRATER_CHN_CTC) || defined(CONFIG_MACH_MELIUS_CHN_CTC)
+	RPM_LDO(L22,	 1, 1, 0, 2750000, 2750000, NULL,      0, 0),
 #else
 	RPM_LDO(L22,	 0, 1, 0, 2750000, 2750000, NULL,      0, 0),
 #endif

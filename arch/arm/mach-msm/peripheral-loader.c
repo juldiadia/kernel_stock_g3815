@@ -267,9 +267,7 @@ static int load_image(struct pil_device *pil)
 	const struct elf32_phdr *phdr;
 	const struct firmware *fw;
 	unsigned long proxy_timeout = pil->desc->proxy_timeout;
-#ifdef CONFIG_SEC_DEBUG
-	static int load_count;
-#endif
+
 #ifdef CONFIG_SEC_PERIPHERAL_SECURE_CHK
 	static int load_count_fwd;
 	static int load_count_auth;
@@ -281,11 +279,7 @@ static int load_image(struct pil_device *pil)
 	if (ret) {
 		dev_err(&pil->dev, "%s: Failed to locate %s\n",
 				pil->desc->name, fw_name);
-#ifdef CONFIG_SEC_DEBUG
-		load_count++;
-		if (load_count > 10 && check_power_off_and_restart() == 0)
-			panic("Failed to load %s image!", fw_name);
-#endif
+
 		goto out;
 	}
 
@@ -319,8 +313,8 @@ static int load_image(struct pil_device *pil)
 
 	ret = pil->desc->ops->init_image(pil->desc, fw->data, fw->size);
 	if (ret) {
-		dev_err(&pil->dev, "%s: Invalid firmware metadata %d\n",
-				pil->desc->name, ret);
+		dev_err(&pil->dev, "%s: Invalid firmware metadata\n",
+				pil->desc->name);
 #ifdef CONFIG_SEC_PERIPHERAL_SECURE_CHK
 		load_count_fwd++;
 		if (load_count_fwd > 10) {
@@ -426,11 +420,6 @@ void *pil_get(const char *name)
 		goto err_depends;
 	}
 
-	if (pil->count <= 1) {
-		printk(KERN_DEBUG "%s:%s, count:%d, pid:%d, %s\n", __func__,
-				name, pil->count, current->pid, current->comm);
-	}
-
 	mutex_lock(&pil->lock);
 	if (!pil->count) {
 		ret = load_image(pil);
@@ -479,23 +468,18 @@ void pil_put(void *peripheral_handle)
 	if (IS_ERR_OR_NULL(pil))
 		return;
 
-	if (pil->count <= 1) {
-		printk(KERN_DEBUG "%s:%s, count:%d, pid:%d, %s\n", __func__,
-				pil->desc->name, pil->count, current->pid,
-				current->comm);
-	}
 	mutex_lock(&pil->lock);
 	if (WARN(!pil->count, "%s: %s: Reference count mismatch\n",
 			pil->desc->name, __func__))
 		goto err_out;
-	if (!strncmp(pil->desc->name, "modem", 5)) {
-		if (pil->count == 1)
-			goto unlock;
+
+	if( (!strncmp(pil->desc->name, "modem", 5)) || (!strncmp(pil->desc->name, "q6", 2)) ) {
+		printk(KERN_DEBUG "%s: %s::pil->count[%d]", __func__,pil->desc->name, pil->count);
+	if (pil->count == 1)
+		goto unlock;
 	}
-	if (!--pil->count) {
+	if (!--pil->count)
 		pil_shutdown(pil);
-		WARN_ON(1);
-	}
 unlock:
 	mutex_unlock(&pil->lock);
 

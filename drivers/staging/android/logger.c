@@ -33,12 +33,6 @@
 static char klog_buf[256];
 #endif
 
-#ifndef CONFIG_SEC_DEBUG
-#define ANDROID_DEBUG_LEVEL_LOW		0x4f4c
-#define ANDROID_DEBUG_LEVEL_MID		0x494d
-#define ANDROID_DEBUG_LEVEL_HIGH	0x4948
-#endif
-
 /*
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
  *
@@ -526,6 +520,7 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	if (strncmp(klog_buf, "!@", 2) == 0)
 		printk(KERN_INFO "%s\n", klog_buf);
 #endif
+
 	return ret;
 }
 
@@ -734,16 +729,10 @@ static const struct file_operations logger_fops = {
  * must be a power of two, and greater than
  * (LOGGER_ENTRY_MAX_PAYLOAD + sizeof(struct logger_entry)).
  */
-#define SIZE_256KB	(256 * 1024)
-
-static unsigned int log_level;
-static unsigned char *_buf_log_main;
-static unsigned char *_buf_log_radio;
-static unsigned char *_buf_log_events;
-static unsigned char *_buf_log_system;
-
 #define DEFINE_LOGGER_DEVICE(VAR, NAME, SIZE) \
+static unsigned char _buf_ ## VAR[SIZE]; \
 static struct logger_log VAR = { \
+	.buffer = _buf_ ## VAR, \
 	.misc = { \
 		.minor = MISC_DYNAMIC_MINOR, \
 		.name = NAME, \
@@ -755,16 +744,13 @@ static struct logger_log VAR = { \
 	.mutex = __MUTEX_INITIALIZER(VAR .mutex), \
 	.w_off = 0, \
 	.head = 0, \
+	.size = SIZE, \
 };
 
-#ifdef CONFIG_SEC_LOGGER_BUFFER_EXPANSION
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 2048*1024)
-#else
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 512*1024)
-#endif
-DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 2048*1024)
-DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, LOGGER_1MB_SIZE)
+DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, LOGGER_512KB_SIZE)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, LOGGER_2MB_SIZE)
+DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, LOGGER_512KB_SIZE)
 
 static struct logger_log *get_log_from_minor(int minor)
 {
@@ -800,6 +786,17 @@ static int __init init_log(struct logger_log *log)
 int sec_debug_subsys_set_logger_info(
 	struct sec_debug_subsys_logger_log_info *log_info)
 {
+	/*
+	struct secdbg_logger_log_info log_info = {
+		.stinfo = {
+			.buffer_offset = offsetof(struct logger_log, buffer),
+			.w_off_offset = offsetof(struct logger_log, w_off),
+			.head_offset = offsetof(struct logger_log, head),
+			.size_offset = offsetof(struct logger_log, size),
+			.size_t_typesize = sizeof(size_t),
+		},
+	};
+	*/
 	log_info->stinfo.buffer_offset = offsetof(struct logger_log, buffer);
 	log_info->stinfo.w_off_offset = offsetof(struct logger_log, w_off);
 	log_info->stinfo.head_offset = offsetof(struct logger_log, head);
@@ -816,89 +813,9 @@ int sec_debug_subsys_set_logger_info(
 	return 0;
 }
 #endif
-
-static unsigned int atoh(const unsigned char *in, unsigned int len)
-{
-	unsigned int sum = 0;
-	unsigned int mult = 1;
-	unsigned char c;
-
-	while (len) {
-		int value;
-
-		if (in[len - 1] == '0' && in[len] == 'x')
-			break;
-
-		c = in[len - 1];
-		value = hex_to_bin(c);
-		if (value >= 0)
-			sum += mult * value;
-		mult *= 16;
-		--len;
-	}
-	return sum;
-}
-
-static int __init sec_debug_level(char *str)
-{
-	log_level = atoh(str, 6);
-
-	return 0;
-}
-early_param("androidboot.debug_level", sec_debug_level);
-
-static void __init init_log_struct(void)
-{
-	_buf_log_events = kmalloc(SIZE_256KB, GFP_KERNEL);
-	if (!_buf_log_events)
-		pr_err("logger events buffer allocation failed\n");
-
-	_buf_log_system = kmalloc(SIZE_256KB, GFP_KERNEL);
-	if (!_buf_log_system)
-		pr_err("logger system buffer allocation failed\n");
-
-#ifdef CONFIG_SEC_LOGGER_BUFFER_EXPANSION
-	_buf_log_main = kmalloc(SIZE_256KB * 8, GFP_KERNEL);
-#else
-	_buf_log_main = kmalloc(SIZE_256KB * 2, GFP_KERNEL);
-#endif
-	if (!_buf_log_main)
-		pr_err("logger main buffer allocation failed\n");
-
-	if (log_level == ANDROID_DEBUG_LEVEL_LOW) {
-		_buf_log_radio = kmalloc(SIZE_256KB * 2, GFP_KERNEL);
-		if (!_buf_log_radio)
-			pr_err("logger radio buffer allocation failed\n");
-	} else {
-		_buf_log_radio = kmalloc(SIZE_256KB * 8, GFP_KERNEL);
-		if (!_buf_log_radio)
-			pr_err("logger radio buffer allocation failed\n");
-	}
-
-	(&log_main)->buffer = _buf_log_main;
-	(&log_radio)->buffer = _buf_log_radio;
-	(&log_events)->buffer = _buf_log_events;
-	(&log_system)->buffer = _buf_log_system;
-
-	(&log_events)->size = SIZE_256KB;
-	(&log_system)->size = SIZE_256KB;
-#ifdef CONFIG_SEC_LOGGER_BUFFER_EXPANSION
-	(&log_main)->size = SIZE_256KB * 8;
-#else
-	(&log_main)->size = SIZE_256KB * 2;
-#endif
-
-	if (log_level == ANDROID_DEBUG_LEVEL_LOW)
-		(&log_radio)->size = SIZE_256KB * 2;
-	else
-		(&log_radio)->size = SIZE_256KB * 8;
-}
-
 static int __init logger_init(void)
 {
 	int ret;
-
-	init_log_struct();
 
 	ret = init_log(&log_main);
 	if (unlikely(ret))
@@ -920,12 +837,7 @@ static int __init logger_init(void)
 	sec_getlog_supply_loggerinfo(_buf_log_main, _buf_log_radio,
 				     _buf_log_events, _buf_log_system);
 #endif
-	return ret;
 out:
-	kfree(_buf_log_main);
-	kfree(_buf_log_radio);
-	kfree(_buf_log_events);
-	kfree(_buf_log_system);
 	return ret;
 }
 device_initcall(logger_init);

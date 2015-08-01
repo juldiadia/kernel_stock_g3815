@@ -379,6 +379,18 @@ config SENSORS_APDS990X
 	   To compile this driver as a module, choose M here: the
 	   module will be called apds990x. If unsure, say N here.
 
+config MUIC_AUDIO_OUTPUT_CONTROL
+        bool "MUIC audio output control feature for Melius"
+        depends on MACH_MELIUS
+        default n
+        ---help---
+	   This option enables Audio Output control feature for Samsung devices,
+	   If same audio output, from codec, is connected to JACK input & MUIC (dock) input,
+	   sound gets played from both JACK & DOCK.
+	   If only JACK sound play is required, we should open dock audio path in MUIC.
+	   This feature disables the dock audio output when JACK is inserted.
+	   Say Y here if you want to enable this feature.
+
 config SAMSUNG_JACK
         bool "3.5 PI JACK driver for Samsung devices"
         depends on INPUT
@@ -425,6 +437,7 @@ config 2MIC_ES305
 
 	   To compile this driver as a module, choose M here: the
 	   module will be called a2220. If unsure, say N here.
+
 config HMC6352
 	tristate "Honeywell HMC6352 compass"
 	depends on I2C
@@ -543,14 +556,6 @@ config PCH_PHUB
 	  To compile this driver as a module, choose M here: the module will
 	  be called pch_phub.
 
-config SEC_MISC
-	bool "Samsung P series miscellaneous driver"
-	default n
-	---help---
-	  Samsung P series miscellaneous driver
-	  Additional debug features added.
-	  Mechanism to change debug level at run time over adb.
-	  This feature can be enabled in defconfig
 config USB_SWITCH_FSA9480
 	tristate "FSA9480 USB Switch"
 	depends on I2C
@@ -570,13 +575,13 @@ config USB_SWITCH_FSA9485
 	  a common connector port.
 
 config USB_SWITCH_TSU6721
-	tristate "TSU6721 USB Switch"
-	depends on I2C
-	help
-	  The TSU6721 is a USB port accessory detector and switch.
-	  The TSU6721 is fully controlled using I2C and enables USB data,
-	  stereo and mono audio, video, microphone and UART data to use
-	  a common connector port.
+        tristate "TSU6721 USB Switch"
+        depends on I2C
+        help
+          The TSU6721 is a USB port accessory detector and switch.
+          The TSU6721 is fully controlled using I2C and enables USB data,
+          stereo and mono audio, video, microphone and UART data to use
+          a common connector port.
 
 config MAX8997_MUIC
 	tristate "MAX8997 MUIC Support"
@@ -728,24 +733,18 @@ config QFP_FUSE
 	  fuses. The ioctls provides the necessary interface
 	  to the fuse block. Currently this is supported only
 	  on FSM targets.
-
-config NFC_PN544
-        bool "NXP PN544 NFC Controller Driver"
-        default n
-        help
-          NXP PN544 Near Field Communication controller support.
-          This option enables device driver support for the NFC.
-          It is used by many services. NFC is fully controlled using I2C
-          to communicate the AP chip.
-
-config NFC_PN547
-        bool "NXP PN547 NFC Controller Driver"
-        default n
-        help
-          NXP PN547 Near Field Communication controller support.
-          This option enables device driver support for the NFC.
-          It is used by many services. NFC is fully controlled using I2C
-          to communicate the AP chip.
+config MPU_411_ENABLE
+	bool "mpu gyro sensor MPL 4.1.1"
+	depends on I2C
+	default n
+config SEC_MISC
+	bool "Samsung P series miscellaneous driver"
+	default n
+	---help---
+	  Samsung P series miscellaneous driver
+	  This creates sys fs entries for changing
+	  debug levels. The debug level is stored in
+	  Param partition.
 
 config USB_HSIC_SMSC_HUB
 	tristate "Support for HSIC based MSM on-chip SMSC3503 HUB"
@@ -781,24 +780,19 @@ config BCM2079X_NFC_I2C
 	  To compile this driver as a module, choose m here. The module will
 	  be called bcm2079x-i2c.
 
-config NFC_PMIC_CLK
-        bool "Enable PMIC-CLK for NFC"
-        default n
-        help
-          Enable PMIC-CLK for NFC.
-
-config LM48560_RCV
-	bool "LM48560 RCV Support"
-	depends on I2C
-	help
-	  If you say yes here you get support for the RCV device of TI M48560.
-
-config ADC_STMPE811
-	tristate "ADC stmpe811 driver"
+config VP_A2220
+	tristate "VP driver"
 	default n
-	depends on I2C
 	help
-	  This option enables ADC checking driver. stmpe811.
+	  This option enables voice processing audience chip.Please enable this chip
+	  if you want to enable voice processing during call.
+
+
+config SEC_TORCH_FLASH
+	bool "torch flash driver"
+	default n
+	help
+	  This driver provides torch flash function.	  
 
 config TIMA_LOG
 	tristate "Support for dumping TIMA log"
@@ -807,11 +801,51 @@ config TIMA_LOG
 	  This option enables support for dumping TIMA log
 
 config CHG_INCOMPATIBLE
-	tristate " support incompatible charger"
+        tristate " support incompatible charger"
+        default n
+        help
+          this option enable support for incompatible charger
+
+config TIMA_TEST
+	tristate "Tima Test Suite"
 	default n
 	help
-	  this option enable support for incompatible charger
-	  
+	  This option enables kernel component of tima test suite
+
+config D2_TIMA_LOG
+	tristate "Log dumping support for 8960 D2 TIMA"
+        default n
+	help
+         TIMA Log dumping support
+
+config 8930_TIMA_LOG
+	tristate "Log dumping support for 8930 TIMA"
+        default n
+	help
+         TIMA Log dumping support
+
+config NFC_PN544
+        bool "NXP PN544 NFC Controller Driver"
+        default n
+        help
+          NXP PN544 Near Field Communication controller support.
+
+config NFC_PN547
+    bool "NXP PN547 NFC Controller Driver"
+    depends on I2C
+    default n
+    help
+      NXP PN547 Near Field Communication controller support.
+
+config NFC_PN547_CLOCK_REQUEST
+    bool "NXP PN547 PM8917 XO Clock Source"
+    depends on NFC_PN547
+    default n
+    help
+      PM8917 Clock request for NXP PN547 Near Field
+      Communication controller support.
+      This option enables A1 clock for NFC.
+
 config DESKDOCK_DISABLE
 	tristate "Not support DESKDOCK"
 	default n
@@ -838,6 +872,6 @@ source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/slimport_anx7808/Kconfig"
-source "drivers/misc/modem_if/Kconfig"
+source "drivers/misc/inv_mpu/Kconfig"
 
 endmenu

@@ -390,17 +390,6 @@ static struct acpu_level tbl_PVS6_1700MHz[] __initdata = {
 	{ 0, { 0 } }
 };
 
-#if defined(CONFIG_MACH_MELIUS_SKT)||defined(CONFIG_MACH_MELIUS_LGT)||defined(CONFIG_MACH_MELIUS_KTT)||defined(CONFIG_MACH_SERRANO_SPR)||defined(CONFIG_MACH_MELIUS_SPR)
-static struct pvs_table pvs_tables[NUM_SPEED_BINS][NUM_PVS] __initdata = {
-	[0][0] = { tbl_PVS0_1700MHz, sizeof(tbl_PVS0_1700MHz), 25000 },
-	[0][1] = { tbl_PVS1_1700MHz, sizeof(tbl_PVS1_1700MHz), 50000 },
-	[0][2] = { tbl_PVS2_1700MHz, sizeof(tbl_PVS2_1700MHz), 75000 },
-	[0][3] = { tbl_PVS3_1700MHz, sizeof(tbl_PVS3_1700MHz), 75000 },
-	[0][4] = { tbl_PVS4_1700MHz, sizeof(tbl_PVS4_1700MHz), 75000 },
-	[0][5] = { tbl_PVS5_1700MHz, sizeof(tbl_PVS5_1700MHz), 75000 },
-	[0][6] = { tbl_PVS6_1700MHz, sizeof(tbl_PVS6_1700MHz), 75000 },
-};
-#else
 static struct pvs_table pvs_tables[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	[0][0] = { tbl_PVS0_1700MHz, sizeof(tbl_PVS0_1700MHz), 0 },
 	[0][1] = { tbl_PVS1_1700MHz, sizeof(tbl_PVS1_1700MHz), 25000 },
@@ -410,7 +399,6 @@ static struct pvs_table pvs_tables[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	[0][5] = { tbl_PVS5_1700MHz, sizeof(tbl_PVS5_1700MHz), 25000 },
 	[0][6] = { tbl_PVS6_1700MHz, sizeof(tbl_PVS6_1700MHz), 25000 },
 };
-#endif
 
 static struct acpuclk_krait_params acpuclk_8930ab_params __initdata = {
 	.scalable = scalable,

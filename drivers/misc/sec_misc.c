@@ -33,7 +33,6 @@
 #include <mach/gpio.h>
 #include <linux/sec_param.h>
 #include <mach/sec_debug.h>
-
 #define MOVINAND_CHECKSUM
 #define RORY_CONTROL
 
@@ -147,33 +146,30 @@ static unsigned int convert_debug_level_str(const char *str)
 	return 0;
 }
 
-#ifdef CONFIG_SEC_DEBUG
 static void convert_debug_level_int(unsigned int val, char *str)
 {
 	if (val == KERNEL_SEC_DEBUG_LEVEL_LOW) {
-		strncpy(str, "0xA0A0", sizeof("0xA0A0"));
+		strlcpy(str, "0xA0A0", sizeof("0xA0A0") + 1);
 		return;
 	}
 
 	if (val == KERNEL_SEC_DEBUG_LEVEL_MID) {
-		strncpy(str, "0xB0B0", sizeof("0xB0B0"));
+		strlcpy(str, "0xB0B0", sizeof("0xB0B0") + 1);
 		return;
 	}
 
 	if (val == KERNEL_SEC_DEBUG_LEVEL_HIGH) {
-		strncpy(str, "0xC0C0", sizeof("0xC0C0"));
+		strlcpy(str, "0xC0C0", sizeof("0xC0C0") + 1);
 		return;
 	}
 }
-#endif
 
 static ssize_t debug_level_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	char buffer[7];
-#if defined(CONFIG_SEC_DEBUG)
 	convert_debug_level_int(kernel_sec_get_debug_level(), buffer);
-#endif
+
 	return snprintf(buf, sizeof(buffer)+1, "%s\n", buffer);
 
 }
@@ -186,9 +182,7 @@ static ssize_t debug_level_store(struct device *dev,
 	if (sec_debug_level == 0)
 		return -EINVAL;
 
-#if defined(CONFIG_SEC_DEBUG)
 	kernel_sec_set_debug_level(sec_debug_level);
-#endif
 
 	return size;
 

@@ -25,7 +25,6 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/regulator.h>
 #include <linux/leds-pm8xxx.h>
-#include <asm/system_info.h>
 
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
@@ -57,10 +56,6 @@
 	.end	= _irq, \
 	.flags	= IORESOURCE_IRQ, \
 }
-
-#ifdef CONFIG_SEC_DEBUG_SUBSYS
-static u8 rev_decision;
-#endif
 
 struct pm8921 {
 	struct device					*dev;
@@ -853,39 +848,6 @@ static const char * const pm8917_rev_names[] = {
 	[PM8XXX_REVISION_8917_1p0]	= "1.0",
 };
 
-#ifdef CONFIG_SEC_DEBUG_SUBSYS
-void sec_pmic_get_revision(void)
-{
-#if !defined(CONFIG_MACH_MELIUS) && !defined(CONFIG_MACH_KS02) \
-	&& !defined(CONFIG_MACH_SERRANO_ATT) && !defined(CONFIG_MACH_SERRANO_TMO) \
-	&& !defined(CONFIG_MACH_SERRANO_VZW) && !defined(CONFIG_MACH_SERRANO_USC) \
-	&& !defined(CONFIG_MACH_SERRANO_SPR) && !defined(CONFIG_MACH_GOLDEN)\
-	&& !defined(CONFIG_MACH_HIGGS) && !defined(CONFIG_MACH_CRATERTD_CHN_3G)\
-	&& !defined(CONFIG_MACH_LT02) && !defined(CONFIG_MACH_BISCOTTO)\
-	&& !defined(CONFIG_MACH_BAFFINVETD_CHN_3G)
-	ssize_t count = 0;
-#endif
-	if (!rev_decision)
-		return;
-#if !defined(CONFIG_MACH_MELIUS) && !defined(CONFIG_MACH_KS02) \
-	&& !defined(CONFIG_MACH_SERRANO_ATT) && !defined(CONFIG_MACH_SERRANO_TMO) \
-	&& !defined(CONFIG_MACH_SERRANO_VZW) && !defined(CONFIG_MACH_SERRANO_USC) \
-	&& !defined(CONFIG_MACH_SERRANO_SPR) && !defined(CONFIG_MACH_GOLDEN)\
-	&& !defined(CONFIG_MACH_HIGGS) && !defined(CONFIG_MACH_CRATERTD_CHN_3G)\
-	&& !defined(CONFIG_MACH_LT02) && !defined(CONFIG_MACH_BISCOTTO)\
-	&& !defined(CONFIG_MACH_BAFFINVETD_CHN_3G)
-	if (uvd_thresh > 0)
-		count += snprintf(pmic_version + rev_decision,
-				sizeof(pmic_version) - rev_decision, "1.1");
-	else
-		count += snprintf(pmic_version + rev_decision,
-				sizeof(pmic_version) - rev_decision, "1.0");
-#endif
-
-	pr_info("PMIC version: %s\n", pmic_version);
-}
-#endif
-
 static int __devinit pm8921_probe(struct platform_device *pdev)
 {
 	const struct pm8921_platform_data *pdata = pdev->dev.platform_data;
@@ -895,9 +857,7 @@ static int __devinit pm8921_probe(struct platform_device *pdev)
 	int revision;
 	int rc;
 	u8 val;
-#ifdef CONFIG_SEC_DEBUG_SUBSYS
-	ssize_t count = 0;
-#endif
+
 	if (!pdata) {
 		pr_err("missing platform data\n");
 		return -EINVAL;
@@ -939,35 +899,18 @@ static int __devinit pm8921_probe(struct platform_device *pdev)
 		if (revision >= 0 && revision < ARRAY_SIZE(pm8921_rev_names))
 			revision_name = pm8921_rev_names[revision];
 		pr_info("PMIC version: PM8921 rev %s\n", revision_name);
-#ifdef CONFIG_SEC_DEBUG_SUBSYS
-		count += snprintf(pmic_version, sizeof(pmic_version),
-					"PM8921 Rev %s", revision_name);
-#endif
 	} else if (version == PM8XXX_VERSION_8922) {
 		if (revision >= 0 && revision < ARRAY_SIZE(pm8922_rev_names))
 			revision_name = pm8922_rev_names[revision];
 		pr_info("PMIC version: PM8922 rev %s\n", revision_name);
-#ifdef CONFIG_SEC_DEBUG_SUBSYS
-		count += snprintf(pmic_version, sizeof(pmic_version),
-					"PM8922 Rev %s", revision_name);
-#endif
 	} else if (version == PM8XXX_VERSION_8917) {
 		if (revision >= 0 && revision < ARRAY_SIZE(pm8917_rev_names))
 			revision_name = pm8917_rev_names[revision];
 		pr_info("PMIC version: PM8917 rev %s\n", revision_name);
-#ifdef CONFIG_SEC_DEBUG_SUBSYS
-		count += snprintf(pmic_version, sizeof(pmic_version),
-					"PM8917 Rev ");
-		rev_decision = count;
-#endif
 	} else {
 		WARN_ON(version != PM8XXX_VERSION_8921
 			&& version != PM8XXX_VERSION_8922
 			&& version != PM8XXX_VERSION_8917);
-#ifdef CONFIG_SEC_DEBUG_SUBSYS
-		count += snprintf(pmic_version, sizeof(pmic_version),
-					"unknown\n");
-#endif
 	}
 
 	/* Log human readable restart reason */

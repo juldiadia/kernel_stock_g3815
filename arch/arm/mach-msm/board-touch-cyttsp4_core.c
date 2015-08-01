@@ -26,8 +26,8 @@
 
 #include "Wilcox_cyttsp4_img.h"
 #define SAMSUNG_HW_VERSION			0x05
-#define SAMSUNG_FW_VERSION			0x1300
-#define SAMSUNG_CONFIG_VERSION		0x13
+#define SAMSUNG_FW_VERSION			0x1700
+#define SAMSUNG_CONFIG_VERSION		0x17
 
 #else//defined(CONFIG_MACH_WILCOX_EUR_LTE)
 

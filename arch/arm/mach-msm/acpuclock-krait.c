@@ -21,6 +21,7 @@
 #include <linux/errno.h>
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
+#include <linux/console.h>
 #include <linux/regulator/consumer.h>
 
 #include <asm/mach-types.h>
@@ -38,13 +39,20 @@
 #include "acpuclock.h"
 #include "acpuclock-krait.h"
 #include "avs.h"
-
+#ifdef CONFIG_SEC_DEBUG_DCVS_LOG
+#include <mach/sec_debug.h>
+#endif
 /* MUX source selects. */
 #define PRI_SRC_SEL_SEC_SRC	0
 #define PRI_SRC_SEL_HFPLL	1
 #define PRI_SRC_SEL_HFPLL_DIV2	2
 
 #define SECCLKAGD		BIT(4)
+#ifdef CONFIG_SEC_DEBUG_SUBSYS
+int boost_uv;
+int speed_bin;
+int pvs_bin;
+#endif
 
 static DEFINE_MUTEX(driver_lock);
 static DEFINE_SPINLOCK(l2_lock);
@@ -434,11 +442,7 @@ module_param_named(boost, enable_boost, bool, S_IRUGO | S_IWUSR);
 
 static int calculate_vdd_core(const struct acpu_level *tgt)
 {
-#if defined(CONFIG_MACH_MELIUS_SKT)||defined(CONFIG_MACH_MELIUS_LGT)||defined(CONFIG_MACH_MELIUS_KTT)||defined(CONFIG_MACH_SERRANO_SPR)||defined(CONFIG_MACH_MELIUS_SPR)
-	return tgt->vdd_core + drv.boost_uv ;
-#else
 	return tgt->vdd_core + (enable_boost ? drv.boost_uv : 0);
-#endif
 }
 
 static DEFINE_MUTEX(l2_regulator_lock);
@@ -482,6 +486,11 @@ out:
 	mutex_unlock(&l2_regulator_lock);
 }
 
+static int minus_vc;
+module_param_named(
+	mclk, minus_vc, int, S_IRUGO | S_IWUSR | S_IWGRP
+);
+
 /* Set the CPU's clock rate and adjust the L2 rate, voltage and BW requests. */
 static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 				  enum setrate_reason reason)
@@ -521,7 +530,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	/* Calculate voltage requirements for the current CPU. */
 	vdd_data.vdd_mem  = calculate_vdd_mem(tgt);
 	vdd_data.vdd_dig  = calculate_vdd_dig(tgt);
-	vdd_data.vdd_core = calculate_vdd_core(tgt);
+	vdd_data.vdd_core = calculate_vdd_core(tgt) + minus_vc;
 	vdd_data.ua_core = tgt->ua_core;
 
 	/* Disable AVS before voltage switch */
@@ -558,6 +567,9 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	 */
 	skip_regulators = (reason == SETRATE_PC);
 
+#ifdef CONFIG_SEC_DEBUG_DCVS_LOG
+	sec_debug_dcvs_log(cpu, strt_acpu_s->khz, tgt_acpu_s->khz);
+#endif
 	/* Set the new CPU speed. */
 	set_speed(&drv.scalable[cpu], tgt_acpu_s, skip_regulators);
 
@@ -609,7 +621,6 @@ static struct acpuclk_data acpuclk_krait_data = {
 	.set_rate = acpuclk_krait_set_rate,
 	.get_rate = acpuclk_krait_get_rate,
 };
-uint32_t global_pvs; /*  This code is temporary code */
 
 /* Initialize a HFPLL at a given rate and enable it. */
 static void __cpuinit hfpll_init(struct scalable *sc,
@@ -1010,6 +1021,16 @@ static void __init cpufreq_table_init(void)
 		for (i = 0; drv.acpu_freq_tbl[i].speed.khz != 0
 				&& freq_cnt < ARRAY_SIZE(*freq_table); i++) {
 			if (drv.acpu_freq_tbl[i].use_for_scaling) {
+#ifdef CONFIG_SEC_FACTORY 
+				// if factory_condition, set the core freq limit.
+				//QMCK
+				if (console_set_on_cmdline && drv.acpu_freq_tbl[i].speed.khz > 1000000) {
+					if(console_batt_stat == 1) {
+						continue;
+					}
+				}
+				//QMCK
+#endif		
 				freq_table[cpu][freq_cnt].index = freq_cnt;
 				freq_table[cpu][freq_cnt].frequency
 					= drv.acpu_freq_tbl[i].speed.khz;
@@ -1161,8 +1182,11 @@ static struct pvs_table * __init select_freq_plan(u32 pte_efuse_phys,
 	/* Select frequency tables. */
 	bin_idx = get_speed_bin(pte_efuse_val);
 	tbl_idx = get_pvs_bin(pte_efuse_val);
-		/*  This code is temporary */
-		global_pvs = tbl_idx;
+#ifdef CONFIG_SEC_DEBUG_SUBSYS
+	speed_bin = bin_idx;
+	pvs_bin = tbl_idx;
+#endif
+	
 	return &pvs_tables[bin_idx][tbl_idx];
 }
 
@@ -1198,7 +1222,9 @@ static void __init drv_data_init(struct device *dev,
 	drv.acpu_freq_tbl = kmemdup(pvs->table, pvs->size, GFP_KERNEL);
 	BUG_ON(!drv.acpu_freq_tbl);
 	drv.boost_uv = pvs->boost_uv;
-
+#ifdef CONFIG_SEC_DEBUG_SUBSYS
+	boost_uv = drv.boost_uv;
+#endif
 	acpuclk_krait_data.power_collapse_khz = params->stby_khz;
 	acpuclk_krait_data.wait_for_irq_khz = params->stby_khz;
 }

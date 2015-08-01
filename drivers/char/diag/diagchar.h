@@ -27,7 +27,7 @@
 
 /* Size of the USB buffers used for read and write*/
 #define USB_MAX_OUT_BUF 4096
-#define APPS_BUF_SIZE	2000
+#define APPS_BUF_SIZE	4096
 #define IN_BUF_SIZE		16384
 #define MAX_IN_BUF_SIZE	32768
 #define MAX_SYNC_OBJ_NAME_SIZE	32
@@ -93,8 +93,6 @@
 extern int diag_max_reg;
 extern int diag_threshold_reg;
 
-/*Diag_mdlog signal*/
-extern struct task_struct *mdlog_process;
 
 #define APPEND_DEBUG(ch) \
 do {							\
@@ -301,6 +299,7 @@ struct diagchar_dev {
 	struct diag_request *usb_read_ptr;
 	struct diag_request *write_ptr_svc;
 	int logging_mode;
+	int sub_logging_mode;
 	int mask_check;
 	int logging_process_id;
 	struct task_struct *socket_process;

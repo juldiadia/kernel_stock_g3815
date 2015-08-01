@@ -27,12 +27,12 @@
 #include <linux/sched.h>
 #include <linux/semaphore.h>
 
-#ifdef CONFIG_SEC_DEBUG
+extern void *restart_reason;
+
+#if defined(CONFIG_SEC_DEBUG)
 extern int sec_debug_init(void);
 extern int sec_debug_dump_stack(void);
 extern void sec_debug_hw_reset(void);
-extern void sec_peripheral_secure_check_fail(void);
-extern void sec_l1_dcache_check_fail(void);
 extern void sec_debug_check_crash_key(unsigned int code, int value);
 extern void sec_getlog_supply_fbinfo(void *p_fb, u32 res_x, u32 res_y, u32 bpp,
 		u32 frames);
@@ -45,13 +45,18 @@ extern void sec_getlog_supply_kloginfo(void *klog_buf);
 extern void sec_gaf_supply_rqinfo(unsigned short curr_offset,
 				  unsigned short rq_offset);
 extern int sec_debug_is_enabled(void);
+#ifdef CONFIG_SEC_PERIPHERAL_SECURE_CHK
+extern void sec_peripheral_secure_check_fail(void);
+#endif
+#ifndef CONFIG_MACH_JF
 extern int sec_debug_is_enabled_for_ssr(void);
+#endif
 #else
 static inline int sec_debug_init(void)
 {
 	return 0;
 }
-static inline int sec_debug_dump_stack(void) {return 0;}
+static inline int sec_debug_dump_stack(void) { return 0; }
 static inline void sec_debug_check_crash_key(unsigned int code, int value) {}
 
 static inline void sec_getlog_supply_fbinfo(void *p_fb, u32 res_x, u32 res_y,
@@ -161,7 +166,7 @@ static inline void debug_rwsemaphore_up_log(struct rw_semaphore *sem)
 
 /* klaatu - schedule log */
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-#define SCHED_LOG_MAX 1024
+#define SCHED_LOG_MAX 512
 
 struct irq_log {
 	unsigned long long time;
@@ -224,6 +229,7 @@ struct rwsem_debug {
 #endif	/* CONFIG_SEC_DEBUG_SEMAPHORE_LOG */
 
 #ifdef CONFIG_SEC_DEBUG_MSG_LOG
+extern asmlinkage int sec_debug_msg_log(void *caller, const char *fmt, ...);
 #define MSG_LOG_MAX 1024
 struct secmsg_log {
 	unsigned long long time;
@@ -292,20 +298,19 @@ static inline void sec_debug_fuelgauge_log(unsigned int voltage,
 #define KERNEL_SEC_DEBUG_LEVEL_LOW	(0x574F4C44)
 #define KERNEL_SEC_DEBUG_LEVEL_MID	(0x44494D44)
 #define KERNEL_SEC_DEBUG_LEVEL_HIGH	(0x47494844)
-#define ANDROID_DEBUG_LEVEL_LOW		0x4f4c
-#define ANDROID_DEBUG_LEVEL_MID		0x494d
-#define ANDROID_DEBUG_LEVEL_HIGH	0x4948
+
+#ifdef CONFIG_SEC_MONITOR_BATTERY_REMOVAL
+extern bool kernel_sec_set_normal_pwroff(int value);
+extern int kernel_sec_get_normal_pwroff(void);
+#endif
 
 extern bool kernel_sec_set_debug_level(int level);
 extern int kernel_sec_get_debug_level(void);
 extern int ssr_panic_handler_for_sec_dbg(void);
-
-extern struct class *sec_class;
-
 __weak void dump_all_task_info(void);
 __weak void dump_cpu_stat(void);
 extern void emerg_pet_watchdog(void);
-
+extern void msm_restart(char mode, const char *cmd);
 #define LOCAL_CONFIG_PRINT_EXTRA_INFO
 
 /* #define CONFIG_SEC_DEBUG_SUBSYS */
@@ -321,10 +326,9 @@ extern void sec_debug_subsys_fill_fbinfo(int idx, void *fb, u32 xres,
   * low word : minor version
   * minor version changes should not affect LK behavior
   */
-#define SEC_DEBUG_SUBSYS_MAGIC3 0x00010003
+#define SEC_DEBUG_SUBSYS_MAGIC3 0x00010004
 
-
-#define TZBSP_CPU_COUNT           2
+#define TZBSP_CPU_COUNT           4
 /* CPU context for the monitor. */
 struct tzbsp_dump_cpu_ctx_s {
 	unsigned int mon_lr;
@@ -367,9 +371,13 @@ struct tzbsp_dump_cpu_ctx_s {
 };
 
 struct tzbsp_dump_buf_s {
+	unsigned int magic;
+	unsigned int version;
+	unsigned int cpu_count;
 	unsigned int sc_status[TZBSP_CPU_COUNT];
 	struct tzbsp_dump_cpu_ctx_s sc_ns[TZBSP_CPU_COUNT];
 	struct tzbsp_dump_cpu_ctx_s sec;
+	unsigned int wdt0_sts[TZBSP_CPU_COUNT];
 };
 
 struct core_reg_info {
@@ -442,8 +450,11 @@ struct sec_debug_subsys_sched_log {
 	unsigned int irq_exit_buf_paddr;
 	unsigned int irq_exit_struct_sz;
 	unsigned int irq_exit_array_cnt;
+	unsigned int msglog_idx_paddr;
+	unsigned int msglog_buf_paddr;
+	unsigned int msglog_struct_sz;
+	unsigned int msglog_array_cnt;
 };
-
 
 struct __log_struct_info {
 	unsigned int buffer_offset;
@@ -452,12 +463,10 @@ struct __log_struct_info {
 	unsigned int size_offset;
 	unsigned int size_t_typesize;
 };
-
 struct __log_data {
 	unsigned int log_paddr;
 	unsigned int buffer_paddr;
 };
-
 struct sec_debug_subsys_logger_log_info {
 	struct __log_struct_info stinfo;
 	struct __log_data main;
@@ -465,8 +474,6 @@ struct sec_debug_subsys_logger_log_info {
 	struct __log_data events;
 	struct __log_data radio;
 };
-
-
 struct sec_debug_subsys_data {
 	char name[16];
 	char state[16];
@@ -493,10 +500,12 @@ struct sec_debug_subsys_avc_log {
 struct sec_debug_subsys_data_krait {
 	char name[16];
 	char state[16];
+	char mdmerr_info[128];
 	int nr_cpus;
 	struct sec_debug_subsys_log log;
 	struct sec_debug_subsys_excp_krait excp;
 	struct sec_debug_subsys_simple_var_mon var_mon;
+	struct sec_debug_subsys_simple_var_mon info_mon;
 	struct tzbsp_dump_buf_s **tz_core_dump;
 	struct sec_debug_subsys_fb fb_info;
 	struct sec_debug_subsys_sched_log sched_log;
@@ -521,13 +530,21 @@ struct sec_debug_subsys {
 	struct sec_debug_subsys_private priv;
 };
 
-extern int sec_debug_subsys_add_var_mon(char *name, unsigned int size,
+extern int sec_debug_subsys_add_infomon(char *name, unsigned int size,
 	unsigned int addr);
-#define SEC_DEBUG_SUBSYS_ADD_VAR_TO_MONITOR(var) \
-	sec_debug_subsys_add_var_mon(#var, sizeof(var), \
+#define ADD_VAR_TO_INFOMON(var) \
+	sec_debug_subsys_add_infomon(#var, sizeof(var), \
 		(unsigned int)__pa(&var))
-#define SEC_DEBUG_SUBSYS_ADD_STR_TO_MONITOR(pstr) \
-	sec_debug_subsys_add_var_mon(#pstr, -1, (unsigned int)__pa(pstr))
+#define ADD_STR_TO_INFOMON(pstr) \
+	sec_debug_subsys_add_infomon(#pstr, -1, (unsigned int)__pa(pstr))
+
+extern int sec_debug_subsys_add_varmon(char *name, unsigned int size,
+	unsigned int addr);
+#define ADD_VAR_TO_VARMON(var) \
+	sec_debug_subsys_add_varmon(#var, sizeof(var), \
+		(unsigned int)__pa(&var))
+#define ADD_STR_TO_VARMON(pstr) \
+	sec_debug_subsys_add_varmon(#pstr, -1, (unsigned int)__pa(pstr))
 
 extern void get_fbinfo(int fb_num, unsigned int *fb_paddr, unsigned int *xres,
 		unsigned int *yres, unsigned int *bpp,
@@ -538,6 +555,10 @@ extern void get_fbinfo(int fb_num, unsigned int *fb_paddr, unsigned int *xres,
 extern unsigned int msm_shared_ram_phys;
 extern char *get_kernel_log_buf_paddr(void);
 extern char *get_fb_paddr(void);
+#ifdef CONFIG_SEC_DEBUG_MDM_FILE_INFO
+extern void sec_modify_restart_level_mdm(int value);
+extern void sec_set_mdm_subsys_info(char *str_buf);
+#endif
 extern unsigned int get_wdog_regsave_paddr(void);
 
 extern unsigned int get_last_pet_paddr(void);
@@ -549,6 +570,10 @@ int sec_debug_save_die_info(const char *str, struct pt_regs *regs);
 int sec_debug_save_panic_info(const char *str, unsigned int caller);
 extern void sec_debug_set_qc_dload_magic(int on);
 extern uint32_t global_pvs;
+extern struct class *sec_class;
+
+
+
 #endif
 
 #ifdef CONFIG_SEC_DEBUG_DOUBLE_FREE
