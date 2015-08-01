@@ -330,6 +330,7 @@ menuconfig SEC_DEBUG
 	  Enables collection of ram dump.
 	  Enables task history, debug level etc.
 	  This feature is enabled in defconfig.
+
 if SEC_DEBUG
 config SEC_DEBUG_SCHED_LOG
 	bool "Samsung Scheduler Logging Feature"
@@ -339,6 +340,7 @@ config SEC_DEBUG_SCHED_LOG
 	  Enables task scheduling history.
 	  Enables IRQ scheduling history.
 	  This feature is enabled in defconfig.
+
 config SEC_DEBUG_SEMAPHORE_LOG
 	bool "Samsung Semaphore Logging Feature"
 	default n
@@ -347,13 +349,17 @@ config SEC_DEBUG_SEMAPHORE_LOG
 	  Enables semaphore debugging statistics.
 	  Enables logging.
 	  This feature is enabled in defconfig.
-config SEC_LOGGER_BUFFER_EXPANSION
-	bool "Samsung Logger Buffer Expansion Feature"
+endif
+
+config SEC_FORKHANG_DEBUG
+	bool "Debug Feature for Newly Forked task getting HANG on mmap_sem down_read()"
 	default n
 	help
-	  This is used to expand buffers of logger.
+	  mmap_sem writer lock logging for ram dump analysis.
+	  Collects kernel debug log.
+	  Log is collected in the no-cache area.
 	  This feature is enabled in defconfig.
-endif
+
 config SEC_DEBUG_USER
 	bool "Panic on Userspace fault"
 	default y
@@ -362,6 +368,7 @@ config SEC_DEBUG_USER
 	  This feature enables collection of ram dump,
 	  on user fault.
 	  Enabled native code debugging.
+
 config SEC_DEBUG_IRQ_EXIT_LOG
 	bool "Temporary Logging for IRQ delay"
 	default n
@@ -370,6 +377,7 @@ config SEC_DEBUG_IRQ_EXIT_LOG
 	  Helps indetification of irq enter and exit.
 	  This is to track the current state of IRQ execution.
 	  This is enabled in defconfig file.
+
 config SEC_DEBUG_MSG_LOG
 	bool "Message Log for ram dump debug"
 	default n
@@ -378,6 +386,7 @@ config SEC_DEBUG_MSG_LOG
 	  Collects kernel debug log.
 	  Log is collected in the no-cache area.
 	  This feature is enabled in defconfig.
+
 config SEC_DEBUG_SUBSYS
 	bool "Debug subsystems"
 	default n
@@ -386,6 +395,7 @@ config SEC_DEBUG_SUBSYS
 	  When enabled provides kernel logs, modem logs, RPM registers,
 	  Schedule and IRQ logs at the time of crash along with the
 	  reason for crash, which can be extracted as a html in RAM dump mode.
+
 config SEC_DEBUG_DCVS_LOG
 	bool "Temporary Logging for DCVS"
 	default n
@@ -395,6 +405,13 @@ config SEC_DEBUG_DCVS_LOG
 	  of secdbg_log structure along with the CPU time stamp.
 	  The previous frequency and the new frequency for both the CPU along
 	  with the CPU time stamp will be logged.
+
+config SEC_MONITOR_BATTERY_REMOVAL
+	bool "Enable monitering whether normal power sequence or not"
+	default n
+	help
+	  Enable monitering Power off & battery removal.
+
 config SEC_DEBUG_FUELGAUGE_LOG
 	bool "Temporary Logging for FuelGauge"
 	default n
@@ -403,6 +420,7 @@ config SEC_DEBUG_FUELGAUGE_LOG
 	 The FuelGauge values are logged as a part
 	 of secdbg_log structure along with the CPU time stamp.
 	 The voltage and soc values along with the CPU time will be logged.
+
 config SEC_DEBUG_LOW_LOG
 	bool "Kernel Message Logging for Debug Level Low"
 	default n
@@ -412,19 +430,41 @@ config SEC_DEBUG_LOW_LOG
 	 when an exception occurs, when the debug level is low.
 	 The file I/O is added in kernel driver level
 	 so that kernel messages are logged on next reboot.
+
+config SEC_DEBUG_MDM_FILE_INFO
+	bool "MDM filename and line number in UPLOAD mode"
+	default n
+	help
+	 This feature enables display of MDM info in upload mode.
+	 This feature enabled SSR in debug level low.
+	 Collects MDM ram dump and then calls panic.
+	 UPLOAD mode has MDM dump info to show it on LCD.
+
 config SEC_DEBUG_DOUBLE_FREE
 	bool "Enable double free detection"
 	default n
 	help
-	 Detect a erraneous codes that frees a kmalloced node
+	 Detect erraneous codes that frees a kmalloced node
 	 twice. When kfree(p) is called, p is not freed right away.
 	 Instead, it is pushed into a circular buffer. What it frees
 	 is the oldest pointer that was pushed into the buffer.
 	 If someone tries to free the same pointer p, *p
-	 is read and checks for magic codes that is written
+	 is read and checked for a magic code that is written
 	 when it was first freed. If it matches, the whole
-	 circular buffer is searched. Panic will happend when
-	 a match is found.
+	 circular buffer is searched. Panic is be called when
+	 the match is found.
+
+config SEC_LOG_LAST_KMSG
+	bool "Enable /proc/last_kmsg support: if EMBEDDED"
+	default n
+	help
+	  This option enables /proc/last_kmsg support.
+
+config SEC_DEBUG_NOCACHE_LOG_IN_LEVEL_LOW
+	bool "Enable nocache logging in debug level LOW"
+	default n
+	help
+	  Enable nocache logging in debug level LOW.
 
 config SEC_DEBUG_LMK_MEMINFO
 	bool "Show info when lowmemorykiller invoked"
@@ -449,7 +489,7 @@ config PID_IN_CONTEXTIDR
 	  the PROCID field of the CONTEXTIDR register, at the expense of some
 	  additional instructions during context switch. Say Y here only if you
 	  are planning to use hardware trace tools with this kernel.
-	  
+
 comment "Samsung Rooting Restriction Feature"
 config SEC_RESTRICT_ROOTING
 	bool "Samsung Rooting Restriction Feature"
