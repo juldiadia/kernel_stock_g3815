@@ -1,6 +1,3 @@
-#
-#
-#
 menuconfig FM_RADIO
 	tristate "FM Radio Driver"
 	default n

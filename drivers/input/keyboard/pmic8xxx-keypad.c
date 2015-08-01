@@ -23,9 +23,6 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/gpio.h>
 #include <linux/input/pmic8xxx-keypad.h>
-#include <linux/regulator/consumer.h>
-#include <linux/regulator/driver.h>
-#include <linux/regulator/machine.h>
 
 #define PM8XXX_MAX_ROWS		18
 #define PM8XXX_MAX_COLS		8
@@ -86,12 +83,6 @@
 
 #define KEYP_CLOCK_FREQ			32768
 
-#if defined(CONFIG_MACH_KS02)
-extern struct class *sec_class;
-static int key_led_prev;
-static int key_state = 0;
-#endif
-static int key_suspend;
 /**
  * struct pmic8xxx_kp - internal keypad data structure
  * @pdata - keypad platform data pointer
@@ -107,9 +98,6 @@ static int key_suspend;
 struct pmic8xxx_kp {
 	const struct pm8xxx_keypad_platform_data *pdata;
 	struct input_dev *input;
-#if defined(CONFIG_MACH_KS02)	
-	struct device *sec_keypad;	
-#endif
 	int key_sense_irq;
 	int key_stuck_irq;
 
@@ -121,9 +109,7 @@ struct pmic8xxx_kp {
 
 	u8 ctrl_reg;
 };
-#if defined(CONFIG_MACH_KS02)
-extern int Is_folder_state(void);
-#endif
+
 static int pmic8xxx_kp_write_u8(struct pmic8xxx_kp *kp,
 				 u8 data, u16 reg)
 {
@@ -288,17 +274,11 @@ static void __pmic8xxx_kp_scan_matrix(struct pmic8xxx_kp *kp, u16 *new_state,
 		for (col = 0; col < kp->pdata->num_cols; col++) {
 			if (!(bits_changed & (1 << col)))
 				continue;
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-			dev_err(kp->dev, "key [%d:%d] %s\n", row, col,
+
+			dev_dbg(kp->dev, "key [%d:%d] %s\n", row, col,
 					!(new_state[row] & (1 << col)) ?
 					"pressed" : "released");
-#endif
-#if defined(CONFIG_MACH_KS02)
-			if(!(new_state[row] & (1 << col)))
-				key_state = 1;
-			else
-				key_state = 0;
-#endif
+
 			code = MATRIX_SCAN_CODE(row, col, PM8XXX_ROW_SHIFT);
 
 			input_event(kp->input, EV_MSC, MSC_SCAN, code);
@@ -340,13 +320,6 @@ static int pmic8xxx_kp_scan_matrix(struct pmic8xxx_kp *kp, unsigned int events)
 	u16 new_state[PM8XXX_MAX_ROWS];
 	u16 old_state[PM8XXX_MAX_ROWS];
 	int rc;
-
-#if defined(CONFIG_MACH_KS02)	
-	if(Is_folder_state()){
-		dev_err(kp->dev, "[KEY] not report keypad : Folder is closed\n");
-		return 0;
-	}
-#endif
 
 	switch (events) {
 	case 0x1:
@@ -545,69 +518,6 @@ static void pmic8xxx_kp_close(struct input_dev *dev)
 	pmic8xxx_kp_disable(kp);
 }
 
-#if defined(CONFIG_MACH_KS02)
-static ssize_t  sysfs_key_onoff_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	pr_info("key state:%d\n",  key_state);
-	return snprintf(buf, 5, "%d\n", key_state);
-}
-
-static ssize_t key_led_onoff(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t size)
-{
-	int data, ret;
-	static struct regulator *reg_l36;
-	
-	if (!reg_l36) {
-		reg_l36 = regulator_get(NULL, "8917_l36");
-		if (IS_ERR(reg_l36)) {
-			pr_err("%s: could not get reg_l36, rc = %ld\n",
-				__func__, PTR_ERR(reg_l36));
-			return size;
-		}
-		ret = regulator_set_voltage(reg_l36, 3300000, 3300000);
-		if (ret) {
-			pr_err("%s: unable to set l36 voltage to 3.3V\n",
-				__func__);
-			return size;
-		}
-	}
-	sscanf(buf, "%d\n", &data);
-	printk(KERN_ERR
-        "[KEY] key_led_onoff data = %d, key_led_prev = %d, key_suspend=%d \n"
-        ,data,key_led_prev,key_suspend);
-
-	if (key_led_prev == data || key_suspend == 1)
-		return size;
-	if (data) {
-		regulator_enable(reg_l36);
-		printk(KERN_ERR "[KEY] key_led_on\n");
-		}
-	else {
-		regulator_disable(reg_l36);
-		printk(KERN_ERR "[KEY] key_led_off\n");
-		}
-	key_led_prev = data;
-//	regulator_put(reg_l36);
-	mdelay(70);
-	return size;
-}
-static DEVICE_ATTR(sec_key_pressed, 0664 , sysfs_key_onoff_show, NULL);
-static DEVICE_ATTR(brightness, S_IRUGO | S_IWUSR | S_IWGRP,
-		NULL, key_led_onoff);
-
-static struct attribute *key_attributes[] = {
-	&dev_attr_sec_key_pressed.attr,	
-	&dev_attr_brightness.attr,
-	NULL,
-};
-
-static struct attribute_group key_attr_group = {
-	.attrs = key_attributes,
-};
-#endif
 /*
  * keypad controller should be initialized in the following sequence
  * only, otherwise it might get into FSM stuck state.
@@ -796,18 +706,7 @@ static int __devinit pmic8xxx_kp_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, pdata->wakeup);
-#if defined(CONFIG_MACH_KS02)
-	/*sysfs*/
-	kp->sec_keypad = device_create(sec_class, NULL, 0, kp, "sec_keypad");
-	if (IS_ERR(kp->sec_keypad))
-		dev_err(&pdev->dev, "Failed to create sec_key device\n");
 
-	rc = sysfs_create_group(&kp->sec_keypad->kobj, &key_attr_group);
-	if (rc) {
-		dev_err(&pdev->dev, "Failed to create the test sysfs: %d\n",
-			rc);
-	}
-#endif
 	return 0;
 
 err_pmic_reg_read:
@@ -855,8 +754,6 @@ static int pmic8xxx_kp_suspend(struct device *dev)
 		mutex_unlock(&input_dev->mutex);
 	}
 
-	key_suspend = 1;
-
 	return 0;
 }
 
@@ -876,8 +773,6 @@ static int pmic8xxx_kp_resume(struct device *dev)
 
 		mutex_unlock(&input_dev->mutex);
 	}
-
-	key_suspend = 0;
 
 	return 0;
 }

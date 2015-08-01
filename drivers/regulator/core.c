@@ -56,7 +56,7 @@ static bool board_wants_dummy_regulator;
 static int suppress_info_printing;
 
 static struct dentry *debugfs_root;
-static int debug_suspend = 1;
+
 /*
  * struct regulator_map
  *
@@ -1165,6 +1165,7 @@ static struct regulator *create_regulator(struct regulator_dev *rdev,
 			goto attr_err;
 	}
 
+/*
 	regulator->debugfs = debugfs_create_dir(regulator->supply_name,
 						rdev->debugfs);
 	if (!regulator->debugfs) {
@@ -1177,7 +1178,7 @@ static struct regulator *create_regulator(struct regulator_dev *rdev,
 		debugfs_create_u32("max_uV", 0444, regulator->debugfs,
 				   &regulator->max_uV);
 	}
-
+*/
 	mutex_unlock(&rdev->mutex);
 	return regulator;
 link_name_err:
@@ -2306,6 +2307,21 @@ out:
 	return ret;
 }
 
+static unsigned int __regulator_get_mode(struct regulator_dev *rdev)
+{
+	int ret;
+
+	/* sanity check */
+	if (!rdev->desc->ops->get_mode) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = rdev->desc->ops->get_mode(rdev);
+out:
+	return ret;
+}
+
 /**
  * regulator_get_mode - get regulator operating mode
  * @regulator: regulator source
@@ -3056,6 +3072,63 @@ static int reg_debug_mode_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(reg_mode_fops, reg_debug_mode_get,
 			reg_debug_mode_set, "%llu\n");
 
+static int regulator_check_str(struct regulator *reg,
+	   unsigned int *slen, char *snames)
+{
+	if (reg->enabled && reg->supply_name) {
+		if (*slen + strlen(reg->supply_name) + 3 > 80)
+			return -ENOMEM;
+		*slen += snprintf(snames + *slen,
+				strlen(reg->supply_name) + 3,
+				", %s", reg->supply_name);
+	}
+	return 0;
+}
+
+void regulator_showall_enabled(void)
+{
+	struct regulator_dev *rdev;
+	unsigned int cnt = 0;
+	unsigned int slen;
+	struct regulator *reg;
+	char snames[80];
+
+	pr_info("---Enabled regulators---\n");
+	mutex_lock(&regulator_list_mutex);
+	list_for_each_entry(rdev, &regulator_list, list) {
+		mutex_lock(&rdev->mutex);
+		if (_regulator_is_enabled(rdev)) {
+			if (rdev->desc->ops) {
+				slen = 0;
+				list_for_each_entry(reg,
+						&rdev->consumer_list, list) {
+					if (regulator_check_str(reg,
+								&slen, snames))
+						break;
+				}
+
+				pr_info("%s: %duV, 0x%x mode%s\n",
+						rdev_get_name(rdev),
+						_regulator_get_voltage(rdev),
+						__regulator_get_mode(rdev),
+						slen ? snames : ", null");
+			} else {
+				pr_info("%s enabled\n", rdev_get_name(rdev));
+			}
+			cnt++;
+		}
+		mutex_unlock(&rdev->mutex);
+	}
+	mutex_unlock(&regulator_list_mutex);
+
+	if (cnt)
+		pr_info("---Enabled regulator count: %d---\n", cnt);
+	else
+		pr_info("---No regulators enabled---\n");
+
+	return;
+}
+
 static int reg_debug_optimum_mode_set(void *data, u64 val)
 {
 	int err_info;
@@ -3123,73 +3196,6 @@ static const struct file_operations reg_consumers_fops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
-static int regulator_check_str(struct regulator *reg,
-	   unsigned int *slen, char *snames)
-{
-	if (reg->enabled && reg->supply_name) {
-		if (*slen + strlen(reg->supply_name) + 3 > 80)
-			return -ENOMEM;
-		*slen += snprintf(snames + *slen,
-				strlen(reg->supply_name) + 3,
-				", %s", reg->supply_name);
-	}
-	return 0;
-}
-
-
-static int showall_enabled(void)
-{
-	struct regulator_dev *rdev;
-	unsigned int cnt = 0;
-
-
-	unsigned int slen;
-	struct regulator *reg;
-	char snames[80];
-
-
-	pr_info("enabled regulators:\n");
-	mutex_lock(&regulator_list_mutex);
-	list_for_each_entry(rdev, &regulator_list, list) {
-		mutex_lock(&rdev->mutex);
-		if (_regulator_is_enabled(rdev)) {
-			slen = 0;
-			list_for_each_entry(reg,
-					&rdev->consumer_list, list) {
-				if (regulator_check_str(reg,
-							&slen, snames))
-					break;
-			}
-
-			if (rdev->desc->ops)
-				printk(KERN_INFO "\t%s, %d uV%s\n",
-						rdev_get_name(rdev),
-						_regulator_get_voltage(rdev),
-						slen ? snames : ", null");
-			else
-				printk(KERN_INFO "\t%s\n", rdev_get_name(rdev));
-
-			cnt++;
-		}
-		mutex_unlock(&rdev->mutex);
-	}
-	mutex_unlock(&regulator_list_mutex);
-
-	if (cnt)
-		pr_info("Enabled regulator count: %d\n", cnt);
-	else
-		pr_info("No regulators enabled.");
-
-	return 0;
-}
-
-void regulator_debug_print_enabled(void)
-{
-	if (likely(!debug_suspend))
-		return;
-
-	(void)showall_enabled();
-}
 
 static void rdev_init_debugfs(struct regulator_dev *rdev)
 {
@@ -3733,13 +3739,6 @@ static int __init regulator_init(void)
 	debugfs_create_file("supply_map", 0444, debugfs_root, NULL,
 			    &supply_map_fops);
 
-#ifdef CONFIG_DEBUG_FS
-	if (!debugfs_create_u32("debug_suspend", S_IRUGO | S_IWUSR,
-				debugfs_root, &debug_suspend)) {
-		debugfs_remove_recursive(debugfs_root);
-		return -ENOMEM;
-	}
-#endif
 	regulator_dummy_init();
 
 	return ret;

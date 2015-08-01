@@ -954,4 +954,3 @@ bool cfg80211_rx_unexpected_4addr_frame(struct net_device *dev,
 	return nl80211_unexpected_4addr_frame(dev, addr, gfp);
 }
 EXPORT_SYMBOL(cfg80211_rx_unexpected_4addr_frame);
-

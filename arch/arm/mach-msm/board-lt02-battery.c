@@ -30,9 +30,8 @@
 #include "board-8930.h"
 
 #if defined(CONFIG_BATTERY_SAMSUNG)
-#include <linux/battery/sec_battery.h>
-#include <linux/battery/sec_fuelgauge.h>
-#include <linux/battery/sec_charger.h>
+#include <linux/battery/sec_fuelgauge_8930.h>
+#include <linux/battery/sec_charger_8930.h>
 
 #define SEC_BATTERY_PMIC_NAME ""
 
@@ -107,7 +106,7 @@ static bool sec_bat_gpio_init(void)
 {
 	gpio_tlmm_config(GPIO_CFG(GPIO_TA_DET, 0, GPIO_CFG_INPUT,
 		 GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
-#if defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_SPR)
+#if defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_SPR) || defined(CONFIG_MACH_LT02_TMO)
 	if (system_rev > 0x4)
 		gpio_tlmm_config(GPIO_CFG(GPIO_VBATT_IF, 0, GPIO_CFG_INPUT,
 			GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
@@ -157,6 +156,11 @@ static bool sec_chg_gpio_init(void)
 }
 
 static bool sec_bat_is_lpm(void) {return (bool)poweroff_charging; }
+
+static bool sec_bat_check_external_charging_status(void)
+{
+	return 0;
+}
 
 int extended_cable_type;
 
@@ -518,6 +522,7 @@ sec_battery_platform_data_t sec_battery_pdata = {
 	.chg_gpio_init = sec_chg_gpio_init,
 
 	.is_lpm = sec_bat_is_lpm,
+	.check_external_charging_status = sec_bat_check_external_charging_status,
 	.check_jig_status = sec_bat_check_jig_status,
 	.check_cable_callback =
 		sec_bat_check_cable_callback,
@@ -657,7 +662,7 @@ sec_battery_platform_data_t sec_battery_pdata = {
 	.temp_low_threshold_lpm = 30,
 	.temp_low_recovery_lpm = 34,
 #endif
-#elif defined(CONFIG_MACH_LT02_ATT)
+#elif defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_TMO)
 	.temp_high_threshold_event = 630,
 	.temp_high_recovery_event = 455,
 	.temp_low_threshold_event = -40,

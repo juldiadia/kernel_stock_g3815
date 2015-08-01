@@ -87,7 +87,7 @@
 
 #define ID_BLOCK_SIZE			7
 
-#define DRIVER_FILTER
+#define DRIVER_FILTER			1
 
 #define MXT224_STATE_INACTIVE		-1
 #define MXT224_STATE_RELEASE		0
@@ -103,7 +103,7 @@ struct object_t {
 	u8 size;
 	u8 instances;
 	u8 num_report_ids;
-} __packed;
+}__packed;
 
 struct finger_info {
 	s16 x;
@@ -118,13 +118,11 @@ struct mxt224_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct early_suspend early_suspend;
-#ifdef CONFIG_SEC_DVFS
 #if TOUCH_BOOSTER
 	struct delayed_work work_dvfs_off;
 	struct delayed_work	work_dvfs_chg;
 	bool	dvfs_lock_status;
 	struct mutex dvfs_lock;
-#endif
 #endif
 	u8 family_id;
 	u32 finger_mask;
@@ -156,9 +154,8 @@ struct mxt224_data {
 	const u8 *t48_config_batt_e;
 	const u8 *t48_config_chrg_e;
 	void (*power_onoff)(int);
-	void (*register_cb)(struct tsp_callbacks *);
-	struct tsp_callbacks callbacks;
-	void (*read_ta_status)(bool *);
+	void (*register_cb)(void *);
+	void (*read_ta_status)(void *);
 	const u8 *config_fw_version;
 	int num_fingers;
 #ifdef VIRTUAL_KEYPAD_ISSUE
@@ -167,7 +164,7 @@ struct mxt224_data {
 	struct finger_info fingers[];
 };
 
-static struct mxt224_data *copy_data;
+struct mxt224_data *copy_data;
 int touch_is_pressed;
 EXPORT_SYMBOL(touch_is_pressed);
 
@@ -204,11 +201,9 @@ struct t48_median_config_t {
 } __packed;
 static struct t48_median_config_t noise_median; /* 110927 gumi noise */
 
-#ifdef CONFIG_SEC_DVFS
 #if TOUCH_BOOSTER
 static bool dvfs_lock_status;
 static bool press_status;
-#endif
 #endif
 
 static u8 threshold = 45;
@@ -219,7 +214,6 @@ static unsigned int gIgnoreReport_flag;
 static unsigned int gForceCalibration_flag;
 static unsigned int gMedianErrExcuted;
 
-#ifdef CONFIG_SEC_DVFS
 #if TOUCH_BOOSTER
 static void change_dvfs_lock(struct work_struct *work)
 {
@@ -285,7 +279,6 @@ static void set_dvfs_lock(struct mxt224_data *data, uint32_t on)
 	mutex_unlock(&data->dvfs_lock);
 }
 #endif
-#endif
 
 static int read_mem(struct mxt224_data *data, u16 reg, u8 len, u8 *buf)
 {
@@ -329,14 +322,12 @@ static int write_mem(struct mxt224_data *data, u16 reg, u8 len, const u8 *buf)
 	return ret == sizeof(tmp) ? 0 : -EIO;
 }
 
-static int __devinit mxt224_reset(struct mxt224_data *data)
+static ssize_t mxt224_reset(struct mxt224_data *data)
 {
 	u8 buf = 1u;
-#ifdef CONFIG_SEC_DVFS
 #if TOUCH_BOOSTER
 	set_dvfs_lock(data, 2);
 	pr_info("[TSP] dvfs_lock free.\n");
-#endif
 #endif
 	return write_mem(data, data->cmd_proc + CMD_RESET_OFFSET, 1, &buf);
 }
@@ -443,9 +434,7 @@ static uint8_t calibrate_chip(void)
 	int ret1 = 0;
 
 	not_yet_count = 0;
-
 	if (cal_check_flag == 0) {
-
 		ret = get_object_info(copy_data,
 				GEN_ACQUISITIONCONFIG_T8, &size, &obj_address);
 		size = 1;
@@ -465,8 +454,8 @@ static uint8_t calibrate_chip(void)
 				1, &atchcalst_tmp); /* forced cal thr  */
 			ret1 = write_mem(copy_data,
 				obj_address+9,
-				1, &atchcalsthr_tmp); /* forced cal thr ratio */
-		}
+				1, &atchcalsthr_tmp); /* forced cal thr ratio */	
+	}
 	}
 
 	/* send calibration command to the chip */
@@ -507,17 +496,17 @@ static int check_abs_time(void)
 		return 0;
 }
 
-static void mxt224_ta_probe(struct tsp_callbacks *cb, bool ta_status)
+static void mxt224_ta_probe(int ta_status)
 {
 	u16 obj_address = 0;
 	u16 size_one;
 	int ret;
 	u8 value;
 	u8 val = 0;
+//	u16 size;
 	u8 active_depth;
 	u8 charge_time;
-
-	struct mxt224_data *data = copy_data;
+//	struct mxt224_data *data = copy_data;
 	printk(KERN_ERR "[TSP] mxt224 probe number: %d\n",
 			tsp_probe_num);
 	if (!mxt224_enabled) {
@@ -526,7 +515,7 @@ static void mxt224_ta_probe(struct tsp_callbacks *cb, bool ta_status)
 	}
 
 	if (ta_status) {
-		threshold = data->tchthr_charging;
+		threshold = copy_data->tchthr_charging;
 		threshold_e = THRESHOLD_E_TA;
 		active_depth = ACTIVE_DEPTH_TA;
 		charge_time = 22;
@@ -536,7 +525,7 @@ static void mxt224_ta_probe(struct tsp_callbacks *cb, bool ta_status)
 	#endif
 		gMedianErrExcuted = 0;
 	} else {
-		threshold = data->tchthr_batt;
+		threshold = copy_data->tchthr_batt;
 		threshold_e = THRESHOLD_E_BAT;
 		active_depth = ACTIVE_DEPTH_BAT;
 		charge_time = 22;
@@ -548,41 +537,43 @@ static void mxt224_ta_probe(struct tsp_callbacks *cb, bool ta_status)
 	#endif
 	}
 
-	if (data->family_id == 0x81) {
+	if (copy_data->family_id == 0x81) {
 
 		/* SPT_CTECONFIG_T46 */
 			value = active_depth;
-			ret = get_object_info(data,
+			ret = get_object_info(copy_data,
 				SPT_CTECONFIG_T46, &size_one, &obj_address);
-			write_mem(data, obj_address+3, 1, &value);
+			write_mem(copy_data, obj_address+3, 1, &value);
 
 			/* GEN_ACQUISITIONCONFIG_T8 */
 			value = charge_time;
-			ret = get_object_info(data,
+			ret = get_object_info(copy_data,
 				GEN_ACQUISITIONCONFIG_T8,
 				&size_one, &obj_address);
-			write_mem(data, obj_address+0, 1, &value);
+			write_mem(copy_data, obj_address+0, 1, &value);
 
 			/* PROCG_NOISESUPPRESSION_T48 */
 			if (ta_status) {
-				write_config(data,
-					data->t48_config_chrg_e[0],
-					data->t48_config_chrg_e + 1);
+				write_config(copy_data,
+					copy_data->t48_config_chrg_e[0],
+					copy_data->t48_config_chrg_e + 1);
 			} else {
-				write_config(data,
-					data->t48_config_batt_e[0],
-					data->t48_config_batt_e + 1);
+				write_config(copy_data,
+					copy_data->t48_config_batt_e[0],
+					copy_data->t48_config_batt_e + 1);
 			}
-			ret = get_object_info(data,
+			ret = get_object_info(copy_data,
 				PROCG_NOISESUPPRESSION_T48,
 				&size_one, &obj_address);
 
-			read_mem(data, obj_address+2, 1, &val);
+			read_mem(copy_data, obj_address+2, 1, &val);
 				printk(KERN_ERR
 				"[TSP]TA_probe MXT224E T%d Byte%d is %d\n",
 				48, 2, val);
 		}
 	printk(KERN_DEBUG"[TSP] threshold : %d\n", threshold_e);
+	calibrate_chip();
+	
 }
 
 static void check_chip_calibration(void)
@@ -598,7 +589,7 @@ static void check_chip_calibration(void)
 	int ret;
 	u16 size;
 	u16 object_address = 0;
-	bool ta_status;
+	bool ta_status=0;
 
 	/* we have had the first touchscreen or face suppression message
 	* after a calibration - check the sensor state and try to confirm if
@@ -747,10 +738,10 @@ static void check_chip_calibration(void)
 						write_mem(copy_data,
 						 object_address+9, 1,
 						 &copy_data->atchfrccalratio_e);
-					 if (copy_data->read_ta_status) {
+					/* if (copy_data->read_ta_status) {
 						copy_data
 							->read_ta_status
-							(&ta_status);
+							(&ta_status);*/
 					  if (ta_status == 0) {
 						ret =
 						 get_object_info
@@ -766,9 +757,9 @@ static void check_chip_calibration(void)
 						 , 1,
 						 &data_byte);
 					 }
-					}
 
-					} else {
+
+					} else {/*
 						if (copy_data->read_ta_status) {
 							copy_data
 							 ->read_ta_status
@@ -779,8 +770,8 @@ static void check_chip_calibration(void)
 
 							if (ta_status == 0)
 								mxt224_ta_probe
-								 (NULL, ta_status);
-						}
+								 (ta_status);
+						}*/
 					}
 				} else  {
 					cal_check_flag = 1;
@@ -870,7 +861,7 @@ static void equalize_coordinate(bool detect, u8 id, u16 *px, u16 *py)
 }
 #endif  /* DRIVER_FILTER */
 
-static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
+static ssize_t mxt224_init_touch_driver(struct mxt224_data *data)
 {
 	struct object_t *object_table;
 	u32 read_crc = 0;
@@ -980,7 +971,6 @@ static void report_input_data(struct mxt224_data *data)
 	int i;
 	int count = 0;
 	struct mxt224_platform_data *pdata = data->client->dev.platform_data;
-
 	for (i = 0; i < data->num_fingers; i++) {
 		if (data->fingers[i].state == MXT224_STATE_INACTIVE)
 			continue;
@@ -1007,7 +997,7 @@ static void report_input_data(struct mxt224_data *data)
 					ABS_MT_PRESSURE, data->fingers[i].z);
 			input_report_abs(data->input_dev,
 					ABS_MT_TOUCH_MAJOR, data->fingers[i].w);
-		}
+	}
 
 #if defined(CONFIG_SHAPE_TOUCH)
 		input_report_abs(data->input_dev,
@@ -1034,10 +1024,8 @@ static void report_input_data(struct mxt224_data *data)
 	touch_is_pressed = count ? 1 : 0;
 	data->finger_mask = 0;
 
-#ifdef CONFIG_SEC_DVFS
 #if TOUCH_BOOSTER
 	set_dvfs_lock(data, !!touch_is_pressed);
-#endif
 #endif
 }
 
@@ -1048,10 +1036,10 @@ static void median_err_setting(void)
 	u16 obj_address;
 	u16 size_one;
 	u8 value, state;
-	bool ta_status_check;
+	//bool ta_status_check=0;
 	int ret = 0;
 
-	copy_data->read_ta_status(&ta_status_check);
+	//copy_data->read_ta_status(&ta_status_check);
 
 	if (cal_check_flag == 1) {
 		printk(KERN_ERR"[TSP] calibration was forcely good\n");
@@ -1088,7 +1076,8 @@ static void median_err_setting(void)
 	}
 
 
-	if (!ta_status_check) {
+	if (1) 
+	{
 		gErrCondition = ERR_RTN_CONDITION_T9;
 
 		switch (gErrCondition) {
@@ -1230,8 +1219,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 	u16 obj_address = 0;
 	u16 size_one, ret;
 	u8 value;
-	bool ta_status = 0;
-
+	bool ta_status = 1;
 	do {
 		touch_message_flag = 0;
 		if (read_mem(data, data->msg_proc, sizeof(msg), msg))
@@ -1272,9 +1260,8 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 
 			if ((msg[1]&0x80) == 0x80) /* reset */
 				printk(KERN_DEBUG"[TSP] reset is ongoing\n");
-		}
 
-		if (msg[0] == 14) {
+	}		if (msg[0] == 14) {
 			if ((msg[1] & 0x01) == 0x00) { /* Palm release */
 				printk(KERN_DEBUG"[TSP] palm touch released\n");
 				touch_is_pressed = 0;
@@ -1284,16 +1271,18 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				touch_message_flag = 1;
 			}
 		}
+#if 0
 
 		if (msg[0] == 0xf) { /* freq error release */
 			printk(KERN_ERR
 				"[TSP] Starting irq with 0x%2x, 0x%2x, 0x%2x, 0x%2x, 0x%2x, 0x%2x, 0x%2x, 0x%2x",
 				msg[0], msg[1], msg[2], msg[3],
 				msg[4], msg[5], msg[6], msg[7]);
+
 			if ((msg[1]&0x08) == 0x08)
 				calibrate_chip();
 		}
-
+#endif
 		if ((msg[0] == 18) && (data->family_id == 0x81)) {
 			/*
 			printk(KERN_ERR
@@ -1307,7 +1296,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				printk(KERN_ERR"[TSP] median filter state error!!!\n");
 				median_err_setting();
 			} else if ((msg[4]&0x4) == 0x4) {
-				copy_data->read_ta_status(&ta_status);
+				//copy_data->read_ta_status(&ta_status);
 				if ((!ta_status)
 				  && (noise_median.mferr_setting == false)
 				  && (noise_median.median_on_flag == false)
@@ -1332,7 +1321,16 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 		if (msg[0] > 1 && msg[0] < 12) {
 			id = msg[0] - data->finger_type;
 
-		/* If not a touch event, then keep going */
+			if (data->family_id == 0x80) {	/*  : MXT-224 */
+				if ((data->fingers[id].state
+					>= MXT224_STATE_PRESS)
+					&& msg[1] & PRESS_MSG_MASK) {
+					printk(KERN_DEBUG"[TSP] calibrate on ghost touch\n");
+					calibrate_chip();
+				}
+			}
+
+			/* If not a touch event, then keep going */
 			if (id < 0 || id >= data->num_fingers)
 				continue;
 
@@ -1367,12 +1365,13 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 					equalize_coordinate(0,
 						id, &data->fingers[id].x,
 						&data->fingers[id].y);
-#endif
+
 #if defined(CONFIG_SHAPE_TOUCH)
 					data->fingers[id].component = msg[7];
 #endif
 
-			} else if ((msg[1] & SUPPRESS_MSG_MASK)
+			}
+			else if ((msg[1] & SUPPRESS_MSG_MASK)
 				&& (data->fingers[id].state
 					!= MXT224_STATE_INACTIVE)) {
 				data->fingers[id].z = 0;
@@ -1386,7 +1385,7 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 				continue;
 			}
 		}
-
+#endif
 		if (data->finger_mask)
 			report_input_data(data);
 
@@ -1394,7 +1393,6 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 			check_chip_calibration();
 
 	} while (!gpio_get_value(data->gpio_read_done));
-
 	return IRQ_HANDLED;
 }
 
@@ -1422,11 +1420,9 @@ static int mxt224_internal_suspend(struct mxt224_data *data)
 	}
 	report_input_data(data);
 
-#ifdef CONFIG_SEC_DVFS
 #if TOUCH_BOOSTER
 	set_dvfs_lock(data, 2);
 	pr_info("[TSP] dvfs_lock free.\n");
-#endif
 #endif
 	if (!tsp_deepsleep) {
 #if defined(CONFIG_MIPI_SAMSUNG_ESD_REFRESH)
@@ -1528,7 +1524,7 @@ static void mxt224_late_resume(struct early_suspend *h)
 	if (data->read_ta_status) {
 		data->read_ta_status(&ta_status);
 		printk(KERN_ERR"[TSP] ta_status is %d\n", ta_status);
-			mxt224_ta_probe(NULL, ta_status);
+			mxt224_ta_probe(ta_status);
 	}
 	calibrate_chip();
 	if (tsp_deepsleep)
@@ -1559,7 +1555,7 @@ static int mxt224_resume(struct device *dev)
 	if (data->read_ta_status) {
 		data->read_ta_status(&ta_status);
 		printk(KERN_DEBUG"[TSP] ta_status is %d\n", ta_status);
-		mxt224_ta_probe(NULL, ta_status);
+//		mxt224_ta_probe(ta_status);
 	}
 	return ret;
 }
@@ -2321,7 +2317,7 @@ static ssize_t set_module_on_show(struct device *dev,
 	if (data->read_ta_status) {
 		data->read_ta_status(&ta_status);
 		printk(KERN_ERR"[TSP] ta_status is %d", ta_status);
-		mxt224_ta_probe(NULL, ta_status);
+	//	mxt224_ta_probe(ta_status);
 	}
 	calibrate_chip();
 
@@ -2335,7 +2331,7 @@ static ssize_t set_threshold_mode_show(struct device *dev,
 {
 	return snprintf(buf, 10, "%u\n", threshold);
 }
-/*
+
 static ssize_t set_mxt_firm_update_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -2350,7 +2346,18 @@ static ssize_t set_mxt_firm_update_store(struct device *dev,
 
 	disable_irq(data->client->irq);
 	firm_status_data = 1;
-	if (data->family_id == 0x81)  {
+	if (data->family_id == 0x80) {	/*  : MXT-224 */
+		if (*buf != 'F' && data->tsp_version >= firmware_latest[0]
+			&& data->tsp_build >= build_latest[0]) {
+			printk(KERN_ERR"[TSP] mxt224 has latest firmware\n");
+			firm_status_data = 2;
+			enable_irq(data->client->irq);
+			return size;
+		}
+		printk(KERN_DEBUG"[TSP] mxt224_fm_update\n");
+		error = mxt224_load_fw(dev, MXT224_FW_NAME);
+	} else if (data->family_id == 0x81)  {
+		/* tsp_family_id - 0x81 : MXT-224E */
 		if (*buf != 'F' && data->tsp_version >= firmware_latest[1]
 			&& data->tsp_build >= build_latest[1]) {
 			printk(KERN_ERR"[TSP] mxt224E has latest firmware\n");
@@ -2372,11 +2379,11 @@ static ssize_t set_mxt_firm_update_store(struct device *dev,
 		firm_status_data = 2;
 		printk(KERN_DEBUG"[TSP] The firmware update succeeded\n");
 
-		
+		/* Wait for reset */
 		msleep(MXT224_FWRESET_TIME);
 
 		mxt224_init_touch_driver(data);
-		
+		/* mxt224_initialize(data); */
 	}
 
 	enable_irq(data->client->irq);
@@ -2386,7 +2393,7 @@ static ssize_t set_mxt_firm_update_store(struct device *dev,
 		return error;
 	}
 
-	
+	/* reset the touch IC. */
 	error = mxt224_reset(data);
 	if (error) {
 		printk(KERN_ERR"[TSP]mxt224_reset fail!!!\n");
@@ -2396,7 +2403,7 @@ static ssize_t set_mxt_firm_update_store(struct device *dev,
 	msleep(MXT224_RESET_TIME);
 	return size;
 }
-*/
+
 static ssize_t set_mxt_firm_status_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -2455,7 +2462,9 @@ static ssize_t set_mxt_firm_version_show(struct device *dev,
 {
 	u8 fw_latest_version = 0;
 	struct mxt224_data *data = dev_get_drvdata(dev);
-	if (data->family_id == 0x81)
+	if (data->family_id == 0x80)
+		fw_latest_version = firmware_latest[0];
+	else if (data->family_id == 0x81)
 		fw_latest_version = firmware_latest[1];
 
 	pr_info("Atmel Last firmware version is %d\n", fw_latest_version);
@@ -2601,8 +2610,8 @@ static DEVICE_ATTR(set_module_off, S_IRUGO,
 			set_module_off_show, NULL);
 static DEVICE_ATTR(set_module_on, S_IRUGO,
 			set_module_on_show, NULL);
-/*static DEVICE_ATTR(tsp_firm_update, S_IWUSR | S_IWGRP,
-			NULL, set_mxt_firm_update_store);*/
+static DEVICE_ATTR(tsp_firm_update, S_IWUSR | S_IWGRP,
+			NULL, set_mxt_firm_update_store);
 static DEVICE_ATTR(tsp_firm_update_status, S_IRUGO,
 			set_mxt_firm_status_show, NULL);
 static DEVICE_ATTR(tsp_threshold, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -2643,7 +2652,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	int ret;
 	int i;
 	bool ta_status = 0;
-	u8 **tsp_config = NULL;
+	u8 **tsp_config;
 
 	touch_is_pressed = 0;
 	tsp_probe_num = 0;
@@ -2680,10 +2689,6 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	data->config_fw_version = pdata->config_fw_version;
 	data->register_cb = pdata->register_cb;
 
-	data->callbacks.inform_charger = mxt224_ta_probe;
-	if (data->register_cb)
-		data->register_cb(&data->callbacks);
-
 	i2c_set_clientdata(client, data);
 
 	input_set_drvdata(input_dev, data);
@@ -2714,20 +2719,21 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 		goto err_reg_dev;
 	}
 
-#ifdef CONFIG_SEC_DVFS
 #if TOUCH_BOOSTER
 	mutex_init(&data->dvfs_lock);
 	INIT_DELAYED_WORK(&data->work_dvfs_off, set_dvfs_off);
 	INIT_DELAYED_WORK(&data->work_dvfs_chg, change_dvfs_lock);
 	data->dvfs_lock_status = false;
 #endif
-#endif
+
 	data->gpio_read_done = pdata->gpio_read_done;
 
 	data->power_onoff(1);
-
 	ret = mxt224_init_touch_driver(data);
+
 	copy_data = data;
+
+	// data->register_cb(mxt224_ta_probe);
 
 	if (ret) {
 		dev_err(&client->dev, "chip initialization failed\n");
@@ -2735,7 +2741,20 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 		goto err_init_drv;
 	}
 
-	if (data->family_id == 0x81) {
+	if (data->family_id == 0x80) {
+		/*  : MXT-224 */
+		tsp_config = (u8 **)pdata->config;
+		data->atchcalst = pdata->atchcalst;
+		data->atchcalsthr = pdata->atchcalsthr;
+		data->tchthr_batt = pdata->tchthr_batt;
+		data->tchthr_batt_init = pdata->tchthr_batt_init;
+		data->tchthr_charging = pdata->tchthr_charging;
+		data->noisethr_batt = pdata->noisethr_batt;
+		data->noisethr_charging = pdata->noisethr_charging;
+		data->movfilter_batt = pdata->movfilter_batt;
+		data->movfilter_charging = pdata->movfilter_charging;
+		printk(KERN_INFO"[TSP] TSP chip is MXT224\n");
+	} else if (data->family_id == 0x81) {
 		/* tsp_family_id - 0x81 : MXT-224E */
 		tsp_config = (u8 **)pdata->config_e;
 		data->t48_config_batt_e = pdata->t48_config_batt_e;
@@ -2765,29 +2784,27 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 		tsp_probe_num = 6;
 	}
 
-	if (tsp_config != NULL) {
-		for (i = 0; tsp_config[i][0] != RESERVED_T255; i++) {
-			ret = write_config(data, tsp_config[i][0],
-						tsp_config[i] + 1);
-			if (ret)
-				tsp_probe_num = 7;
+	for (i = 0; tsp_config[i][0] != RESERVED_T255; i++) {
+		ret = write_config(data, tsp_config[i][0],
+							tsp_config[i] + 1);
+		if (ret)
+			tsp_probe_num = 7;
 
-			if (tsp_config[i][0] == GEN_POWERCONFIG_T7)
-				data->power_cfg = tsp_config[i] + 1;
+		if (tsp_config[i][0] == GEN_POWERCONFIG_T7)
+			data->power_cfg = tsp_config[i] + 1;
 
-			if (tsp_config[i][0] == TOUCH_MULTITOUCHSCREEN_T9) {
-				/* Are x and y inverted? */
-				if (tsp_config[i][10] & 0x1) {
-					data->x_dropbits =
+		if (tsp_config[i][0] == TOUCH_MULTITOUCHSCREEN_T9) {
+			/* Are x and y inverted? */
+			if (tsp_config[i][10] & 0x1) {
+				data->x_dropbits =
 					(!(tsp_config[i][22] & 0xC)) << 1;
-					data->y_dropbits =
+				data->y_dropbits =
 					(!(tsp_config[i][20] & 0xC)) << 1;
-				} else {
-					data->x_dropbits =
+			} else {
+				data->x_dropbits =
 					(!(tsp_config[i][20] & 0xC)) << 1;
-					data->y_dropbits =
+				data->y_dropbits =
 					(!(tsp_config[i][22] & 0xC)) << 1;
-				}
 			}
 		}
 	}
@@ -2835,9 +2852,9 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 
 	dev_set_drvdata(sec_touchscreen, data);
 
-	/*if (device_create_file(sec_touchscreen, &dev_attr_tsp_firm_update) < 0)
+	if (device_create_file(sec_touchscreen, &dev_attr_tsp_firm_update) < 0)
 		pr_err("[TSP] Failed to create device file(%s)!\n",
-				dev_attr_tsp_firm_update.attr.name);*/
+				dev_attr_tsp_firm_update.attr.name);
 
 	if (device_create_file(sec_touchscreen,
 		&dev_attr_tsp_firm_update_status) < 0)
@@ -2967,7 +2984,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	if (data->read_ta_status) {
 		data->read_ta_status(&ta_status);
 		pr_debug("[TSP] ta_status is %d\n", ta_status);
-		mxt224_ta_probe(NULL, ta_status);
+//		mxt224_ta_probe(ta_status);
 	}
 
 	printk(KERN_ERR "%s: number : %d\n", __func__, tsp_probe_num);
@@ -2976,7 +2993,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 err_irq:
 	kfree(data->objects);
 err_init_drv:
-/*	mutex_destroy(&data->dvfs_lock);*/
+//	mutex_destroy(&data->dvfs_lock);
 	gpio_free(data->gpio_read_done);
 /* err_gpio_req:
 	data->power_off();
@@ -3029,7 +3046,9 @@ static struct i2c_driver mxt224_i2c_driver = {
 
 static int __init mxt224_init(void)
 {
-	return i2c_add_driver(&mxt224_i2c_driver);
+//printk(KERN_INFO"[TSP]%s %d\n",__func__,__LINE__);
+pr_info("[TSP] inside mxt224_init\n");
+return i2c_add_driver(&mxt224_i2c_driver);
 }
 
 static void __exit mxt224_exit(void)

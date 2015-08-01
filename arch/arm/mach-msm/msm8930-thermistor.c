@@ -284,28 +284,6 @@ static struct sec_therm_adc_table temper_table_ap[] = {
 	{1626500,	 -200},
 	{1697050,	 -300},
 };
-#elif defined (CONFIG_MACH_LOGANRE)
-static struct sec_therm_adc_table temper_table_ap[] = {
-	{237490,    700},
-	{271816,    650},
-	{319149,    600},
-	{375666,    550},
-	{484674,    500},
-	{512474,    450},
-	{593794,    400},
-	{680207,    350},
-	{780732,    300},
-	{887947,    250},
-	{992633,    200},
-	{1097650,   150},
-	{1205779,   100},
-	{1303812,   50},
-	{1393579,   0},
-	{1474223,   -50},
-	{1539942,   -100},
-	{1599024,   -150},
-	{1650472,   -200},
-};
 #elif defined (CONFIG_MACH_CANE)
 static struct sec_therm_adc_table temper_table_ap[] = {
 	{237490,	 700},

@@ -53,11 +53,11 @@
 #define GPIO_S_LED_I2C_SDA		38
 #define GPIO_S_LED_I2C_SCL		39
 #ifdef CONFIG_USB_SWITCH_TSU6721
-#define GPIO_USB_I2C_SDA		101 
-#define GPIO_USB_I2C_SCL        100 
+#define GPIO_USB_I2C_SDA		101
+#define GPIO_USB_I2C_SCL        100
 #else
-#define GPIO_IF_PMIC_SDA		101 
-#define GPIO_IF_PMIC_SCL        100 
+#define GPIO_IF_PMIC_SDA		101
+#define GPIO_IF_PMIC_SCL        100
 #define GPIO_IF_PMIC_IRQ		14
 #endif
 #define GPIO_HALL_SENSOR_INT	78
@@ -75,13 +75,13 @@
 #define GPIO_SPKR_I2S_TX_SCK		55
 #define GPIO_SPKR_I2S_TX_WS		56
 #define GPIO_SPKR_I2S_TX_DIN		57
-#define GPIO_AUDIO_MCLK_REV10			53
+#define GPIO_AUDIO_MCLK_REV10			59
 #define GPIO_AUDIO_MCLK			53
 #define GPIO_SPKR_I2S_RX_SCK		60
 #define GPIO_SPKR_I2S_RX_DOUT		61
 #define GPIO_SPKR_I2S_RX_WS		62
 
-#if defined (CONFIG_MACH_SERRANO_ATT) || defined(CONFIG_MACH_SERRANO_VZW)
+#if defined (CONFIG_MACH_SERRANO_ATT) || defined(CONFIG_MACH_SERRANO_VZW) || defined(CONFIG_MACH_SERRANO_LRA)
 #define GPIO_VPS_AMP_EN		PM8038_GPIO_PM_TO_SYS(14)
 #else
 #define GPIO_VPS_AMP_EN		0
@@ -107,7 +107,7 @@
 #define GPIO_BATT_INT                   2
 #if defined(CONFIG_MACH_SERRANO_ATT) || defined(CONFIG_MACH_SERRANO_TMO)\
 	|| defined(CONFIG_MACH_SERRANO_SPR) || defined(CONFIG_MACH_SERRANO_VZW)\
-	|| defined(CONFIG_MACH_SERRANO_USC)
+	|| defined(CONFIG_MACH_SERRANO_USC) || defined(CONFIG_MACH_SERRANO_LRA)
 #define GPIO_FUELGAUGE_I2C_SDA  69
 #define GPIO_FUELGAUGE_I2C_SCL  68
 #define GPIO_TA_nCHG			15
@@ -120,7 +120,7 @@
 #define GPIO_FPGA_RST_N			74
 #define GPIO_IRDA_IRQ			77
 #define GPIO_IRDA_EN			79
-#define GPIO_FPGA_CDONE 		80
+#define GPIO_FPGA_CDONE			80
 #define GPIO_CRESET_B			82
 
 /* SENSORS */
@@ -155,13 +155,19 @@
 #define PMIC_GPIO_2MIC_RST		11
 /*I2C BUS ID*/
 #define I2C_LEDS_BUS_ID			21
-#define GPIO_MAIN_MIC_BIAS_EN   66 
+#define GPIO_MAIN_MIC_BIAS_EN   66
 /* OTG */
 #define GPIO_OTG_TEST		150
 #define GPIO_OVP_CTRL		PM8038_GPIO_PM_TO_SYS(15)
 
 #if defined(CONFIG_WCD9304_CLK_9600)
 #define CLK_REVISION 0
+#endif
+#if defined(CONFIG_MACH_SERRANO)
+#define GPIO_LCD_BOOSTER_EN_EMUL                       39
+#define GPIO_LCD_BOOSTER_EN                      51
+#define GPIO_LCD_EN                      2
+#define GPIO_MLCD_RST                   58
 #endif
 /* gpio for changed list */
 enum {

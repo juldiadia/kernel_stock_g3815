@@ -413,6 +413,7 @@ static void rndis_response_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_rndis			*rndis = req->context;
 	struct usb_composite_dev	*cdev;
+
 	int				status = req->status;
 
 	if (!rndis->port.func.config || !rndis->port.func.config->cdev)
@@ -457,6 +458,7 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_rndis			*rndis = req->context;
 	struct usb_composite_dev	*cdev;
+
 	int				status;
 	rndis_init_msg_type		*buf;
 
@@ -850,7 +852,6 @@ rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	rndis_deregister(rndis->config);
 	rndis_exit();
-	rndis_string_defs[0].id = 0;
 
 	if (gadget_is_superspeed(c->cdev->gadget))
 		usb_free_descriptors(f->ss_descriptors);

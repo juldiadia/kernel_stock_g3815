@@ -20,7 +20,6 @@
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/pm.h>
-#include <linux/delay.h>
 
 /* MCS5000 Touchkey */
 #define MCS5000_TOUCHKEY_STATUS		0x04
@@ -141,15 +140,6 @@ static int __devinit mcs_touchkey_probe(struct i2c_client *client,
 		fw_reg = MCS5080_TOUCHKEY_FW;
 	}
 
-	/* Power has to be supplied before i2c communication.
-	     Don't power up at machine(board) file for stable init, 
-	     it causes some problem during warm booting as like factory test or ageing */
-	pdata->poweron(true);
-	msleep(100);	/* add sufficient delay more than spec w/ poweron rutine */
-
-	
-	printk(KERN_ERR "%s: ln:%d\n", __func__, __LINE__);
-
 	fw_ver = i2c_smbus_read_byte_data(client, fw_reg);
 	if (fw_ver < 0) {
 		error = fw_ver;
@@ -182,6 +172,10 @@ static int __devinit mcs_touchkey_probe(struct i2c_client *client,
 	if (pdata->cfg_pin)
 		pdata->cfg_pin();
 
+	if (pdata->poweron) {
+		data->poweron = pdata->poweron;
+		data->poweron(true);
+	}
 
 	error = request_threaded_irq(client->irq, NULL, mcs_touchkey_interrupt,
 			IRQF_TRIGGER_FALLING, client->dev.driver->name, data);

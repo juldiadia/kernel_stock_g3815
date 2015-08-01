@@ -20,8 +20,9 @@
 #if defined(CONFIG_MIPI_SAMSUNG_ESD_REFRESH)
 #include "mipi_samsung_esd_refresh.h"
 #endif
-#define LCD_PANEL_JDI	0x90
-#define LCD_PANEL_SHARP	0x98
+
+#define LCD_PANEL_JDI	90
+#define LCD_PANEL_SHARP	98
 
 #define DISP_BL_CONT_GPIO 10
 enum mipi_novatek_cmd_list {
@@ -118,6 +119,7 @@ int mipi_novatek_disp_device_register(struct msm_panel_info *pinfo,
 
 void reset_gamma_level(void);
 unsigned char bypass_LCD_Id(void);
+
 extern unsigned int g_lcd_id;
 
 #endif  /* MIPI_NOVATEK_BLUE_H */

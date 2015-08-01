@@ -94,7 +94,6 @@ static ssize_t booster_show(struct device *dev, struct device_attribute *attr,
 		break;
 	}
 
-	pr_info("booster: %s\n", booster);
 	return snprintf(buf,  sizeof(booster)+1, "%s\n", booster);
 }
 
@@ -144,26 +143,10 @@ static struct attribute_group host_notify_attr_grp = {
 	.attrs = host_notify_attrs,
 };
 
-char *host_state_string(int type)
-{
-	switch (type) {
-	case NOTIFY_HOST_NONE:			return "none";
-	case NOTIFY_HOST_ADD:			return "add";
-	case NOTIFY_HOST_REMOVE:		return "remove";
-	case NOTIFY_HOST_OVERCURRENT:	return "overcurrent";
-	case NOTIFY_HOST_LOWBATT:		return "lowbatt";
-	case NOTIFY_HOST_UNKNOWN:
-	default:	return "unknown";
-	}
-}
-
 void host_state_notify(struct host_notify_dev *ndev, int state)
 {
-	printk(KERN_INFO "host_notify: ndev name=%s: (%s --> %s)\n",
-		ndev->name,
-		host_state_string(ndev->state),
-		host_state_string(state));
-
+	printk(KERN_INFO "host_notify: ndev name=%s: from state=%d -> to state=%d\n",
+		ndev->name, ndev->state, state);
 	if (ndev->state != state) {
 		ndev->state = state;
 		kobject_uevent(&ndev->dev->kobj, KOBJ_CHANGE);

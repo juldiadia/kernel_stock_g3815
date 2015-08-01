@@ -918,16 +918,13 @@ int mpu6500_lp_set_delay(struct i2c_client *i2c_client, int current_delay)
 {
 	int result = 0;
 	unsigned short divider = 0;
-	unsigned char sample_divider = 0;
 	unsigned short fifo_divider = 0;
 
 	divider = (short)(current_delay / 1000) - 1;
 
 	if (divider > 4) {
-		sample_divider = 4;
 		fifo_divider = (unsigned short)((current_delay / 1000) / 5) - 1;
 	} else {
-		sample_divider = divider;
 		fifo_divider = 0;
 	}
 

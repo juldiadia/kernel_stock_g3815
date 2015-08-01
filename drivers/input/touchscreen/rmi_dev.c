@@ -520,6 +520,7 @@ static int rmidev_init_device(struct synaptics_rmi4_data *rmi4_data)
 	int retval;
 	dev_t dev_no;
 	unsigned char attr_count;
+	int attr_count_num;
 	struct rmidev_data *dev_data;
 	struct device *device_ptr;
 
@@ -660,7 +661,8 @@ static int rmidev_init_device(struct synaptics_rmi4_data *rmi4_data)
 	return 0;
 
 err_sysfs_attrs:
-	for (attr_count--; attr_count >= 0; attr_count--)
+	attr_count_num = (int)attr_count;
+	for (attr_count_num--; attr_count_num >= 0; attr_count_num--)
 		sysfs_remove_file(rmidev->sysfs_dir, &attrs[attr_count].attr);
 
 	sysfs_remove_bin_file(rmidev->sysfs_dir, &attr_data);

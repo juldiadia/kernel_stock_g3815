@@ -484,10 +484,10 @@ skip_mem:
 	return (void *)ninfo;
 
 err:
-	for (i = 0; i < NUM_CTX; i++) {
+	for(i = 0 ; i < NUM_CTX ; i++) {
 		if (ninfo->cdata[i].mas)
 			kfree(ninfo->cdata[i].mas);
-		if (ninfo->cdata[i].slv)
+		if(ninfo->cdata[i].slv)
 			kfree(ninfo->cdata[i].slv);
 	}
 	kfree(ninfo->mas_modes);

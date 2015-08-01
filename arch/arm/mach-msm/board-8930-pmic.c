@@ -19,10 +19,11 @@
 #include <mach/msm_bus_board.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
-#include <mach/msm8930-gpio.h>
 #include "devices.h"
 #include "board-8930.h"
+#ifdef CONFIG_PM8921_SEC_CHARGER
 #include <linux/mfd/pm8xxx/pm8921-sec-charger.h>
+#endif
 
 struct pm8xxx_gpio_init {
 	unsigned			gpio;
@@ -144,23 +145,15 @@ struct pm8xxx_mpp_init {
 			PM_GPIO_STRENGTH_HIGH, \
 			PM_GPIO_FUNC_NORMAL, 0, 0)
 
-#define PM8917_GPIO_VIN_PAIRED(_gpio, _direction, _vin) \
-	PM8917_GPIO_INIT(_gpio, _direction, PM_GPIO_OUT_BUF_CMOS, 0, \
-			PM_GPIO_PULL_NO, _vin, \
-			PM_GPIO_STRENGTH_HIGH, \
-			PM_GPIO_FUNC_PAIRED, 0, 0)			
-
 /* GPIO and MPP configurations for MSM8930 + PM8038 targets */
 
 /* Initial PM8038 GPIO configurations */
 static struct pm8xxx_gpio_init pm8038_gpios[] __initdata = {
-	/* SD Card Detect Pin on PMIC GPIO */
-#ifdef PMIC_GPIO_SD_CARD_DET_N
-	PM8038_GPIO_INPUT(1, PM_GPIO_PULL_NO),
-#elif defined(PMIC_GPIO_BACKLIGHT_PWM)
-	PM8038_GPIO_OUTPUT_FUNC(1, 0, PM_GPIO_FUNC_1),
-#endif
 	/* keys GPIOs */
+	PM8038_GPIO_INPUT(3, PM_GPIO_PULL_UP_30),
+	PM8038_GPIO_INPUT(8, PM_GPIO_PULL_UP_30),
+	PM8038_GPIO_INPUT(10, PM_GPIO_PULL_UP_30),
+	PM8038_GPIO_INPUT(11, PM_GPIO_PULL_UP_30),
 	/* haptics gpio */
 	PM8038_GPIO_OUTPUT_FUNC(7, 0, PM_GPIO_FUNC_1),
 	/* MHL PWR EN */
@@ -177,49 +170,22 @@ static struct pm8xxx_mpp_init pm8038_mpps[] __initdata = {
 
 /* Initial PM8917 GPIO configurations */
 static struct pm8xxx_gpio_init pm8917_gpios[] __initdata = {
-	/* SD Card Detect Pin on PMIC GPIO */
-#ifdef PMIC_GPIO_SD_CARD_DET_N
-	PM8917_GPIO_INPUT(1, PM_GPIO_PULL_NO),
-#endif
+	/* Backlight enable control */
+	//PM8917_GPIO_OUTPUT(24, 1),
 	/* keys GPIOs */
-#if defined(CONFIG_KEYBOARD_MATRIX)
-	PM8917_GPIO_INPUT(1, PM_GPIO_PULL_UP_31P5),
-	PM8917_GPIO_INPUT(2, PM_GPIO_PULL_UP_31P5),
-	PM8917_GPIO_INPUT(3, PM_GPIO_PULL_UP_31P5),
-	PM8917_GPIO_INPUT(4, PM_GPIO_PULL_UP_31P5),
-	PM8917_GPIO_INPUT(6, PM_GPIO_PULL_UP_31P5),
-
-	PM8917_GPIO_OUTPUT_FUNC(11, 0, PM_GPIO_FUNC_NORMAL),
-	PM8917_GPIO_OUTPUT_FUNC(13, 0, PM_GPIO_FUNC_NORMAL),
-	PM8917_GPIO_OUTPUT_FUNC(14, 0, PM_GPIO_FUNC_NORMAL),
-	PM8917_GPIO_OUTPUT_FUNC(16, 0, PM_GPIO_FUNC_NORMAL),
-	PM8917_GPIO_OUTPUT_FUNC(17, 0, PM_GPIO_FUNC_NORMAL),
-#endif
-#if defined(CONFIG_KEYBOARD_PMIC8XXX)
-	PM8917_GPIO_INPUT(1, PM_GPIO_PULL_UP_31P5),
-	PM8917_GPIO_INPUT(2, PM_GPIO_PULL_UP_31P5),
-	PM8917_GPIO_INPUT(3, PM_GPIO_PULL_UP_31P5),
-	PM8917_GPIO_INPUT(4, PM_GPIO_PULL_UP_31P5),
-	PM8917_GPIO_INPUT(5, PM_GPIO_PULL_UP_31P5),
-
-	PM8917_GPIO_OUTPUT_FUNC(9, 0, PM_GPIO_FUNC_NORMAL),
-	PM8917_GPIO_OUTPUT_FUNC(10, 0, PM_GPIO_FUNC_NORMAL),
-	PM8917_GPIO_OUTPUT_FUNC(11, 0, PM_GPIO_FUNC_NORMAL),
-	PM8917_GPIO_OUTPUT_FUNC(12, 0, PM_GPIO_FUNC_NORMAL),
-	PM8917_GPIO_OUTPUT_FUNC(13, 0, PM_GPIO_FUNC_NORMAL),
-#endif
+	//PM8917_GPIO_INPUT(27, PM_GPIO_PULL_UP_30),
+	//PM8917_GPIO_INPUT(28, PM_GPIO_PULL_UP_30),
+	//PM8917_GPIO_INPUT(36, PM_GPIO_PULL_UP_30),
+	//PM8917_GPIO_INPUT(37, PM_GPIO_PULL_UP_30),
+	/* haptics gpio */
+	//PM8917_GPIO_OUTPUT_FUNC(38, 0, PM_GPIO_FUNC_2),
+	/* MHL PWR EN */
+	//PM8917_GPIO_OUTPUT_VIN(25, 1, PM_GPIO_VIN_VPH),
 };
-
-#if defined(CONFIG_MACH_MELIUS_CHN_CTC)
-static struct pm8xxx_gpio_init pm8917_gpios_uart_paired[] __initdata = {
-	PM8917_GPIO_VIN_PAIRED(8,PM_GPIO_DIR_OUT,PM_GPIO_VIN_S4),
-	PM8917_GPIO_VIN_PAIRED(9,PM_GPIO_DIR_IN,PM_GPIO_VIN_S4),
-};
-#endif
 
 /* Initial PM8917 MPP configurations */
 static struct pm8xxx_mpp_init pm8917_mpps[] __initdata = {
-	/* Configuration for reading pa_therm1(MPP_08)*/						
+	/* Configuration for reading pa_therm1(MPP_08)*/
 #if defined(CONFIG_MACH_MELIUS)
 		PM8917_MPP_INIT(9, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8, AOUT_CTRL_DISABLE),
 #else
@@ -256,9 +222,6 @@ void __init msm8930_pm8038_gpio_mpp_init(void)
 	}
 }
 
-#if defined(CONFIG_MACH_MELIUS_CHN_CTC)
-extern unsigned int system_rev;
-#endif
 void __init msm8930_pm8917_gpio_mpp_init(void)
 {
 	int i, rc;
@@ -272,18 +235,6 @@ void __init msm8930_pm8917_gpio_mpp_init(void)
 		}
 	}
 
-#if defined(CONFIG_MACH_MELIUS_CHN_CTC)
-	if(system_rev == 0x09) {
-		for (i = 0; i < ARRAY_SIZE(pm8917_gpios_uart_paired); i++) {
-			rc = pm8xxx_gpio_config(pm8917_gpios_uart_paired[i].gpio,
-						&pm8917_gpios_uart_paired[i].config);
-			if (rc) {
-				pr_err("%s: pm8917_gpios_uart_paired: rc=%d\n", __func__, rc);
-				break;
-			}
-		}
-	}
-#endif
 	/* Initial MPP configuration. */
 	for (i = 0; i < ARRAY_SIZE(pm8917_mpps); i++) {
 		rc = pm8xxx_mpp_config(pm8917_mpps[i].mpp,
@@ -375,60 +326,6 @@ static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
 	.wakeup			= 1,
 };
 
-#ifdef CONFIG_KEYBOARD_PMIC8XXX
-static const unsigned int pm8xxx_keymap[] = {
-/* KEY(row, col, keycode) */
-/* row = scan, col - sense */
-KEY(0, 0, KEY_SEND), 
-KEY(0, 1, KEY_BACKSPACE),
-KEY(0, 2, KEY_HOMEPAGE),
-KEY(0, 3, KEY_CAMERA),	
-KEY(0, 4, KEY_ENTER), 
-
-KEY(1, 0, KEY_1), 
-KEY(1, 1, KEY_2),	
-KEY(1, 2, KEY_3), 
-KEY(1, 3, KEY_RIGHT),
-KEY(1, 4, KEY_DOWN), 
-
-KEY(2, 0, KEY_4), 
-KEY(2, 1, KEY_5), 
-KEY(2, 2, KEY_6), 
-KEY(2, 3, KEY_BACK),
-KEY(2, 4, KEY_LEFT), 
-
-KEY(3, 0, KEY_7), 
-KEY(3, 1, KEY_8), 
-KEY(3, 2, KEY_9), 
-KEY(3, 3, KEY_UP),
-
-KEY(4, 0, KEY_NUMERIC_STAR),
-KEY(4, 1, KEY_0),
-KEY(4, 2, KEY_NUMERIC_POUND),
-KEY(4, 3, KEY_MENU), 
-};
-
-static struct matrix_keymap_data pm8xxx_keymap_data = {
-	.keymap_size	= ARRAY_SIZE(pm8xxx_keymap),
-	.keymap			= pm8xxx_keymap,
-};
-
-static struct pm8xxx_keypad_platform_data pm8xxx_keypad_pdata = {
-	.input_name			= "ks02_3x4_keypad",
-	.input_phys_device	= "ks02_3x4/input0",
-	.num_rows			= 5,
-	.num_cols			= 5,	
-	.rows_gpio_start	= PM8917_GPIO_PM_TO_SYS(9),
-	.cols_gpio_start	= PM8917_GPIO_PM_TO_SYS(1),
-	.debounce_ms		= 15,
-	.scan_delay_ms		= 32,
-	.row_hold_ns		= 91500,
-	.wakeup 			= 1,
-	.keymap_data		= &pm8xxx_keymap_data,
-};
-#endif
-
-
 static int pm8921_therm_mitigation[] = {
 	1100,
 	700,
@@ -436,6 +333,8 @@ static int pm8921_therm_mitigation[] = {
 	325,
 };
 
+#if defined(CONFIG_MACH_SERRANO) || defined(CONFIG_MACH_CANE)
+/* define structure and parameters for SERRANO PMIC internal charger*/
 /* it has to be matched with cable_type_t */
 static struct pm8921_charging_current charging_current_table[] = {
 		{ 0,			0},		/* NONE */
@@ -515,7 +414,7 @@ static struct pm8921_sec_battery_data pm8921_battery_pdata __devinitdata = {
 	.capacity_max_margin = 50,
 	.capacity_min = 0,
 
-#if defined(CONFIG_MACH_WILCOX_EUR_LTE)
+#if defined(CONFIG_MACH_CANE_EUR_3G)
 	.ui_term_current = 150,
 #else
 	.ui_term_current = 130,
@@ -532,11 +431,13 @@ static struct pm8921_sec_battery_data pm8921_battery_pdata __devinitdata = {
 bool sec_bat_is_lpm(void) {return (bool)poweroff_charging; }
 #endif
 
-#define R_CONN	45	
+#define R_CONN	45
 #define R_SENSE 10000
 
 #define MAX_VOLTAGE_MV		4350
+
 #define CHG_TERM_MA		60
+
 static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.safety_time		= 512,
 	.update_time		= 60000,
@@ -555,7 +456,7 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 #endif
 	.max_voltage		= MAX_VOLTAGE_MV,
 	.min_voltage		= 3400,
-#if defined(CONFIG_MACH_WILCOX_EUR_LTE) || defined(CONFIG_MACH_LOGANRE_EUR_LTE)
+#if defined(CONFIG_MACH_WILCOX_EUR_LTE) || defined(CONFIG_MACH_LOGANRE_EUR_LTE) || defined(CONFIG_MACH_CANE_EUR_3G)
 	.weak_voltage	= 2800,
 #else
 	.weak_voltage	= 3200,
@@ -582,6 +483,35 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.dc_unplug_check	= true,
 	.batt_pdata		= &pm8921_battery_pdata,
 };
+#else
+/* All other MSM8930 based models */
+#define MAX_VOLTAGE_MV		4200
+#define CHG_TERM_MA		100
+static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
+	.update_time		= 60000,
+	.max_voltage		= MAX_VOLTAGE_MV,
+	.min_voltage		= 3200,
+	.uvd_thresh_voltage	= 4050,
+	.alarm_low_mv		= 3400,
+	.alarm_high_mv		= 4000,
+	.resume_voltage_delta	= 60,
+	.resume_charge_percent	= 99,
+	.term_current		= CHG_TERM_MA,
+	.cool_temp		= 10,
+	.warm_temp		= 45,
+	.temp_check_period	= 1,
+	.max_bat_chg_current	= 1100,
+	.cool_bat_chg_current	= 350,
+	.warm_bat_chg_current	= 350,
+	.cool_bat_voltage	= 4100,
+	.warm_bat_voltage	= 4100,
+	.thermal_mitigation	= pm8921_therm_mitigation,
+	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
+	.led_src_config		= LED_SRC_VPH_PWR,
+	.rconn_mohm		= 18,
+};
+#endif
+
 
 static struct pm8xxx_vibrator_platform_data pm8038_vib_pdata = {
 	.initial_vibrate_ms = 500,
@@ -621,7 +551,7 @@ static struct wled_config_data wled_cfg = {
 	.cs_out_en = true,
 	.ctrl_delay_us = 0,
 	.op_fdbck = true,
-	.ovp_val = WLED_OVP_32V,
+	.ovp_val = WLED_OVP_35V,
 	.boost_curr_lim = WLED_CURR_LIMIT_525mA,
 	.num_strings = 1,
 };
@@ -688,9 +618,8 @@ static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
 };
 
 static struct pm8xxx_ccadc_platform_data pm8xxx_ccadc_pdata = {
-	.r_sense_uohm		= R_SENSE,
+	.r_sense_uohm		= 10000,
 	.calib_delay_ms		= 600000,
-	.periodic_wakeup		= true,
 };
 
 static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
@@ -705,7 +634,7 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 
 static struct pm8xxx_spk_platform_data pm8xxx_spk_pdata = {
 	.spk_add_enable		= false,
-	.cd_ng_threshold	= 0x6,
+	.cd_ng_threshold	= 0x0,
 	.cd_nf_preamp_bias	= 0x1,
 	.cd_ng_hold		= 0x6,
 	.cd_ng_max_atten	= 0x0,
@@ -716,26 +645,25 @@ static struct pm8xxx_spk_platform_data pm8xxx_spk_pdata = {
 };
 
 static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
-	.battery_type			= BATT_SEC,
-	.r_sense_uohm			= R_SENSE,
+	.battery_type			= BATT_UNKNOWN,
+	.r_sense_uohm			= 10000,
 	.v_cutoff			= 3400,
 	.max_voltage_uv			= MAX_VOLTAGE_MV * 1000,
 	.shutdown_soc_valid_limit	= 20,
 	.adjust_soc_low_threshold	= 25,
 	.chg_term_ua			= CHG_TERM_MA * 1000,
-	.rconn_mohm			= R_CONN,
+	.rconn_mohm			= 18,
 	.normal_voltage_calc_ms		= 20000,
 	.low_voltage_calc_ms		= 1000,
-	.disable_flat_portion_ocv = 1,
-	.ocv_dis_high_soc = 99,
-	.ocv_dis_low_soc = 1,
-	.alarm_low_mv		= 3400,
-	.alarm_high_mv		= 4000,
-	.high_ocv_correction_limit_uv		= 100,
-	.low_ocv_correction_limit_uv		= 150,
-	.cutoff_ocv_correction_uv	= 200,
-	.hold_soc_est				= 3,
-	.get_board_rev		= msm8930_get_board_rev,
+	.alarm_low_mv			= 3400,
+	.alarm_high_mv			= 4000,
+	.high_ocv_correction_limit_uv	= 50,
+	.low_ocv_correction_limit_uv	= 100,
+	.hold_soc_est			= 3,
+	.enable_fcc_learning		= 1,
+	.min_fcc_learning_soc		= 20,
+	.min_fcc_ocv_pc			= 30,
+	.min_fcc_learning_samples	= 5,
 };
 
 static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
@@ -799,13 +727,9 @@ static struct pm8xxx_adc_amux pm8917_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
 	{"dev_mpp_3", ADC_MPP_1_AMUX6, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_SEC_BOARD_THERM},  /*main_thm */
-#if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_GOLDEN_VZW)
+#if defined(CONFIG_MACH_MELIUS)
 	{"dev_mpp_8", ADC_MPP_2_AMUX6, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},  /*vf_adc*/
-#endif
-#if defined(CONFIG_MACH_BISCOTTO)
-	{"dev_mpp_7", ADC_MPP_2_AMUX6, CHAN_PATH_SCALING1, AMUX_RSV1,
-		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},  /*charging current*/
 #endif
 #ifdef CONFIG_SAMSUNG_JACK
 #ifdef CONFIG_SAMSUNG_JACK_ADC_SCALE3
@@ -843,9 +767,6 @@ static struct pm8921_platform_data pm8917_platform_data __devinitdata = {
 	.bms_pdata		= &pm8921_bms_pdata,
 	.adc_pdata		= &pm8917_adc_pdata,
 	.ccadc_pdata		= &pm8xxx_ccadc_pdata,
-#if defined(CONFIG_KEYBOARD_PMIC8XXX)
-	.keypad_pdata		= &pm8xxx_keypad_pdata,			
-#endif
 };
 
 static struct msm_ssbi_platform_data msm8930_ssbi_pm8917_pdata __devinitdata = {
@@ -860,25 +781,24 @@ void __init msm8930_init_pmic(void)
 {
 	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917) {
 		/* PM8038 configuration */
-#if !defined (CONFIG_SEC_DISABLE_HARDRESET)	
 		pmic_reset_irq = PM8038_IRQ_BASE + PM8038_RESOUT_IRQ;
-#endif	
 		msm8960_device_ssbi_pmic.dev.platform_data =
 					&msm8930_ssbi_pm8038_pdata;
 		pm8038_platform_data.num_regulators
 			= msm8930_pm8038_regulator_pdata_len;
-		if (machine_is_msm8930_mtp())
+		if (machine_is_msm8930_mtp() || machine_is_msm8930_evt())
 			pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
 		else if (machine_is_msm8930_cdp())
 			pm8921_chg_pdata.has_dc_supply = true;
-		if (machine_is_msm8930_evt())
+		if (machine_is_msm8930_evt()) {
 			pm8038_platform_data.vibrator_pdata =
 				&pm8038_vib_pdata;
+			pm8038_platform_data.leds_pdata->configs[0]
+					.wled_cfg->comp_res_val = 80;
+		}
 	} else {
 		/* PM8917 configuration */
-#if !defined (CONFIG_SEC_DISABLE_HARDRESET)		
 		pmic_reset_irq = PM8917_IRQ_BASE + PM8921_RESOUT_IRQ;
-#endif		
 		msm8960_device_ssbi_pmic.dev.platform_data =
 					&msm8930_ssbi_pm8917_pdata;
 		pm8917_platform_data.num_regulators
@@ -889,6 +809,6 @@ void __init msm8930_init_pmic(void)
 			pm8921_chg_pdata.has_dc_supply = true;
 	}
 
-	if (!machine_is_msm8930_mtp())
+	if (!machine_is_msm8930_mtp() && !machine_is_msm8930_evt())
 		pm8921_chg_pdata.battery_less_hardware = 1;
 }

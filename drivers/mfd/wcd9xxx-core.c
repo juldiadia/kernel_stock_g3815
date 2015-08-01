@@ -20,6 +20,7 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
+#include <linux/mfd/pm8xxx/pm8921.h>
 #if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_KS02) || defined(CONFIG_MACH_LT02_CHN_CTC)
 #include <linux/mfd/pm8xxx/pm8921.h>
 #endif
@@ -116,6 +117,7 @@ static int wcd9xxx_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		pr_err("%s: Error, invalid write length\n", __func__);
 		return -EINVAL;
 	}
+
 	dev_dbg(wcd9xxx->dev, "Write %02x to 0x%x\n",
 		 *buf, reg);
 
@@ -301,10 +303,13 @@ static struct wcd9xx_codec_type {
 	 SITAR_NUM_IRQS},
 	{{0x2, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
 	 SITAR_NUM_IRQS},
+	 
 	{{0x0, 0x0, 0x3, 0x1}, tapan_devs, ARRAY_SIZE(tapan_devs),
+	
 	 TAPAN_NUM_IRQS},
 	{{0x1, 0x0, 0x3, 0x1}, tapan_devs, ARRAY_SIZE(tapan_devs),
 	 TAPAN_NUM_IRQS},	 
+	 
 };
 
 static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
@@ -327,8 +332,13 @@ static void wcd9xxx_bring_down(struct wcd9xxx *wcd9xxx)
 static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 {
 	int ret;
-#if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_KS02) \
-	|| defined(CONFIG_MACH_LT02_CHN_CTC)
+#if defined(CONFIG_ARCH_MSM8930) || defined(CONFIG_MACH_KS02) \
+	|| defined(CONFIG_MACH_LT02_CHN_CTC) || defined(CONFIG_ARCH_MSM8960)
+#if !defined(CONFIG_MACH_SERRANO_EUR_LTE) && !defined(CONFIG_MACH_SERRANO_ATT) && !defined(CONFIG_MACH_GOLDEN_VZW) \
+	&& !defined(CONFIG_MACH_SERRANO_VZW) && !defined(CONFIG_MACH_SERRANO_SPR) && !defined (CONFIG_MACH_SERRANO_USC) \
+	&& !defined(CONFIG_MACH_SERRANO_LRA) && !defined(CONFIG_MACH_LT02_ATT) && !defined(CONFIG_MACH_GOLDEN_ATT) \
+	&& !defined(CONFIG_MACH_LT02_SPR) && !defined(CONFIG_MACH_LT02_TMO) && !defined(CONFIG_MACH_LT02_XX) \
+	&&!defined(CONFIG_MACH_WILCOX_EUR_LTE) && !defined(CONFIG_MACH_SERRANO_EUR_3G)
     struct pm_gpio param = {
         .direction      = PM_GPIO_DIR_OUT,
         .output_buffer  = PM_GPIO_OUT_BUF_CMOS,
@@ -338,6 +348,7 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
         .out_strength   = PM_GPIO_STRENGTH_MED,
         .function       = PM_GPIO_FUNC_NORMAL,
     };
+#endif //CONFIG_MACH_SERRANO_EUR_LTE
 #endif
 	if (wcd9xxx->reset_gpio) {
 		ret = gpio_request(wcd9xxx->reset_gpio, "CDC_RESET");
@@ -347,8 +358,13 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 			wcd9xxx->reset_gpio = 0;
 			return ret;
 		}
-#if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_KS02) \
-	|| defined(CONFIG_MACH_LT02_CHN_CTC)
+#if defined(CONFIG_ARCH_MSM8930) || defined(CONFIG_MACH_KS02) \
+	|| defined(CONFIG_MACH_LT02_CHN_CTC) || defined(CONFIG_ARCH_MSM8960)
+#if !defined(CONFIG_MACH_SERRANO_EUR_LTE) && !defined(CONFIG_MACH_SERRANO_ATT) && !defined(CONFIG_MACH_GOLDEN_VZW) \
+	&& !defined(CONFIG_MACH_SERRANO_VZW) && !defined(CONFIG_MACH_SERRANO_SPR) && !defined (CONFIG_MACH_SERRANO_USC) \
+	&& !defined(CONFIG_MACH_SERRANO_LRA) && !defined(CONFIG_MACH_LT02_ATT) && !defined(CONFIG_MACH_GOLDEN_ATT) \
+	&& !defined(CONFIG_MACH_LT02_SPR) && !defined(CONFIG_MACH_LT02_TMO) && !defined(CONFIG_MACH_LT02_XX) \
+	&& !defined(CONFIG_MACH_WILCOX_EUR_LTE) && !defined(CONFIG_MACH_SERRANO_EUR_3G)
         ret = pm8xxx_gpio_config
             (wcd9xxx->reset_gpio, &param);
         if (ret) {
@@ -357,7 +373,9 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
             wcd9xxx->reset_gpio = 0;
             return ret;
         }
+#endif //CONFIG_MACH_SERRANO_EUR_LTE		
 #else
+#if !defined(CONFIG_MACH_JF)
 		ret = gpio_tlmm_config
 			(GPIO_CFG(wcd9xxx->reset_gpio,
 			0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
@@ -368,6 +386,7 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 			wcd9xxx->reset_gpio = 0;
 			return ret;
 		}
+#endif
 #endif
 		gpio_direction_output(wcd9xxx->reset_gpio, 0);
 		msleep(20);
@@ -434,7 +453,7 @@ exit:
 	return ret;
 }
 
-static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
+static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 {
 	int ret;
 	struct mfd_cell *wcd9xxx_dev = NULL;
@@ -458,7 +477,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 				       &wcd9xxx->num_irqs);
 	if (ret < 0)
 		goto err_irq;
-#if 0
+#if defined(CONFIG_MACH_JF)
 	if (wcd9xxx->irq != -1) {
 		ret = wcd9xxx_irq_init(wcd9xxx);
 		if (ret) {
@@ -467,6 +486,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 		}
 	}
 #endif
+		
 	ret = mfd_add_devices(wcd9xxx->dev, -1, wcd9xxx_dev, wcd9xxx_dev_size,
 			      NULL, 0);
 	if (ret != 0) {
@@ -476,7 +496,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 	return ret;
 err_irq:
 	wcd9xxx_irq_exit(wcd9xxx);
-#if 0
+#if defined(CONFIG_MACH_JF)
 err:
 #endif
 	wcd9xxx_bring_down(wcd9xxx);
@@ -603,8 +623,8 @@ static const struct file_operations codec_debug_ops = {
 };
 #endif
 
-static int wcd9xxx_init_supplies(struct wcd9xxx *wcd9xxx,
-				 struct wcd9xxx_pdata *pdata)
+static int wcd9xxx_enable_supplies(struct wcd9xxx *wcd9xxx,
+				struct wcd9xxx_pdata *pdata)
 {
 	int ret;
 	int i;
@@ -662,8 +682,21 @@ static int wcd9xxx_init_supplies(struct wcd9xxx *wcd9xxx,
 		}
 	}
 
+	ret = regulator_bulk_enable(wcd9xxx->num_of_supplies,
+				    wcd9xxx->supplies);
+	if (ret != 0) {
+		dev_err(wcd9xxx->dev, "Failed to enable supplies: err = %d\n",
+				ret);
+		goto err_configure;
+	}
 	return ret;
 
+err_configure:
+	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
+		regulator_set_voltage(wcd9xxx->supplies[i].consumer, 0,
+			pdata->regulator[i].max_uV);
+		regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer, 0);
+	}
 err_get:
 	regulator_bulk_free(wcd9xxx->num_of_supplies, wcd9xxx->supplies);
 err_supplies:
@@ -720,7 +753,6 @@ enum wcd9xxx_intf_status wcd9xxx_get_intf_type(void)
 {
 	return wcd9xxx_intf;
 }
-
 EXPORT_SYMBOL_GPL(wcd9xxx_get_intf_type);
 
 struct wcd9xxx_i2c *get_i2c_wcd9xxx_device_info(u16 reg)
@@ -729,6 +761,7 @@ struct wcd9xxx_i2c *get_i2c_wcd9xxx_device_info(u16 reg)
 	int value = 0;
 	struct wcd9xxx_i2c *wcd9xxx = NULL;
 	value = ((reg & mask) >> 8) & 0x000f;
+
 	switch (value) {
 	case 0:
 		wcd9xxx = &wcd9xxx_modules[0];
@@ -745,6 +778,7 @@ struct wcd9xxx_i2c *get_i2c_wcd9xxx_device_info(u16 reg)
 	default:
 		break;
 	}
+
 	return wcd9xxx;
 }
 
@@ -781,7 +815,7 @@ int wcd9xxx_i2c_write_device(u16 reg, u8 *value,
 			return ret;
 		}
 	}
-//	pr_debug("write sucess register = %x val = %x\n", reg, data[1]);
+	pr_debug("write sucess register = %x val = %x\n", reg, data[1]);
 	return 0;
 }
 
@@ -886,8 +920,8 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 	int i2c_mode = 0;
 	int wcd9xx_index = 0;
 	struct device *dev;
-
-	pr_debug("%s: interface status %d\n", __func__, wcd9xxx_intf);
+	
+	pr_info("%s: interface status %d\n", __func__, wcd9xxx_intf);
 	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		dev_dbg(&client->dev, "%s:Codec is detected in slimbus mode\n",
 			__func__);
@@ -939,7 +973,7 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 		wcd9xxx->reset_gpio = pdata->reset_gpio;
 		wcd9xxx->mclk_rate = pdata->mclk_rate;
 
-		ret = wcd9xxx_init_supplies(wcd9xxx, pdata);
+		ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
 
 		if (ret) {
 			pr_err("%s: Fail to enable Codec supplies\n",
@@ -974,7 +1008,7 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 			wcd9xxx->irq_base = pdata->irq_base;
 		}
 
-		ret = wcd9xxx_device_init(wcd9xxx);
+		ret = wcd9xxx_device_init(wcd9xxx, wcd9xxx->irq);
 		if (ret) {
 			pr_err("%s: error, initializing device failed\n",
 			       __func__);
@@ -999,8 +1033,6 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 		return ret;
 	} else
 		pr_err("%s: I2C probe in wrong state\n", __func__);
-
-
 err_device_init:
 	wcd9xxx_free_reset(wcd9xxx);
 err_supplies:
@@ -1022,6 +1054,7 @@ static int __devexit wcd9xxx_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
+#define CODEC_DT_MAX_PROP_SIZE   40
 static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
 	struct wcd9xxx_regulator *vreg, const char *vreg_name)
 {
@@ -1244,10 +1277,10 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	char **codec_supplies;
 	u32 num_of_supplies = 0;
 	u32 mclk_rate = 0;
-
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+		dev_err(dev,
+			"could not allocate memory for platform data\n");
 		return NULL;
 	}
 	if (!strcmp(dev_name(dev), "taiko-slim-pgd") ||
@@ -1331,7 +1364,6 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	struct wcd9xxx *wcd9xxx;
 	struct wcd9xxx_pdata *pdata;
 	int ret = 0;
-
 	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_I2C) {
 		dev_dbg(&slim->dev, "%s:Codec is detected in I2C mode\n",
 			__func__);
@@ -1378,7 +1410,7 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	wcd9xxx->dev = &slim->dev;
 	wcd9xxx->mclk_rate = pdata->mclk_rate;
 
-	ret = wcd9xxx_init_supplies(wcd9xxx, pdata);
+	ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
 	if (ret) {
 		pr_err("%s: Fail to init Codec supplies %d\n", __func__, ret);
 		goto err_codec;
@@ -1389,7 +1421,6 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 			   __func__);
 		goto err_codec;
 	}
-
 	usleep_range(5, 5);
 
 	ret = wcd9xxx_reset(wcd9xxx);
@@ -1433,11 +1464,14 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	wcd9xxx_inf_la = wcd9xxx->slim_slave->laddr;
 	wcd9xxx_intf = WCD9XXX_INTERFACE_TYPE_SLIMBUS;
 
-	ret = wcd9xxx_device_init(wcd9xxx);
+	ret = wcd9xxx_device_init(wcd9xxx, wcd9xxx->irq);
 	if (ret) {
 		pr_err("%s: error, initializing device failed\n", __func__);
 		goto err_slim_add;
 	}
+
+	wcd9xxx_init_slimslave(wcd9xxx, wcd9xxx_pgd_la);
+
 #ifdef CONFIG_DEBUG_FS
 	debugCodec = wcd9xxx;
 
@@ -1727,7 +1761,6 @@ static struct i2c_driver wcd9xxx_i2c_driver = {
 static int __init wcd9xxx_init(void)
 {
 	int ret1, ret2, ret3, ret4, ret5, ret6, ret7;
-
 	wcd9xxx_intf = WCD9XXX_INTERFACE_TYPE_PROBING;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);

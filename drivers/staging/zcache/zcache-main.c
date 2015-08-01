@@ -704,19 +704,19 @@ static struct zv_hdr *zv_create(struct zs_pool *pool, uint32_t pool_id,
 
 	BUG_ON(!irqs_disabled());
 	BUG_ON(chunks >= NCHUNKS);
-	handle = (void *)zs_malloc(pool, size);
+	handle = zs_malloc(pool, size);
 	if (!handle)
 		goto out;
 	atomic_inc(&zv_curr_dist_counts[chunks]);
 	atomic_inc(&zv_cumul_dist_counts[chunks]);
-	zv = zs_map_object(pool, (unsigned long)handle, ZS_MM_RW);
+	zv = zs_map_object(pool, handle);
 	zv->index = index;
 	zv->oid = *oid;
 	zv->pool_id = pool_id;
 	zv->size = clen;
 	SET_SENTINEL(zv, ZVH);
 	memcpy((char *)zv + sizeof(struct zv_hdr), cdata, clen);
-	zs_unmap_object(pool, (unsigned long)handle);
+	zs_unmap_object(pool, handle);
 out:
 	return handle;
 }
@@ -728,18 +728,18 @@ static void zv_free(struct zs_pool *pool, void *handle)
 	uint16_t size;
 	int chunks;
 
-	zv = zs_map_object(pool, (unsigned long)handle, ZS_MM_RW);
+	zv = zs_map_object(pool, handle);
 	ASSERT_SENTINEL(zv, ZVH);
 	size = zv->size + sizeof(struct zv_hdr);
 	INVERT_SENTINEL(zv, ZVH);
-	zs_unmap_object(pool, (unsigned long)handle);
+	zs_unmap_object(pool, handle);
 
 	chunks = (size + (CHUNK_SIZE - 1)) >> CHUNK_SHIFT;
 	BUG_ON(chunks >= NCHUNKS);
 	atomic_dec(&zv_curr_dist_counts[chunks]);
 
 	local_irq_save(flags);
-	zs_free(pool, (unsigned long)handle);
+	zs_free(pool, handle);
 	local_irq_restore(flags);
 }
 
@@ -750,14 +750,14 @@ static void zv_decompress(struct page *page, void *handle)
 	int ret;
 	struct zv_hdr *zv;
 
-	zv = zs_map_object(zcache_host.zspool, (unsigned long)handle, ZS_MM_RW);
+	zv = zs_map_object(zcache_host.zspool, handle);
 	BUG_ON(zv->size == 0);
 	ASSERT_SENTINEL(zv, ZVH);
 	to_va = kmap_atomic(page);
 	ret = zcache_comp_op(ZCACHE_COMPOP_DECOMPRESS, (char *)zv + sizeof(*zv),
 				zv->size, to_va, &clen);
 	kunmap_atomic(to_va);
-	zs_unmap_object(zcache_host.zspool, (unsigned long)handle);
+	zs_unmap_object(zcache_host.zspool, handle);
 	BUG_ON(ret);
 	BUG_ON(clen != PAGE_SIZE);
 }
@@ -1835,7 +1835,7 @@ static int zcache_frontswap_poolid = -1;
  * Swizzling increases objects per swaptype, increasing tmem concurrency
  * for heavy swaploads.  Later, larger nr_cpus -> larger SWIZ_BITS
  * Setting SWIZ_BITS to 27 basically reconstructs the swap entry from
- * frontswap_get_page(), but has side-effects. Hence using 8.
+ * frontswap_load(), but has side-effects. Hence using 8.
  */
 #define SWIZ_BITS		8
 #define SWIZ_MASK		((1 << SWIZ_BITS) - 1)
@@ -1849,7 +1849,7 @@ static inline struct tmem_oid oswiz(unsigned type, u32 ind)
 	return oid;
 }
 
-static int zcache_frontswap_put_page(unsigned type, pgoff_t offset,
+static int zcache_frontswap_store(unsigned type, pgoff_t offset,
 				   struct page *page)
 {
 	u64 ind64 = (u64)offset;
@@ -1870,7 +1870,7 @@ static int zcache_frontswap_put_page(unsigned type, pgoff_t offset,
 
 /* returns 0 if the page was successfully gotten from frontswap, -1 if
  * was not present (should never happen!) */
-static int zcache_frontswap_get_page(unsigned type, pgoff_t offset,
+static int zcache_frontswap_load(unsigned type, pgoff_t offset,
 				   struct page *page)
 {
 	u64 ind64 = (u64)offset;
@@ -1919,8 +1919,8 @@ static void zcache_frontswap_init(unsigned ignored)
 }
 
 static struct frontswap_ops zcache_frontswap_ops = {
-	.put_page = zcache_frontswap_put_page,
-	.get_page = zcache_frontswap_get_page,
+	.store = zcache_frontswap_store,
+	.load = zcache_frontswap_load,
 	.invalidate_page = zcache_frontswap_flush_page,
 	.invalidate_area = zcache_frontswap_flush_area,
 	.init = zcache_frontswap_init

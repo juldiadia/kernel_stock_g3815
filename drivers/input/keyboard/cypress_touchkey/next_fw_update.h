@@ -1,6 +1,6 @@
 
 #include <linux/firmware.h>
-#include <linux/i2c/cypress_touchkey.h>
+#include <linux/i2c/cypress_touchkey_234.h>
 
 /* NEXTCHIP FW UPDATE */
 

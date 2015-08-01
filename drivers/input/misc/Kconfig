@@ -674,10 +674,6 @@ config BMP18X_I2C
          To compile this driver as a module, choose M here: the
          module will be called bmp18x-i2c.
 
-config INPUT_FLIP
-        tristate "INPUT_FLIP"
-	help
-	  Say Y here if you want to support gpio based Flip...
 source "drivers/input/misc/mpu6050/Kconfig"
 source "drivers/input/misc/mpu6500/Kconfig"
 

@@ -7,25 +7,27 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
-#include <linux/export.h>
+#include <linux/module.h>
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/sec_param.h>
+#include <linux/file.h>
+#include <linux/syscalls.h>
 
 #define PARAM_RD	0
 #define PARAM_WR	1
 
-/* parameter block */
-#define SEC_PARAM_FILE_NAME	"/dev/block/platform/msm_sdcc.1/by-name/param"
-#if defined(CONFIG_MACH_EXPRESS)
-#define SEC_PARAM_FILE_SIZE	0xA00000		/* 10MB */
+#ifdef CONFIG_RTC_AUTO_PWRON_PARAM
+#define SEC_PARAM_FILE_NAME	"/dev/block/mmcblk0p19"	/* parameter block */
+#define SEC_PARAM_FILE_SIZE	0x600000		/* 12288 * 512 */
+#define SEC_PARAM_FILE_OFFSET (SEC_PARAM_FILE_SIZE - 1048576) // 1048576 byte == 1 MB
 #else
-#define SEC_PARAM_FILE_SIZE	0x800000		/* 8MB */
-#endif
+#define SEC_PARAM_FILE_NAME	"/dev/block/mmcblk0p10"	/* parameter block */
+#define SEC_PARAM_FILE_SIZE	0xA00000		/* 10MB */
 #define SEC_PARAM_FILE_OFFSET (SEC_PARAM_FILE_SIZE - 0x100000)
+#endif
 
 /* single global instance */
 struct sec_param_data *param_data;
@@ -33,15 +35,14 @@ struct sec_param_data *param_data;
 static bool param_sec_operation(void *value, int offset,
 		int size, int direction)
 {
-
 	/* Read from PARAM(parameter) partition  */
 	struct file *filp;
 	mm_segment_t fs;
 	int ret = true;
 	int flag = (direction == PARAM_WR) ? (O_RDWR | O_SYNC) : O_RDONLY;
 
-	pr_debug("%s %x %x %d %d\n", __func__,
-		(unsigned int)value, offset, size, direction);
+	pr_debug("%s %p %x %d %d\n", __func__, value, offset, size, direction);
+
 	filp = filp_open(SEC_PARAM_FILE_NAME, flag, 0);
 
 	if (IS_ERR(filp)) {
@@ -130,12 +131,6 @@ bool sec_get_param(enum sec_param_index index, void *value)
 				sizeof(unsigned int));
 		break;
 #endif
-#ifdef CONFIG_GSM_MODEM_SPRD6500 		//SPI_SETUP
-	case param_update_cp_bin:
-		memcpy(value, &(param_data->update_cp_bin),
-				sizeof(unsigned int));
-		break;
-#endif	
 #ifdef CONFIG_RTC_AUTO_PWRON_PARAM
 	case param_index_boot_alarm_set:
 		memcpy(value, &(param_data->boot_alarm_set), sizeof(unsigned int));
@@ -145,6 +140,11 @@ bool sec_get_param(enum sec_param_index index, void *value)
 		break;
 	case param_index_boot_alarm_value_h:
 		memcpy(value, &(param_data->boot_alarm_value_h), sizeof(unsigned int));
+		break;
+#endif
+#ifdef CONFIG_SEC_MONITOR_BATTERY_REMOVAL
+	case param_index_normal_poweroff:
+		memcpy(&(param_data->normal_poweroff), value, sizeof(unsigned int));
 		break;
 #endif
 	default:
@@ -191,12 +191,6 @@ bool sec_set_param(enum sec_param_index index, void *value)
 				value, sizeof(unsigned int));
 		break;
 #endif
-#ifdef CONFIG_GSM_MODEM_SPRD6500		//SPI_SETUP
-	case param_update_cp_bin:
-		memcpy(&(param_data->update_cp_bin),
-				value, sizeof(unsigned int));
-		break;
-#endif	
 #ifdef CONFIG_RTC_AUTO_PWRON_PARAM
 	case param_index_boot_alarm_set:
 		memcpy(&(param_data->boot_alarm_set), value, sizeof(unsigned int));
@@ -207,7 +201,12 @@ bool sec_set_param(enum sec_param_index index, void *value)
 	case param_index_boot_alarm_value_h:
 		memcpy(&(param_data->boot_alarm_value_h), value, sizeof(unsigned int));
 		break;
-#endif	
+#endif
+#ifdef CONFIG_SEC_MONITOR_BATTERY_REMOVAL
+	case param_index_normal_poweroff:
+		memcpy(&(param_data->normal_poweroff), value, sizeof(unsigned int));
+		break;
+#endif
 	default:
 		return false;
 	}
@@ -237,7 +236,7 @@ static ssize_t movinand_checksum_done_show
 		pr_err("checksum is not in valuable range.\n");
 		ret = 1;
 	}
-	return sprintf(buf, "%u\n", ret);
+	return snprintf(buf, sizeof(buf), "%u\n", ret);
 }
 static DEVICE_ATTR(movinand_checksum_done,
 				0664, movinand_checksum_done_show, NULL);
@@ -252,7 +251,7 @@ static ssize_t movinand_checksum_pass_show
 		pr_err("checksum is not in valuable range.\n");
 		ret = 1;
 	}
-	return sprintf(buf, "%u\n", ret);
+	return snprintf(buf, sizeof(buf), "%u\n", ret);
 }
 static DEVICE_ATTR(movinand_checksum_pass,
 				0664, movinand_checksum_pass_show, NULL);
@@ -267,7 +266,6 @@ int sec_param_sysfs_init(void)
 	if (IS_ERR(sec_param_class)) {
 		pr_err("Failed to create class(mdnie_class)!!\n");
 		ret = -1;
-		goto failed_create_class;
 	}
 
 	sec_param_dev = device_create(sec_param_class,
@@ -276,7 +274,6 @@ int sec_param_sysfs_init(void)
 	if (IS_ERR(sec_param_dev)) {
 		printk(KERN_ERR "Failed to create device(sec_param_dev)!!");
 		ret = -1;
-		goto failed_create_dev;
 	}
 
 	if (device_create_file(sec_param_dev,
@@ -292,11 +289,8 @@ int sec_param_sysfs_init(void)
 				dev_attr_movinand_checksum_pass.attr.name);
 		ret = -1;
 	}
-failed_create_class:
+
 	return ret;
 
-failed_create_dev:
-	class_destroy(sec_param_class);
-	return ret;
 }
 module_init(sec_param_sysfs_init);

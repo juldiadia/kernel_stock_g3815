@@ -29,7 +29,7 @@
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif
-#include <linux/vibrator.h>
+#include <linux/vibrator_msm8930.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/qcom_crypto_device.h>
@@ -141,6 +141,9 @@
 #endif
 #ifdef CONFIG_PM8921_SEC_CHARGER
 #include <linux/mfd/pm8xxx/pm8921-sec-charger.h>
+#endif
+#ifdef CONFIG_PROC_AVC
+#include <linux/proc_avc.h>
 #endif
 
 bool ovp_state;
@@ -371,7 +374,7 @@ static void tsu6721_callback(enum cable_type_t cable_type, int attached)
 			__func__, attached ? "attached" : "detached");
 		switch_set_state(&switch_dock, attached);
 		break;
-	case CABLE_TYPE_INCOMPATIBLE:		
+	case CABLE_TYPE_INCOMPATIBLE:
 		pr_info("%s Incompatible Charger is %s\n",
 			__func__, attached ? "attached" : "detached");
 		break;
@@ -571,7 +574,7 @@ static bool sii9234_pre_power_config(void)
 	static bool is_pre_cfg_done = false;
 	if(is_pre_cfg_done)
 		return is_pre_cfg_done;
-	
+
 	mhl_l12 = regulator_get(NULL, "8917_l12");
 	rc = regulator_set_voltage(mhl_l12, 1200000, 1200000);
 	if (rc)
@@ -612,7 +615,7 @@ static void sii9234_hw_onoff(bool onoff)
 		gpio_tlmm_config(GPIO_CFG(GPIO_MHL_EN, 0,
 		GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), 1);
 		gpio_direction_output(GPIO_MHL_EN, 1);
-	} else {		
+	} else {
 		gpio_direction_output(GPIO_MHL_EN, 0);
 		gpio_tlmm_config(GPIO_CFG(GPIO_MHL_EN, 0,
 		GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), 1);
@@ -1093,8 +1096,6 @@ static struct bcm2079x_platform_data bcm2079x_i2c_pdata = {
 	.irq_gpio = GPIO_NFC_IRQ,
 	.en_gpio = GPIO_NFC_EN,
 	.wake_gpio = GPIO_NFC_FIRMWARE,
-	.clk_req_gpio = GPIO_NFC_CLK_REQ,
-	.clk_req_irq = MSM_GPIO_TO_INT(GPIO_NFC_CLK_REQ),
 };
 
 static struct i2c_board_info nfc_bcm2079x_info[] __initdata = {
@@ -2642,7 +2643,7 @@ out:
 
 static struct android_usb_platform_data android_usb_pdata = {
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
-#ifdef CONFIG_MACH_GOLDEN_VZW
+#if defined(CONFIG_MACH_GOLDEN_VZW) || defined(CONFIG_MACH_GOLDEN_ATT)
 	.cdrom = true,
 #else
 	.cdrom = false,
@@ -2686,6 +2687,21 @@ static uint8_t spm_power_collapse_with_rpm[] __initdata = {
 	0x09, 0x07, 0x01, 0x0B,
 	0x10, 0x54, 0x30, 0x0C,
 	0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_without_rpm_krait_v3[] __initdata = {
+	0x00, 0x30, 0x24, 0x30,
+	0x54, 0x10, 0x09, 0x03,
+	0x01, 0x10, 0x54, 0x30,
+	0x0C, 0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_with_rpm_krait_v3[] __initdata = {
+	0x00, 0x30, 0x24, 0x30,
+	0x54, 0x10, 0x09, 0x07,
+	0x01, 0x0B, 0x10, 0x54,
+	0x30, 0x0C, 0x24, 0x30,
+	0x0f,
 };
 
 static struct msm_spm_seq_entry msm_spm_boot_cpu_seq_list[] __initdata = {
@@ -2878,7 +2894,7 @@ static struct gpio_keys_platform_data gpio_keys_platform_data = {
 };
 
 static struct platform_device msm8960_gpio_keys_device = {
-	.name	= "sec_keys",
+	.name	= "gpio-keys",
 	.id	= -1,
 	.dev	= {
 		.platform_data	= &gpio_keys_platform_data,
@@ -3090,7 +3106,7 @@ static struct platform_device msm_tsens_device = {
 static struct msm_thermal_data msm_thermal_pdata = {
 	.sensor_id = 9,
 	.poll_ms = 250,
-	.limit_temp_degC = 60,
+	.limit_temp_degC = 70,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 };
@@ -3159,25 +3175,25 @@ static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 static struct sec_jack_zone jack_zones[] = {
 	[0] = {
 		.adc_high	= 3,
-		.delay_ms	= 10,
+		.delay_us	= 10000,
 		.check_count	= 20,
 		.jack_type	= SEC_HEADSET_3POLE,
 	},
 	[1] = {
 		.adc_high	= 630,
-		.delay_ms	= 10,
+		.delay_us	= 10000,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_3POLE,
 	},
 	[2] = {
 		.adc_high	= 1720,
-		.delay_ms	= 10,
+		.delay_us	= 10000,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_4POLE,
 	},
 	[3] = {
 		.adc_high	= 9999,
-		.delay_ms	= 10,
+		.delay_us	= 10000,
 		.check_count	= 20,
 		.jack_type	= SEC_HEADSET_4POLE,
 	},
@@ -3213,7 +3229,7 @@ static int get_sec_gnd_jack_state(void)
 	return status^1;
 }
 #endif
-
+/*
 static int get_sec_det_jack_state(void)
 {
 	int status = 0;
@@ -3233,8 +3249,8 @@ static int get_sec_send_key_state(void)
 
 	return status^1;
 }
-
-/* extern void msm8930_enable_codec_internal_micbias(bool state); */
+*/
+extern void msm8930_enable_ear_micbias(bool state);
 
 static void set_sec_micbias_state(bool state)
 {
@@ -3272,16 +3288,16 @@ static int sec_jack_get_adc_value(void)
 }
 
 static struct sec_jack_platform_data sec_jack_data = {
-	.get_det_jack_state	= get_sec_det_jack_state,
-	.get_send_key_state	= get_sec_send_key_state,
+	//.get_det_jack_state	= get_sec_det_jack_state,
+	//.get_send_key_state	= get_sec_send_key_state,
 	.set_micbias_state	= set_sec_micbias_state,
 	.get_adc_value		= sec_jack_get_adc_value,
 	.zones			= jack_zones,
 	.num_zones		= ARRAY_SIZE(jack_zones),
 	.buttons_zones		= jack_buttons_zones,
 	.num_buttons_zones	= ARRAY_SIZE(jack_buttons_zones),
-	.det_int		= MSM_GPIO_TO_INT(GPIO_EAR_DET),
-	.send_int		= MSM_GPIO_TO_INT(GPIO_SHORT_SENDEND),
+	.det_gpio		= GPIO_EAR_DET,
+	.send_end_gpio		= GPIO_SHORT_SENDEND,
 #if defined(CONFIG_SAMSUNG_JACK_GNDLDET)
 	.get_gnd_jack_state	= get_sec_gnd_jack_state,
 #endif
@@ -3349,7 +3365,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_wcnss_wlan,
 #ifdef CONFIG_IMX175_EEPROM	//For Camera Actuator EEPROM By Teddy
 	&msm8930_device_qup_spi_gsbi1,
-#endif	
+#endif
 #if defined(CONFIG_QSEECOM)
 		&qseecom_device,
 #endif
@@ -3914,6 +3930,27 @@ static void __init msm8930_pm8917_pdata_fixup(void)
 	pdata->uses_pm8917 = true;
 }
 
+static void __init msm8930ab_update_krait_spm(void)
+{
+	int i;
+
+	/* Update the SPM sequences for SPC and PC */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+				if (pdata->modes[j].cmd ==
+								spm_power_collapse_without_rpm)
+							pdata->modes[j].cmd =
+							spm_power_collapse_without_rpm_krait_v3;
+				else if (pdata->modes[j].cmd ==
+								spm_power_collapse_with_rpm)
+							pdata->modes[j].cmd =
+							spm_power_collapse_with_rpm_krait_v3;
+		}
+	}
+}
+
 static void __init msm8930ab_update_retention_spm(void)
 {
 	int i;
@@ -3939,6 +3976,9 @@ void __init msm8930_golden_init(void)
 {
 #ifdef CONFIG_SEC_DEBUG
 	sec_debug_init();
+#endif
+#ifdef CONFIG_PROC_AVC
+ 	sec_avc_log_init();
 #endif
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		msm8930_pm8917_pdata_fixup();
@@ -3994,6 +4034,10 @@ void __init msm8930_golden_init(void)
 #endif
 	msm8930_i2c_init();
 	msm8930_init_gpu();
+
+	if (cpu_is_msm8930ab())
+		msm8930ab_update_krait_spm();
+
 	if (cpu_is_krait_v3()) {
 		msm_pm_set_tz_retention_flag(0);
 		msm8930ab_update_retention_spm();

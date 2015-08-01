@@ -735,13 +735,13 @@ signed char fAccTargetBankChecksum(unsigned int *pAcc)
 
 void ReStartTarget(void)
 {
-	int i;
 	#ifdef RESET_MODE
 	/* Assert XRES, then release, then disable XRES-Enable */
 	AssertXRES();
 	Delay(XRES_CLK_DELAY);
 	DeassertXRES();
 	#else
+	int i;
 	/* Set all pins to highZ to avoid back powering
 	   the PSoC through the GPIO protection diodes.
 	*/

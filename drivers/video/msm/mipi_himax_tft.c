@@ -358,7 +358,6 @@ static int mipi_samsung_disp_on(struct platform_device *pdev)
 #ifdef USE_READ_ID
 	if (unlikely(!boot_on)) {
 		msd.mpd->manufacture_id = mipi_samsung_manufacture_id(mfd);
-		boot_on = 1;
 		/*Display was initialized in bootloader,same settings
 			are carried when splash is enabled*/
 		}
@@ -376,6 +375,11 @@ static int mipi_samsung_disp_on(struct platform_device *pdev)
 #endif		
 
 	mipi_samsung_disp_send_cmd(mfd, PANEL_READY_TO_ON, false);
+
+	if(!boot_on)
+		boot_on = 1;
+	else
+		msleep(100);
 
 #if defined(CONFIG_ESD_ERR_FG_RECOVERY)
 	enable_irq(err_fg_gpio);

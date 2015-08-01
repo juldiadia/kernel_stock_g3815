@@ -237,10 +237,6 @@ static int __devinit msm_gov_probe(struct platform_device *pdev)
 	int sensor = 0;
 
 	core = pdev->dev.platform_data;
-	if (!core) {
-		pr_err("missing platform data\n");
-		return -EINVAL;
-	}
 	core_info = pdata->info;
 	latency = pdata->latency;
 

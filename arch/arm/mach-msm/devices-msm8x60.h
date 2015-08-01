@@ -22,68 +22,79 @@
 #define MSM_SSBI1_I2C_BUS_ID     6
 #define MSM_SSBI2_I2C_BUS_ID     7
 #define MSM_SSBI3_I2C_BUS_ID     8
-#define MSM_MHL_I2C_BUS_ID		9
 
-#if defined (CONFIG_MACH_EXPRESS) || defined (CONFIG_MACH_SERRANO) || defined (CONFIG_MACH_CRATER) || defined (CONFIG_MACH_BAFFIN) || defined (CONFIG_MACH_CANE)
-#define MSM_GEO_I2C_BUS_ID      11
-#else
-#define MSM_GEO_I2C_BUS_ID      24
+#if defined(CONFIG_MACH_SERRANO)
+#define MSM_GEO_I2C_BUS_ID	11
 #endif
-#define MSM_ACTUATOR_I2C_BUS_ID	20
+
 #if defined(CONFIG_MACH_MELIUS_CHN_CTC) ||defined(CONFIG_MACH_CRATER_CHN_CTC)
 #define MSM_SNS_I2C_BUS_ID      1
 #elif defined(CONFIG_MACH_LT02_CHN_CTC)
 #define MSM_SNS_I2C_BUS_ID      21
 #else
+#define MSM_8960_GSBI1_QUP_I2C_BUS_ID 1
 #define MSM_SNS_I2C_BUS_ID      12
-#endif
-#ifdef CONFIG_MFD_MAX77693
-#define MSM_MUSB_I2C_BUS_ID		22
-#endif
-
-#define MSM_FUELGAUGE_I2C_BUS_ID 13
-#ifdef CONFIG_MACH_CANE
-#define MSM_ULTRASONIC_I2C_BUS_ID 16
-#else
-#define MSM_CHARGE_I2C_BUS_ID 16
-#endif
-#ifdef CONFIG_SEC_FPGA
-#define MSM_SEC_FPGA_I2C_BUS_ID	19
 #endif
 
 #define MSM_OPT_I2C_BUS_ID	14
-#if defined(CONFIG_USB_SWITCH_TSU6721)
-#define MSM_TSU6721_I2C_BUS_ID  15
-#elif defined(CONFIG_USB_SWITCH_FSA9485)
-#define MSM_FSA9485_I2C_BUS_ID	15
-#endif
 #define MSM_NFC_I2C_BUS_ID      17
+#define MSM_ACTUATOR_I2C_BUS_ID	20
 #ifdef CONFIG_SAMSUNG_CMC624
 #define MSM_CMC624_I2C_BUS_ID   18
 #endif
+#define MSM_OPT_I2C_BUS_ID     14
+#define MSM_MHL_I2C_BUS_ID              9
+#if defined(CONFIG_SEC_PRODUCT_8960)
+#define MSM_FUELGAUGE_I2C_BUS_ID	13
+#define MSM_FSA9485_I2C_BUS_ID		11
+#elif defined(CONFIG_SEC_PRODUCT_8930)
+#define MSM_FUELGAUGE_I2C_BUS_ID        13
+#define MSM_FSA9485_I2C_BUS_ID          15
+#else
+#define MSM_FUELGAUGE_I2C_BUS_ID	11
+#endif
+#if defined (CONFIG_MACH_JF) && defined (CONFIG_MFD_MAX77693)
+#define MSM_FSA9485_I2C_BUS_ID		12
+#endif
+#if defined (CONFIG_MFD_MAX77693) || (defined (CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_SERRANO_VZW) \
+|| defined(CONFIG_MACH_SERRANO_SPR) || defined(CONFIG_MACH_SERRANO_USC) || defined(CONFIG_MACH_SERRANO_ATT) || defined(CONFIG_MACH_SERRANO_LRA))
+#define MSM_MUSB_I2C_BUS_ID             22
+#endif
+#if defined(CONFIG_SEC_PRODUCT_8930)
+#define MSM_SEC_FPGA_I2C_BUS_ID     19
+#else
+#define MSM_SEC_FPGA_I2C_BUS_ID     13
+#endif
+#ifdef CONFIG_IRDA_MC96
+#define MSM_MC96_I2C_BUS_ID		14
+#endif
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_236
+#define MSM_TOUCHKEY_I2C_BUS_ID		16
+#endif
+
+#if defined(CONFIG_USB_SWITCH_TSU6721)
+#define MSM_TSU6721_I2C_BUS_ID  15
+#endif
+
+#ifdef CONFIG_FM_SI4705
+#define MSM_SI47XX_I2C_BUS_ID   26
+#endif
+
+/*I2C BUS ID*/
+#define I2C_LEDS_BUS_ID			21
+#define MSM_NFC_I2C_BUS_ID		17
+
+#if defined(CONFIG_CAMERA_SW_I2C)|| defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
+#define MSM_CAMERA_SW_I2C_BUS_ID		27//CAMERA_SW_I2C
+#endif
+
 #ifdef CONFIG_GRIP_SENSOR
 #ifdef CONFIG_SENSORS_ASP01
 #define MSM_GRIP_I2C_BUS_ID   20
-
 #else
 #define MSM_GRIP_I2C_BUS_ID   23
 #endif
 #endif
-#ifdef CONFIG_REGULATOR_LP8720
-#define MSM_LP8720_I2C_BUS_ID   25
-#endif
-#ifdef CONFIG_FM_SI4705
-#define MSM_SI47XX_I2C_BUS_ID   26
-#endif
-#ifdef CONFIG_LM48560_RCV
-#define LM48560_RCV_I2C_BUS_ID   27
-#endif
-
-#if defined(CONFIG_ADC_STMPE811)
-#define MSM_STMPE811_I2C_BUS_ID	28
-#endif
-
-
 #ifdef CONFIG_SND_SOC_MSM8660_APQ
 extern struct platform_device msm_pcm;
 extern struct platform_device msm_pcm_routing;
@@ -132,7 +143,8 @@ void __init msm8x60_check_2d_hardware(void);
 extern struct platform_device msm_dsps_device;
 #endif
 
-#if defined(CONFIG_MSM_RPM_STATS_LOG)
+#ifdef CONFIG_MSM_RPM_STATS_LOG
 extern struct platform_device msm_rpm_stat_device;
 #endif
+
 #endif

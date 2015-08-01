@@ -114,9 +114,12 @@ create_databuffer_fail:
 
 	return false;
 }
+
+static DEFINE_MUTEX(tdmb_lock);
 static bool tdmb_power_off(void)
 {
 	DPRINTK("%s : tdmb_pwr_on(%d)\n", __func__, tdmb_pwr_on);
+	mutex_lock(&tdmb_lock);
 
 	if (tdmb_pwr_on) {
 		tdmbdrv_func->power_off();
@@ -128,6 +131,8 @@ static bool tdmb_power_off(void)
 		tdmb_pwr_on = false;
 	}
 	tdmb_last_ch = 0;
+	mutex_unlock(&tdmb_lock);
+
 	return true;
 }
 
@@ -145,11 +150,8 @@ tdmb_read(struct file *file, char __user *buf, size_t nbytes, loff_t *ppos)
 	return 0;
 }
 
-static DEFINE_MUTEX(release_lock);
 static int tdmb_release(struct inode *inode, struct file *filp)
 {
-	mutex_lock(&release_lock);
-
 	DPRINTK("tdmb_release\n");
 	tdmb_power_off();
 
@@ -164,7 +166,6 @@ static int tdmb_release(struct inode *inode, struct file *filp)
 		cmd_size = 0;
 	}
 #endif
-	mutex_unlock(&release_lock);
 	return 0;
 }
 
@@ -209,9 +210,6 @@ static int tdmb_mmap(struct file *filp, struct vm_area_struct *vma)
 #endif
 
 	pfn = virt_to_phys(ts_ring) >> PAGE_SHIFT;
-
-//	DPRINTK("vm_start:%lx,ts_ring:%p,size:%x,prot:%lx,pfn:%lx\n",
-//			vma->vm_start, ts_ring, size, vma->vm_page_prot, pfn);
 
 	if (remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot))
 		return -EAGAIN;
@@ -866,8 +864,8 @@ static int __init tdmb_init(void)
 {
 	int ret;
 
-#ifdef CONFIG_BATTERY_SEC
-	if (is_lpcharging_state()) {
+#ifdef CONFIG_SAMSUNG_LPM_MODE
+	if (poweroff_charging) {
 		pr_info("%s : LPM Charging Mode! return 0\n", __func__);
 		return 0;
 	}

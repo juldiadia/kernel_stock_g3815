@@ -285,11 +285,17 @@ config SND_SOC_UDA1380
 
 config SND_SOC_WCD9304
 	tristate
-
+	
 config SND_SOC_WCD9306
 	tristate
 
 config SND_SOC_WCD9310
+	tristate
+
+config SND_SOC_ES325
+	tristate
+
+config SND_SOC_ES325_SLIM
 	tristate
 
 config SND_SOC_CS8427
@@ -457,9 +463,3 @@ config SND_SOC_TPA2028D
 	default n
 	help
 	  Texas Instruments 3W Mono Class-D Audio Amplifier
-	  
-config SND_SOC_WCD9304_DRE
-	bool "DRE Patch for WCD9304"
-	default n
-	help
-	  If you use DRE for WCD9304 not WC9306 , use this

@@ -38,11 +38,6 @@
 #include <linux/version.h>
 #include <linux/wakelock.h>
 
-#ifdef CONFIG_NFC_PMIC_CLK
-#include <mach/msm_xo.h>
-#include <linux/workqueue.h>
-#endif
-
 #include <linux/nfc/bcm2079x.h>
 
 #undef DEBUG_BCM2079X_I2C_IRQ
@@ -64,12 +59,15 @@
 #define PACKET_TYPE_HCIEV	(4)
 #define MAX_PACKET_SIZE		(PACKET_HEADER_SIZE_NCI + 255)
 
+#define ALIAS_ADDRESS	  0x79
+
 struct bcm2079x_dev {
 	wait_queue_head_t read_wq;
 	struct mutex read_mutex;
 	struct i2c_client *client;
 	struct miscdevice bcm2079x_device;
-	struct wake_lock nfc_wake_lock;
+	struct wake_lock bcm_wake_lock;
+	struct wake_lock bcm_wake_lock_2nd;
 	unsigned int wake_gpio;
 	unsigned int en_gpio;
 	unsigned int irq_gpio;
@@ -79,15 +77,6 @@ struct bcm2079x_dev {
 	unsigned int error_read;
 	unsigned int count_read;
 	unsigned int count_irq;
-#ifdef CONFIG_NFC_PMIC_CLK
-	unsigned int clk_req_gpio;
-	unsigned int clk_req_irq;
-	struct msm_xo_voter *nfc_clock;
-	struct work_struct work_nfc_clock;
-	struct workqueue_struct *wq_clock;
-	bool clock_state;
-#endif
-
 };
 
 static void bcm2079x_init_stat(struct bcm2079x_dev *bcm2079x_dev)
@@ -97,8 +86,8 @@ static void bcm2079x_init_stat(struct bcm2079x_dev *bcm2079x_dev)
 	bcm2079x_dev->count_read = 0;
 	bcm2079x_dev->count_irq = 0;
 }
-#ifndef DEBUG_BCM2079X_I2C_IRQ
-/*static void bcm2079x_disable_irq(struct bcm2079x_dev *bcm2079x_dev)
+
+static void bcm2079x_disable_irq(struct bcm2079x_dev *bcm2079x_dev)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
@@ -108,8 +97,8 @@ static void bcm2079x_init_stat(struct bcm2079x_dev *bcm2079x_dev)
 		bcm2079x_dev->irq_enabled = false;
 	}
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
-}*/
-#endif
+}
+
 static void bcm2079x_enable_irq(struct bcm2079x_dev *bcm2079x_dev)
 {
 	unsigned long flags;
@@ -132,8 +121,8 @@ static void bcm2079x_enable_irq(struct bcm2079x_dev *bcm2079x_dev)
  the new address can be changed by changing the CLIENT_ADDRESS below if 0x38
  conflicts with other device on the same i2c bus.
  */
-#define ALIAS_ADDRESS	  0x79
-/*
+
+#if 0
 static void set_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 {
 	struct i2c_client *client = bcm2079x_dev->client;
@@ -145,7 +134,8 @@ static void set_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 		"Set client device changed to (0x%04X) flag = %04x\n",
 		client->addr, client->flags);
 }
-*/
+#endif
+
 static void change_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 {
 	struct i2c_client *client;
@@ -205,48 +195,11 @@ static irqreturn_t bcm2079x_dev_irq_handler(int irq, void *dev_id)
 	bcm2079x_dev->count_irq++;
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
 	wake_up(&bcm2079x_dev->read_wq);
+	wake_lock_timeout(&bcm2079x_dev->bcm_wake_lock, 2 * HZ);
 
-	wake_lock_timeout(&bcm2079x_dev->nfc_wake_lock, 2 * HZ);
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_NFC_PMIC_CLK
-static void nfc_work_func_clock(struct work_struct *work)
-{
-	struct bcm2079x_dev *bcm2079x_dev = container_of(work, struct bcm2079x_dev,
-					      work_nfc_clock);
-	int ret = 0;
-
-	if (gpio_get_value(bcm2079x_dev->clk_req_gpio)) {
-		if (bcm2079x_dev->clock_state == false) {
-			ret = msm_xo_mode_vote(bcm2079x_dev->nfc_clock,
-						MSM_XO_MODE_ON);
-			if (ret < 0) {
-				pr_err("%s:  Failed to vote for TCX0_A1 ON (%d)\n",
-						__func__, ret);
-			}
-			bcm2079x_dev->clock_state = true;
-		}
-	} else {
-		if (bcm2079x_dev->clock_state == true) {
-			ret = msm_xo_mode_vote(bcm2079x_dev->nfc_clock,
-						MSM_XO_MODE_OFF);
-			if (ret < 0) {
-				pr_err("%s:  Failed to vote for TCX0_A1 OFF (%d)\n",
-						__func__, ret);
-			}
-			bcm2079x_dev->clock_state = false;
-		}
-	}
-}
-
-static irqreturn_t bcm2079x_dev_clk_req_irq_handler(int irq, void *dev_id)
-{
-	struct bcm2079x_dev *bcm2079x_dev = dev_id;
-	queue_work(bcm2079x_dev->wq_clock, &bcm2079x_dev->work_nfc_clock);
-	return IRQ_HANDLED;
-}
-#endif
 static unsigned int bcm2079x_dev_poll(struct file *filp, poll_table *wait)
 {
 	struct bcm2079x_dev *bcm2079x_dev = filp->private_data;
@@ -403,10 +356,19 @@ static long bcm2079x_dev_unlocked_ioctl(struct file *filp,
 		gpio_set_value(bcm2079x_dev->en_gpio, arg);
 		break;
 	case BCMNFC_WAKE_CTL:
+		if (arg == 0) {
+			wake_lock(&bcm2079x_dev->bcm_wake_lock_2nd);
+			dev_info(&bcm2079x_dev->client->dev, "%s: got wake lock", __func__);
+		}
 		dev_info(&bcm2079x_dev->client->dev,
 			 "%s, BCMNFC_WAKE_CTL (%x, %lx):\n", __func__, cmd,
 			 arg);
 		gpio_set_value(bcm2079x_dev->wake_gpio, arg);
+		if (arg == 1) {
+			wake_unlock(&bcm2079x_dev->bcm_wake_lock_2nd);
+			dev_info(&bcm2079x_dev->client->dev, "%s: release wake lock, count_irq = %d",
+						__func__, bcm2079x_dev->count_irq);
+		}
 		break;
 	default:
 		dev_err(&bcm2079x_dev->client->dev,
@@ -466,13 +428,6 @@ static int bcm2079x_probe(struct i2c_client *client,
 		goto err_firm;
 	gpio_direction_output(platform_data->wake_gpio, 0);
 
-#ifdef CONFIG_NFC_PMIC_CLK
-	ret = gpio_request(platform_data->clk_req_gpio, "nfc_clk_req");
-	if (ret)
-		goto err_clk_req;
-	gpio_direction_input(platform_data->clk_req_gpio);
-#endif
-
 #ifdef DEBUG_BCM2079X_I2C_IRQ
 	msleep(100);
 	gpio_set_value_cansleep(platform_data->en_gpio, 1);
@@ -489,25 +444,12 @@ static int bcm2079x_probe(struct i2c_client *client,
 		ret = -ENOMEM;
 		goto err_exit;
 	}
-#ifdef CONFIG_NFC_PMIC_CLK
-	bcm2079x_dev->nfc_clock = msm_xo_get(MSM_XO_TCXO_A1, "nfc");
-	if (IS_ERR(bcm2079x_dev->nfc_clock)) {
-		ret = PTR_ERR(bcm2079x_dev->nfc_clock);
-		printk(KERN_ERR "%s: Couldn't get TCXO_A1 vote for NFC (%d)\n",
-					__func__, ret);
-		ret = -ENODEV;
-		goto err_get_clock;
-	}
-	bcm2079x_dev->clock_state = false;
-#endif
+
 	bcm2079x_dev->wake_gpio = platform_data->wake_gpio;
 	bcm2079x_dev->irq_gpio = platform_data->irq_gpio;
 	bcm2079x_dev->en_gpio = platform_data->en_gpio;
 	bcm2079x_dev->client = client;
-#ifdef CONFIG_NFC_PMIC_CLK
-	bcm2079x_dev->clk_req_gpio = platform_data->clk_req_gpio;
-	bcm2079x_dev->clk_req_irq = platform_data->clk_req_irq;
-#endif
+
 	/* init mutex and queues */
 	init_waitqueue_head(&bcm2079x_dev->read_wq);
 	mutex_init(&bcm2079x_dev->read_mutex);
@@ -523,39 +465,16 @@ static int bcm2079x_probe(struct i2c_client *client,
 		goto err_misc_register;
 	}
 
-	/* wake lock init */
-	wake_lock_init(&bcm2079x_dev->nfc_wake_lock,
-		WAKE_LOCK_SUSPEND, "nfc_wake_lock");
-
-
-#ifdef CONFIG_NFC_PMIC_CLK
-	bcm2079x_dev->wq_clock = create_singlethread_workqueue("nfc_wq");
-	if (!bcm2079x_dev->wq_clock) {
-		ret = -ENOMEM;
-		pr_err("%s: could not create workqueue\n", __func__);
-		goto err_create_workqueue;
-	}
-	INIT_WORK(&bcm2079x_dev->work_nfc_clock, nfc_work_func_clock);
-
-	ret = request_irq(bcm2079x_dev->clk_req_irq, bcm2079x_dev_clk_req_irq_handler,
-		IRQF_SHARED | IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
-			, "bcm2079x_clk_req", bcm2079x_dev);
-	if (ret) {
-		dev_err(&client->dev, "request_irq(clk_req) failed\n");
-		goto err_request_irq_failed;
-	}
-
-	enable_irq_wake(bcm2079x_dev->clk_req_irq);
-#endif
-
-
 	/* request irq.  the irq is set whenever the chip has data available
 	 * for reading.  it is cleared when all data has been read.
 	 */
 	iIrq = gpio_to_irq(client->irq);
-	client->irq = iIrq;
 	dev_info(&client->dev, "requesting IRQ %d with IRQF_NO_SUSPEND\n",
 		iIrq);
+	wake_lock_init(&bcm2079x_dev->bcm_wake_lock, WAKE_LOCK_SUSPEND,
+				  "bcm2079x_wake_lock");
+	wake_lock_init(&bcm2079x_dev->bcm_wake_lock_2nd, WAKE_LOCK_SUSPEND,
+				  "bcm2079x_wake_lock_2nd");
 	ret = request_irq(iIrq, bcm2079x_dev_irq_handler,
 		IRQF_TRIGGER_RISING|IRQF_NO_SUSPEND, client->name,
 		bcm2079x_dev);
@@ -583,25 +502,14 @@ static int bcm2079x_probe(struct i2c_client *client,
 	return 0;
 
 err_request_irq_failed:
-#ifdef CONFIG_NFC_PMIC_CLK
-err_create_workqueue:
-#endif
-	wake_lock_destroy(&bcm2079x_dev->nfc_wake_lock);
 	misc_deregister(&bcm2079x_dev->bcm2079x_device);
+	wake_lock_destroy(&bcm2079x_dev->bcm_wake_lock);
+	wake_lock_destroy(&bcm2079x_dev->bcm_wake_lock_2nd);
 err_misc_register:
 	mutex_destroy(&bcm2079x_dev->read_mutex);
-#ifdef CONFIG_NFC_PMIC_CLK
-	msm_xo_put(bcm2079x_dev->nfc_clock);
-err_get_clock:
-#endif
 	kfree(bcm2079x_dev);
 err_exit:
-#ifdef CONFIG_NFC_PMIC_CLK
-	gpio_free(platform_data->clk_req_gpio);
-err_clk_req:
-#endif
 	gpio_free(platform_data->wake_gpio);
-
 err_firm:
 	gpio_free(platform_data->en_gpio);
 err_en:
@@ -614,18 +522,15 @@ static int bcm2079x_remove(struct i2c_client *client)
 	struct bcm2079x_dev *bcm2079x_dev;
 
 	bcm2079x_dev = i2c_get_clientdata(client);
-	wake_lock_destroy(&bcm2079x_dev->nfc_wake_lock);
+	bcm2079x_disable_irq(bcm2079x_dev);
 	free_irq(client->irq, bcm2079x_dev);
+	wake_lock_destroy(&bcm2079x_dev->bcm_wake_lock);
+	wake_lock_destroy(&bcm2079x_dev->bcm_wake_lock_2nd);
 	misc_deregister(&bcm2079x_dev->bcm2079x_device);
 	mutex_destroy(&bcm2079x_dev->read_mutex);
 	gpio_free(bcm2079x_dev->irq_gpio);
 	gpio_free(bcm2079x_dev->en_gpio);
 	gpio_free(bcm2079x_dev->wake_gpio);
-
-#ifdef CONFIG_NFC_PMIC_CLK
-	gpio_free(bcm2079x_dev->clk_req_gpio);
-	msm_xo_put(bcm2079x_dev->nfc_clock);
-#endif
 	kfree(bcm2079x_dev);
 
 	return 0;
@@ -652,7 +557,16 @@ static struct i2c_driver bcm2079x_driver = {
 
 static int __init bcm2079x_dev_init(void)
 {
+#ifdef CONFIG_SAMSUNG_LPM_MODE
+	if (!poweroff_charging)
+		return i2c_add_driver(&bcm2079x_driver);
+	else {
+		pr_info("[NFC] %s - power off charging\n", __func__);
+		return -1;
+	}
+#else
 	return i2c_add_driver(&bcm2079x_driver);
+#endif
 }
 module_init(bcm2079x_dev_init);
 

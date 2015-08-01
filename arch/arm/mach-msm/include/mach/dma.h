@@ -194,19 +194,11 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV_HSUART_GSBI8_RX_CHAN	8
 #define DMOV_HSUART_GSBI8_RX_CRCI	9
 
-#ifdef CONFIG_GSM_MODEM_SPRD6500
-#define DMOV_HSUART_GSBI12_TX_CHAN	3
-#define DMOV_HSUART_GSBI12_TX_CRCI	15
-
-#define DMOV_HSUART_GSBI12_RX_CHAN	4
-#define DMOV_HSUART_GSBI12_RX_CRCI	14
-#else
 #define DMOV_HSUART_GSBI9_TX_CHAN	4
 #define DMOV_HSUART_GSBI9_TX_CRCI	13
 
 #define DMOV_HSUART_GSBI9_RX_CHAN	3
 #define DMOV_HSUART_GSBI9_RX_CRCI	12
-#endif
 
 #elif defined(CONFIG_ARCH_MSM9615)
 
@@ -287,6 +279,13 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV_APQ8064_HSUART_GSBI4_RX_CHAN	10
 #define DMOV_APQ8064_HSUART_GSBI4_RX_CRCI	7
 
+/* channels for MPQ8064 */
+#define DMOV_MPQ8064_HSUART_GSBI6_TX_CHAN	7
+#define DMOV_MPQ8064_HSUART_GSBI6_TX_CRCI	6
+
+#define DMOV_MPQ8064_HSUART_GSBI6_RX_CHAN	6
+#define DMOV_MPQ8064_HSUART_GSBI6_RX_CRCI	11
+
 #if defined(CONFIG_MACH_MELIUS_SKT) || defined(CONFIG_MACH_MELIUS_KTT) || \
 	defined(CONFIG_MACH_MELIUS_LGT)
 #define DMOV_GSBI11_TX_CHAN	10
@@ -294,14 +293,8 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 
 #define DMOV_GSBI11_RX_CHAN	9
 #define DMOV_GSBI11_RX_CRCI	12
-#else
-/* channels for MPQ8064 */
-#define DMOV_MPQ8064_HSUART_GSBI6_TX_CHAN	7
-#define DMOV_MPQ8064_HSUART_GSBI6_TX_CRCI	6
-
-#define DMOV_MPQ8064_HSUART_GSBI6_RX_CHAN	6
-#define DMOV_MPQ8064_HSUART_GSBI6_RX_CRCI	11
 #endif
+
 /* no client rate control ifc (eg, ram) */
 #define DMOV_NONE_CRCI        0
 

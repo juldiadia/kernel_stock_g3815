@@ -46,7 +46,6 @@ extern struct clock_init_data qds8x50_clock_init_data;
 extern struct clock_init_data msm8625_dummy_clock_init_data;
 extern struct clock_init_data msm8930_clock_init_data;
 extern struct clock_init_data msm8930_pm8917_clock_init_data;
-extern struct clock_init_data msm8930_pm8917_clock_init_data_rev09;
 extern struct clock_init_data msm8974_clock_init_data;
 extern struct clock_init_data msm8974_rumi_clock_init_data;
 

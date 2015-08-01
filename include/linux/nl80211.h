@@ -608,6 +608,13 @@
  *	with the relevant Information Elements. This event is used to report
  *	received FT IEs (MDIE, FTIE, RSN IE, TIE, RICIE).
  *
+ * @NL80211_CMD_CRIT_PROTOCOL_START: Indicates user-space will start running
+ *	a critical protocol that needs more reliability in the connection to
+ *	complete.
+ *
+ * @NL80211_CMD_CRIT_PROTOCOL_STOP: Indicates the connection reliability can
+ *	return back to normal.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -767,6 +774,9 @@ enum nl80211_commands {
 
 	NL80211_CMD_UPDATE_FT_IES,
 	NL80211_CMD_FT_EVENT,
+
+	NL80211_CMD_CRIT_PROTOCOL_START,
+	NL80211_CMD_CRIT_PROTOCOL_STOP,
 
 	/* add new commands above here */
 
@@ -1343,14 +1353,6 @@ enum nl80211_commands {
  * @NL80211_ATTR_BG_SCAN_PERIOD: Background scan period in seconds
  *      or 0 to disable background scan.
  *
- * @NL80211_ATTR_MDID: Mobility Domain Identifier
- *
- * @NL80211_ATTR_IE_RIC: Resource Information Container Information Element
- *
-* @NL80211_ATTR_MDID: Mobility Domain Identifier
- *
- * @NL80211_ATTR_IE_RIC: Resource Information Container Information Element
- *
  * @NL80211_ATTR_USER_REG_HINT_TYPE: type of regulatory hint passed from
  *	userspace. If unset it is assumed the hint comes directly from
  *	a user. If set code could specify exactly what type of source
@@ -1416,6 +1418,16 @@ enum nl80211_commands {
  *
  * @NL80211_ATTR_IE_RIC: Resource Information Container Information
  *	Element
+ *
+ * @NL80211_ATTR_CRIT_PROT_ID: critical protocol identifier requiring increased
+ *	reliability, see &enum nl80211_crit_proto_id (u16).
+ * @NL80211_ATTR_MAX_CRIT_PROT_DURATION: duration in milliseconds in which
+ *      the connection should have increased reliability (u16).
+ *
+ * @NL80211_ATTR_PEER_AID: Association ID for the peer TDLS station (u16).
+ *	This is similar to @NL80211_ATTR_STA_AID but with a difference of being
+ *	allowed to be used with the first @NL80211_CMD_SET_STATION command to
+ *	update a TDLS peer STA entry.
  *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -1669,25 +1681,40 @@ enum nl80211_attrs {
 	NL80211_ATTR_BG_SCAN_PERIOD,
 
 	NL80211_ATTR_WDEV,
+
 	NL80211_ATTR_USER_REG_HINT_TYPE,
+
 	NL80211_ATTR_CONN_FAILED_REASON,
+
 	NL80211_ATTR_SAE_DATA,
+
 	NL80211_ATTR_VHT_CAPABILITY,
+
 	NL80211_ATTR_SCAN_FLAGS,
+
 	NL80211_ATTR_CHANNEL_WIDTH,
 	NL80211_ATTR_CENTER_FREQ1,
 	NL80211_ATTR_CENTER_FREQ2,
+
 	NL80211_ATTR_P2P_CTWINDOW,
 	NL80211_ATTR_P2P_OPPPS,
+
 	NL80211_ATTR_LOCAL_MESH_POWER_MODE,
+
 	NL80211_ATTR_ACL_POLICY,
+
 	NL80211_ATTR_MAC_ADDRS,
+
 	NL80211_ATTR_MAC_ACL_MAX,
+
 	NL80211_ATTR_RADAR_EVENT,
+
 	NL80211_ATTR_EXT_CAPA,
 	NL80211_ATTR_EXT_CAPA_MASK,
+
 	NL80211_ATTR_STA_CAPABILITY,
 	NL80211_ATTR_STA_EXT_CAPABILITY,
+
 	NL80211_ATTR_PROTOCOL_FEATURES,
 	NL80211_ATTR_SPLIT_WIPHY_DUMP,
 
@@ -1696,6 +1723,11 @@ enum nl80211_attrs {
 
 	NL80211_ATTR_MDID,
 	NL80211_ATTR_IE_RIC,
+
+	NL80211_ATTR_CRIT_PROT_ID,
+	NL80211_ATTR_MAX_CRIT_PROT_DURATION,
+
+	NL80211_ATTR_PEER_AID,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -1742,7 +1774,7 @@ enum nl80211_attrs {
 #define NL80211_HT_CAPABILITY_LEN		26
 #define NL80211_VHT_CAPABILITY_LEN		12
 
-#define NL80211_MAX_NR_CIPHER_SUITES		5
+#define NL80211_MAX_NR_CIPHER_SUITES		6
 #define NL80211_MAX_NR_AKM_SUITES		2
 
 /**
@@ -2623,6 +2655,7 @@ enum nl80211_mfp {
 enum nl80211_wpa_versions {
 	NL80211_WPA_VERSION_1 = 1 << 0,
 	NL80211_WPA_VERSION_2 = 1 << 1,
+	NL80211_WAPI_VERSION_1 = 1 << 2,
 };
 
 /**
@@ -3110,5 +3143,54 @@ enum nl80211_probe_resp_offload_support_attr {
 	NL80211_PROBE_RESP_OFFLOAD_SUPPORT_P2P =	1<<2,
 	NL80211_PROBE_RESP_OFFLOAD_SUPPORT_80211U =	1<<3,
 };
+
+/**
+ * enum nl80211_connect_failed_reason - connection request failed reasons
+ * @NL80211_CONN_FAIL_MAX_CLIENTS: Maximum number of clients that can be
+ *  handled by the AP is reached.
+ * @NL80211_CONN_FAIL_BLOCKED_CLIENT: Connection request is rejected due to ACL.
+ */
+enum nl80211_connect_failed_reason {
+	NL80211_CONN_FAIL_MAX_CLIENTS,
+	NL80211_CONN_FAIL_BLOCKED_CLIENT,
+};
+
+/**
+ * enum nl80211_acl_policy - access control policy
+ *
+ * Access control policy is applied on a MAC list set by
+ * %NL80211_CMD_START_AP and %NL80211_CMD_SET_MAC_ACL, to
+ * be used with %NL80211_ATTR_ACL_POLICY.
+ *
+ * @NL80211_ACL_POLICY_ACCEPT_UNLESS_LISTED: Deny stations which are
+ *   listed in ACL, i.e. allow all the stations which are not listed
+ *  in ACL to authenticate.
+ * @NL80211_ACL_POLICY_DENY_UNLESS_LISTED: Allow the stations which are listed
+ *    in ACL, i.e. deny all the stations which are not listed in ACL.
+ */
+enum nl80211_acl_policy {
+	NL80211_ACL_POLICY_ACCEPT_UNLESS_LISTED,
+	NL80211_ACL_POLICY_DENY_UNLESS_LISTED,
+};
+/**
+ * enum nl80211_crit_proto_id - nl80211 critical protocol identifiers
+ *
+ * @NL80211_CRIT_PROTO_UNSPEC: protocol unspecified.
+ * @NL80211_CRIT_PROTO_DHCP: BOOTP or DHCPv6 protocol.
+ * @NL80211_CRIT_PROTO_EAPOL: EAPOL protocol.
+ * @NL80211_CRIT_PROTO_APIPA: APIPA protocol.
+ * @NUM_NL80211_CRIT_PROTO: must be kept last.
+ */
+enum nl80211_crit_proto_id {
+	NL80211_CRIT_PROTO_UNSPEC,
+	NL80211_CRIT_PROTO_DHCP,
+	NL80211_CRIT_PROTO_EAPOL,
+	NL80211_CRIT_PROTO_APIPA,
+	/* add other protocols before this one */
+	NUM_NL80211_CRIT_PROTO
+};
+
+/* maximum duration for critical protocol measures */
+#define NL80211_CRIT_PROTO_MAX_DURATION		5000 /* msec */
 
 #endif /* __LINUX_NL80211_H */

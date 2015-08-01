@@ -134,7 +134,7 @@ static void sec_esd_work_func(struct work_struct *work)
 		msleep(LCD_ESD_GPIO_CHECK_DELAY);
 		gpio_value = gpio_get_value(GPIO_LCD_ESD_DET);
 		pr_info("%s : GPIO_LCD_ESD_DET :%d After Delay %d ms \n",__func__, gpio_value,LCD_ESD_GPIO_CHECK_DELAY);
-#if defined(CONFIG_MACH_MELIUS_SPR) || defined(CONFIG_MACH_MELIUS_VZW)
+#if defined(CONFIG_MACH_MELIUS_SPR)
 			if(system_rev >= 3) {
 #elif defined(CONFIG_MACH_MELIUS_USC)
 			if(system_rev >= 2) {
@@ -320,10 +320,9 @@ static int __devinit mipi_esd_refresh_probe(struct platform_device *pdev)
 	|| defined(CONFIG_MACH_MELIUS_SKT) || defined(CONFIG_MACH_MELIUS_KTT)\
 	|| defined(CONFIG_MACH_MELIUS_LGT) || defined(CONFIG_MACH_MELIUS_CHN_CTC)\
 	|| defined(CONFIG_MACH_MELIUS_SPR) || defined(CONFIG_MACH_MELIUS_USC) \
-	|| defined(CONFIG_MACH_MELIUS_ATT) || defined(CONFIG_MACH_MELIUS_MTR) \
-	|| defined(CONFIG_MACH_MELIUS_VZW)
+	|| defined(CONFIG_MACH_MELIUS_MTR) || defined(CONFIG_MACH_MELIUS_ATT)
 
-#if defined(CONFIG_MACH_MELIUS_SPR) || defined(CONFIG_MACH_MELIUS_VZW)
+#if defined(CONFIG_MACH_MELIUS_SPR)
 	if(system_rev >= 3) {		
 #elif defined(CONFIG_MACH_MELIUS_USC)
 	if(system_rev >= 2) {

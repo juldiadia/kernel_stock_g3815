@@ -3389,7 +3389,7 @@ buffhds_first_it:
 				     : "File-CD Gadget"),
 		 i);
 
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+#ifdef	CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	/* Default INQUIRY strings */
 	strncpy(common->vendor_string, "SAMSUNG",
 			sizeof(common->vendor_string) - 1);
@@ -3621,7 +3621,7 @@ static int fsg_bind_config(struct usb_composite_dev *cdev,
 	if (fsg_strings[FSG_STRING_INTERFACE].id == 0) {
 		rc = usb_string_id(cdev);
 		if (unlikely(rc < 0))
-			return rc;
+			return -EINVAL;
 		fsg_strings[FSG_STRING_INTERFACE].id = rc;
 		fsg_intf_desc.iInterface = rc;
 	}

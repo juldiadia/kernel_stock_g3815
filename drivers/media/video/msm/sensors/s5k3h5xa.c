@@ -494,7 +494,11 @@ int32_t s5k3h5xa_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			cam_err("[CAM_SENSOR_A2P8]::error enabling regulator\n");
 		if (!ret)
 			cam_err("[CAM_SENSOR_A2P8]::SET OK\n");
+#if defined(CONFIG_MACH_SERRANO_EUR_LTE)
+		usleep(2000);
+#else		
 		usleep(1000);
+#endif
 #endif
 		/* CAM_ISP_CORE_1P2 */
 		gpio_tlmm_config(GPIO_CFG(GPIO_CAM_IO_EN, 0, GPIO_CFG_OUTPUT,

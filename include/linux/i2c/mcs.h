@@ -17,10 +17,6 @@
 #define MCS_KEY_VAL(v)		(((v) >> 16) & 0xff)
 #define MCS_KEY_CODE(v)		((v) & 0xffff)
 
-
-#define MCS5080_DEVICE	"mcs5080_touchkey"
-
-
 struct mcs_platform_data {
 	void (*poweron)(bool);
 	void (*cfg_pin)(void);

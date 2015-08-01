@@ -79,13 +79,14 @@ module_param_named(dump_ctrl_msg, ctl_msg_dbg_mask, int,
 enum {
 	MSM_USB_CTL_DEBUG = 1U << 0,
 	MSM_USB_CTL_DUMP_BUFFER = 1U << 1,
+	MSM_USB_CTL_NOTI_DEBUG = 1U << 2,
 };
 
 #define DUMP_BUFFER(prestr, cnt, buf) \
 do { \
 	if (ctl_msg_dbg_mask & MSM_USB_CTL_DUMP_BUFFER) \
 			print_hex_dump(KERN_INFO, prestr, DUMP_PREFIX_NONE, \
-					16, 1, buf, cnt, false); \
+					16, 1, buf, cnt > 16 ? 16 : cnt, false); \
 } while (0)
 
 #define DBG(x...) \
@@ -94,9 +95,16 @@ do { \
 				pr_info(x); \
 		} while (0)
 
+#define DBG_NOTI(x...) \
+		do { \
+			if (ctl_msg_dbg_mask & MSM_USB_CTL_NOTI_DEBUG) \
+				pr_info(x); \
+		} while (0)
+
 /* passed in rmnet_usb_ctrl_init */
 static int num_devs;
 static int insts_per_dev;
+
 
 /* dynamically allocated 2-D array of num_devs*insts_per_dev ctrl_devs */
 static struct rmnet_ctrl_dev **ctrl_devs;
@@ -200,8 +208,10 @@ static void get_encap_work(struct work_struct *w)
 		dev->get_encap_failure_cnt++;
 		usb_unanchor_urb(dev->rcvurb);
 		usb_autopm_put_interface(dev->intf);
-		dev_err(dev->devicep,
-		"%s: Error submitting Read URB %d\n", __func__, status);
+		if (status != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Error submitting Read URB %d\n",
+			__func__, status);
 		goto resubmit_int_urb;
 	}
 
@@ -214,7 +224,9 @@ resubmit_int_urb:
 		status = usb_submit_urb(dev->inturb, GFP_KERNEL);
 		if (status) {
 			usb_unanchor_urb(dev->inturb);
-			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+			if (status != -ENODEV)
+				dev_err(dev->devicep,
+				"%s: Error re-submitting Int URB %d\n",
 				__func__, status);
 		}
 	}
@@ -226,13 +238,16 @@ static void notification_available_cb(struct urb *urb)
 	struct usb_cdc_notification	*ctrl;
 	struct usb_device		*udev;
 	struct rmnet_ctrl_dev		*dev = urb->context;
+	unsigned int 		iface_num;
 
 	udev = interface_to_usbdev(dev->intf);
+	iface_num = dev->intf->cur_altsetting->desc.bInterfaceNumber;
 
 	switch (urb->status) {
 	case 0:
 	/*if non zero lenght of data received while unlink*/
 	case -ENOENT:
+		DBG_NOTI("[NACB:%d]<", iface_num);
 		/*success*/
 		break;
 
@@ -286,8 +301,10 @@ resubmit_int_urb:
 	status = usb_submit_urb(urb, GFP_ATOMIC);
 	if (status) {
 		usb_unanchor_urb(urb);
-		dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
-		__func__, status);
+		if (status != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Error re-submitting Int URB %d\n",
+			__func__, status);
 	}
 
 	return;
@@ -301,8 +318,10 @@ static void resp_avail_cb(struct urb *urb)
 	void				*cpkt;
 	int				ch_id, status = 0;
 	size_t				cpkt_size = 0;
+	unsigned int 		iface_num;
 
 	udev = interface_to_usbdev(dev->intf);
+	iface_num = dev->intf->cur_altsetting->desc.bInterfaceNumber;
 
 	usb_autopm_put_interface_async(dev->intf);
 
@@ -383,23 +402,31 @@ resubmit_int_urb:
 		status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
 		if (status) {
 			usb_unanchor_urb(dev->inturb);
-			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+			if (status != -ENODEV)
+				dev_err(dev->devicep,
+				"%s: Error re-submitting Int URB %d\n",
 				__func__, status);
 		}
+		DBG_NOTI("[CHKRA:%d]>", iface_num);
 	}
 }
 
 int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
 {
 	int	retval = 0;
+	unsigned int 		iface_num;
+
+	iface_num = dev->intf->cur_altsetting->desc.bInterfaceNumber;
 
 	usb_anchor_urb(dev->inturb, &dev->rx_submitted);
 	retval = usb_submit_urb(dev->inturb, GFP_KERNEL);
 	if (retval < 0) {
 		usb_unanchor_urb(dev->inturb);
-		dev_err(dev->devicep, "%s Intr submit %d\n", __func__,
-				retval);
-	}
+		if (retval != -ENODEV)
+			dev_err(dev->devicep,
+			"%s Intr submit %d\n", __func__, retval);
+	} else
+		DBG_NOTI("[CHKRA:%d]>", iface_num);
 
 	return retval;
 }
@@ -527,7 +554,9 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev,
 	dev->snd_encap_cmd_cnt++;
 	result = usb_submit_urb(sndurb, GFP_KERNEL);
 	if (result < 0) {
-		dev_err(dev->devicep, "%s: Submit URB error %d\n",
+		if (result != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Submit URB error %d\n",
 			__func__, result);
 		dev->snd_encap_cmd_cnt--;
 		usb_autopm_put_interface(dev->intf);
@@ -867,14 +896,6 @@ static const struct file_operations ctrldev_fops = {
 	.poll = rmnet_ctl_poll,
 };
 
-void rmnet_usb_ctrl_cleanup(struct rmnet_ctrl_dev *dev)
-{
-	if (dev) {
-		usb_free_urb(dev->inturb);
-		kfree(dev->intbuf);
-	}
-}
-
 int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 			 struct usb_host_endpoint *int_in,
 			 unsigned long rmnet_devnum,
@@ -968,6 +989,8 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 		set_bit(RMNET_CTRL_DEV_READY, &dev->status);
 		wake_up(&dev->open_wait_queue);
 	}
+
+	ctl_msg_dbg_mask = 0;
 
 	return 0;
 }

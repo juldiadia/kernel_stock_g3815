@@ -1935,7 +1935,7 @@ static int msm_bus_bimc_mas_init(struct msm_bus_bimc_info *binfo,
 
 		/* If in fixed mode, update bandwidth */
 		if (info->node_info->mode != BIMC_QOS_MODE_FIXED) {
-			struct msm_bus_bimc_qos_bw qbw = {};
+			struct msm_bus_bimc_qos_bw qbw;
 			qbw.ws = info->node_info->ws;
 			msm_bus_bimc_set_qos_bw(binfo,
 				info->node_info->qport[i], &qbw);

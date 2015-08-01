@@ -96,6 +96,11 @@
 #define NUM_SEL_MNT_OPTS 5
 
 extern struct security_operations *security_ops;
+/* TmmSecure start */
+#ifdef SECSUBLSM_ENABLE
+extern struct security_operations seclsm_Operations;
+#endif
+/* TmmSecure end */
 
 /* SECMARK reference count */
 static atomic_t selinux_secmark_refcount = ATOMIC_INIT(0);
@@ -225,6 +230,14 @@ static int inode_alloc_security(struct inode *inode)
 	return 0;
 }
 
+static void inode_free_rcu(struct rcu_head *head)
+{
+	struct inode_security_struct *isec;
+
+	isec = container_of(head, struct inode_security_struct, rcu);
+	kmem_cache_free(sel_inode_cache, isec);
+}
+
 static void inode_free_security(struct inode *inode)
 {
 	struct inode_security_struct *isec = inode->i_security;
@@ -235,8 +248,16 @@ static void inode_free_security(struct inode *inode)
 		list_del_init(&isec->list);
 	spin_unlock(&sbsec->isec_lock);
 
-	inode->i_security = NULL;
-	kmem_cache_free(sel_inode_cache, isec);
+	/*
+	 * The inode may still be referenced in a path walk and
+	 * a call to selinux_inode_permission() can be made
+	 * after inode_free_security() is called. Ideally, the VFS
+	 * wouldn't do this, but fixing that is a much harder
+	 * job. For now, simply free the i_security via RCU, and
+	 * leave the current inode->i_security pointer intact.
+	 * The inode will be freed after the RCU grace period too.
+	 */
+	call_rcu(&isec->rcu, inode_free_rcu);
 }
 
 static int file_alloc_security(struct file *file)
@@ -1902,6 +1923,16 @@ static int selinux_ptrace_access_check(struct task_struct *child,
 	if (rc)
 		return rc;
     
+/* TmmSecure start */
+#ifdef SECSUBLSM_ENABLE
+#ifndef CONFIG_ARCH_GOLDFISH
+   	rc = seclsm_Operations.ptrace_access_check (child, mode);
+   	if (rc)
+   		return rc;
+#endif
+#endif
+/* TmmSecure end */
+    
 	if (mode & PTRACE_MODE_READ) {
 		u32 sid = current_sid();
 		u32 csid = task_sid(child);
@@ -2604,6 +2635,15 @@ static int selinux_mount(char *dev_name,
 {
 	const struct cred *cred = current_cred();
 
+/* TmmSecure start */
+#ifdef SECSUBLSM_ENABLE
+   	int rc;
+   	rc = seclsm_Operations.sb_mount (dev_name, path,type,flags,data);
+   	if (rc)
+   		return rc;
+#endif
+/* TmmSecure end */
+    
 	if (flags & MS_REMOUNT)
 		return superblock_has_perm(cred, path->dentry->d_sb,
 					   FILESYSTEM__REMOUNT, NULL);
@@ -3309,6 +3349,15 @@ static int selinux_dentry_open(struct file *file, const struct cred *cred)
 	struct inode *inode;
 	struct inode_security_struct *isec;
 
+/* TmmSecure start */
+#ifdef SECSUBLSM_ENABLE
+   	int rc;
+   	rc = seclsm_Operations.dentry_open (file, cred);
+   	if (rc)
+   		return rc;
+#endif
+/* TmmSecure end */
+    
 	inode = file->f_path.dentry->d_inode;
 	fsec = file->f_security;
 	isec = inode->i_security;
@@ -5604,6 +5653,43 @@ static int selinux_key_getsecurity(struct key *key, char **_buffer)
 
 #endif
 
+/* TmmSecure start */
+#ifdef SECSUBLSM_ENABLE
+#ifdef CONFIG_SECURITY_PATH
+static int selinux_path_symlink (struct path *dir, struct dentry *dentry,
+			     const char *old_name)
+{
+	int rc=0;
+
+   	rc = seclsm_Operations.path_symlink (dir, dentry, old_name);
+	return rc;
+}
+
+static int selinux_path_link (struct dentry *old_dentry, struct path *new_dir,
+			  struct dentry *new_dentry)
+{
+	int rc=0;
+   	rc = seclsm_Operations.path_link (old_dentry, new_dir,new_dentry);
+	return rc;
+}
+
+static int selinux_path_rename (struct path *old_dir, struct dentry *old_dentry,
+			    struct path *new_dir, struct dentry *new_dentry)
+{
+	int rc=0;
+   	rc = seclsm_Operations.path_rename (old_dir, old_dentry, new_dir, new_dentry);
+	return rc;
+}
+#endif
+static int selinux_bprm_check_security (struct linux_binprm *bprm)
+{
+	int rc=0;
+   	rc = seclsm_Operations.bprm_check_security (bprm);
+	return rc;
+}
+#endif
+/* TmmSecure end */
+
 static struct security_operations selinux_ops = {
 	.name =				"selinux",
 
@@ -5641,6 +5727,18 @@ static struct security_operations selinux_ops = {
 	.sb_set_mnt_opts =		selinux_set_mnt_opts,
 	.sb_clone_mnt_opts =		selinux_sb_clone_mnt_opts,
 	.sb_parse_opts_str = 		selinux_parse_opts_str,
+
+
+/* TmmSecure start */
+#ifdef SECSUBLSM_ENABLE
+#ifdef CONFIG_SECURITY_PATH
+	.path_symlink = 		selinux_path_symlink,
+	.path_link = 		selinux_path_link,
+	.path_rename = 		selinux_path_rename,
+#endif
+	.bprm_check_security =      selinux_bprm_check_security,
+#endif
+/* TmmSecure end */
 
 	.inode_alloc_security =		selinux_inode_alloc_security,
 	.inode_free_security =		selinux_inode_free_security,
@@ -5805,6 +5903,12 @@ static struct security_operations selinux_ops = {
 #endif
 };
 
+/* TmmSecure start */
+#ifdef SECSUBLSM_ENABLE
+void seclsm_init(void);
+#endif
+/* TmmSecure end */
+
 static __init int selinux_init(void)
 {
 	if (!security_module_enable(&selinux_ops)) {
@@ -5843,6 +5947,11 @@ static __init int selinux_init(void)
 	else
 		printk(KERN_DEBUG "SELinux:  Starting in permissive mode\n");
 
+    /* TmmSecure start */
+#ifdef SECSUBLSM_ENABLE
+   seclsm_init();
+#endif
+    /* TmmSecure end */
 	return 0;
 }
 

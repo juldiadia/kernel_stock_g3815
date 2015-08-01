@@ -45,6 +45,7 @@ struct sec_battery_info {
 	struct power_supply psy_bat;
 	struct power_supply psy_usb;
 	struct power_supply psy_ac;
+	struct power_supply psy_ps;
 	unsigned int irq;
 
 	int status;
@@ -56,7 +57,6 @@ struct sec_battery_info {
 	int voltage_ocv;		/* open circuit voltage (mV) */
 	int current_now;		/* current (mA) */
 	int current_avg;		/* average current (mA) */
-	int current_max;		/* input current limit (mA) */
 	int current_adc;
 
 	unsigned int capacity;			/* SOC (%) */
@@ -67,7 +67,10 @@ struct sec_battery_info {
 	/* keep awake until monitor is done */
 	struct wake_lock monitor_wake_lock;
 	struct workqueue_struct *monitor_wqueue;
-	struct delayed_work monitor_work;
+	struct work_struct monitor_work;
+#ifdef CONFIG_SAMSUNG_BATTERY_FACTORY
+	struct wake_lock lpm_wake_lock;
+#endif
 	unsigned int polling_count;
 	unsigned int polling_time;
 	bool polling_in_sleep;
@@ -125,12 +128,21 @@ struct sec_battery_info {
 	/* wireless charging enable */
 	int wc_enable;
 
+	/* wearable charging */
+	int ps_enable;
+	int ps_status;
+	int ps_changed;
+
 	/* test mode */
-	int test_mode;
+	int test_activated;
 	bool factory_mode;
 	bool slate_mode;
 
 	int siop_level;
+#if defined(CONFIG_SAMSUNG_BATTERY_ENG_TEST)
+	int stability_test;
+	int eng_not_full_status;
+#endif
 };
 
 ssize_t sec_bat_show_attrs(struct device *dev,
@@ -147,6 +159,23 @@ ssize_t sec_bat_store_attrs(struct device *dev,
 	.store = sec_bat_store_attrs,					\
 }
 
+/* event check */
+#define EVENT_NONE			(0)
+#define EVENT_2G_CALL			(0x1 << 0)
+#define EVENT_3G_CALL			(0x1 << 1)
+#define EVENT_MUSIC			(0x1 << 2)
+#define EVENT_VIDEO			(0x1 << 3)
+#define EVENT_BROWSER			(0x1 << 4)
+#define EVENT_HOTSPOT			(0x1 << 5)
+#define EVENT_CAMERA			(0x1 << 6)
+#define EVENT_CAMCORDER			(0x1 << 7)
+#define EVENT_DATA_CALL			(0x1 << 8)
+#define EVENT_WIFI			(0x1 << 9)
+#define EVENT_WIBRO			(0x1 << 10)
+#define EVENT_LTE			(0x1 << 11)
+#define EVENT_LCD			(0x1 << 12)
+#define EVENT_GPS			(0x1 << 13)
+
 enum {
 	BATT_RESET_SOC = 0,
 	BATT_READ_RAW_SOC,
@@ -157,11 +186,6 @@ enum {
 	BATT_VOL_ADC_CAL,
 	BATT_VOL_AVER,
 	BATT_VOL_ADC_AVER,
-
-	BATT_CURRENT_UA_NOW,
-	BATT_CURRENT_UA_AVG,
-
-	BATT_TEMP,
 	BATT_TEMP_ADC,
 	BATT_TEMP_AVER,
 	BATT_TEMP_ADC_AVER,
@@ -169,7 +193,6 @@ enum {
 	BATT_SLATE_MODE,
 
 	BATT_LP_CHARGING,
-	BATT_EXTERNAL_CHARGING,
 	SIOP_ACTIVATED,
 	SIOP_LEVEL,
 	BATT_CHARGING_SOURCE,
@@ -202,34 +225,12 @@ enum {
 	BATT_EVENT_LTE,
 	BATT_EVENT_LCD,
 	BATT_EVENT_GPS,
-	BATT_EVENT_BOOTING,
 	BATT_EVENT,
+	BATT_TEMP_TABLE,
 #if defined(CONFIG_SAMSUNG_BATTERY_ENG_TEST)
 	BATT_TEST_CHARGE_CURRENT,
+	BATT_STABILITY_TEST,
 #endif
 };
-
-/* event check */
-#define BATT_EVENT_BASE	BATT_EVENT_CALL
-#define BATT_EVENT_NUM (BATT_EVENT - BATT_EVENT_BASE)
-#define EVENT_NONE	(0)
-#define EVENT_CALL	(0x1 << (BATT_EVENT_CALL - BATT_EVENT_BASE))
-#define EVENT_2G_CALL	(0x1 << (BATT_EVENT_2G_CALL - BATT_EVENT_BASE))
-#define EVENT_TALK_GSM	(0x1 << (BATT_EVENT_TALK_GSM - BATT_EVENT_BASE))
-#define EVENT_3G_CALL	(0x1 << (BATT_EVENT_3G_CALL - BATT_EVENT_BASE))
-#define EVENT_TALK_WCDMA	(0x1 << (BATT_EVENT_TALK_WCDMA - BATT_EVENT_BASE))
-#define EVENT_MUSIC	(0x1 << (BATT_EVENT_MUSIC - BATT_EVENT_BASE))
-#define EVENT_VIDEO	(0x1 << (BATT_EVENT_VIDEO - BATT_EVENT_BASE))
-#define EVENT_BROWSER	(0x1 << (BATT_EVENT_BROWSER - BATT_EVENT_BASE))
-#define EVENT_HOTSPOT	(0x1 << (BATT_EVENT_HOTSPOT - BATT_EVENT_BASE))
-#define EVENT_CAMERA	(0x1 << (BATT_EVENT_CAMERA - BATT_EVENT_BASE))
-#define EVENT_CAMCORDER	(0x1 << (BATT_EVENT_CAMCORDER - BATT_EVENT_BASE))
-#define EVENT_DATA_CALL	(0x1 << (BATT_EVENT_DATA_CALL - BATT_EVENT_BASE))
-#define EVENT_WIFI	(0x1 << (BATT_EVENT_WIFI - BATT_EVENT_BASE))
-#define EVENT_WIBRO	(0x1 << (BATT_EVENT_WIBRO - BATT_EVENT_BASE))
-#define EVENT_LTE	(0x1 << (BATT_EVENT_LTE - BATT_EVENT_BASE))
-#define EVENT_LCD	(0x1 << (BATT_EVENT_LCD - BATT_EVENT_BASE))
-#define EVENT_GPS	(0x1 << (BATT_EVENT_GPS - BATT_EVENT_BASE))
-#define EVENT_BOOTING	(0x1 << (BATT_EVENT_BOOTING - BATT_EVENT_BASE))
 
 #endif /* __SEC_BATTERY_H */

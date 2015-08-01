@@ -15,7 +15,7 @@
 #include "ssp.h"
 
 #define SSP_FIRMWARE_REVISION		101901
-#define SSP_FIRMWARE_REVISION_03	13061800/*MCU L5, 6500*/
+#define SSP_FIRMWARE_REVISION_03	14012000 /*MCU L5, 6500*/
 
 /* Bootload mode cmd */
 #define BL_FW_NAME			"ssp.fw"
@@ -537,6 +537,10 @@ int check_fwbl(struct ssp_data *data)
 
 	data->client->addr = APP_SLAVE_ADDR;
 	data->uCurFirmRev = check_firmware_rev(data);
+	if (data->uCurFirmRev == SSP_INVALID_REVISION) {
+		toggle_mcu_reset(data);
+		msleep(SSP_SW_RESET_TIME);
+	}
 
 	if ((data->uCurFirmRev == SSP_INVALID_REVISION) \
 		|| (data->uCurFirmRev == SSP_INVALID_REVISION2)) {

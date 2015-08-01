@@ -215,6 +215,7 @@ static int msm_camera_v4l2_reqbufs(struct file *f, void *pctx,
 		pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 		if (pmctl == NULL) {
 			pr_err("%s Invalid mctl ptr", __func__);
+			mutex_unlock(&pcam_inst->inst_lock);
 			return -EINVAL;
 		}
 		pmctl->mctl_vbqueue_init(pcam_inst, &pcam_inst->vid_bufq,
@@ -1280,6 +1281,7 @@ copy_from_user_failed:
 payload_alloc_fail:
 	kfree(event_qcmd);
 event_qcmd_alloc_fail:
+	mutex_unlock(&pcam->event_lock);
 	return rc;
 }
 
@@ -1422,7 +1424,7 @@ probe_fail:
 }
 #endif
 
-#if !(defined(CONFIG_MACH_GOLDEN) || defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_SPR) || defined(CONFIG_MACH_LT02_TMO))
+#if !(defined(CONFIG_MACH_GOLDEN) || defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_SPR) || defined(CONFIG_MACH_LT02_TMO) || defined(CONFIG_MACH_CANE))
 static struct v4l2_subdev *msm_eeprom_probe(
 	struct msm_eeprom_info *eeprom_info)
 {
@@ -1449,19 +1451,19 @@ static struct v4l2_subdev *msm_eeprom_probe(
 
 	adapter = i2c_get_adapter(eeprom_info->bus_id);
 	if (!adapter){
-            D("[%s::adapter] fail!!\n", __func__);        
+            D("[%s::adapter] fail!!\n", __func__);
             goto probe_fail;
        }
 
 	eeprom_client = i2c_new_device(adapter, eeprom_info->board_info);
 	if (!eeprom_client){
-            D("[%s::adapter] fail!!\n", __func__);        
+            D("[%s::adapter] fail!!\n", __func__);
             goto device_fail;
        }
 
 	eeprom_sdev = (struct v4l2_subdev *)i2c_get_clientdata(eeprom_client);
 	if (eeprom_sdev == NULL){
-            D("[%s::adapter] fail!!\n", __func__);        
+            D("[%s::adapter] fail!!\n", __func__);
             goto client_fail;
        }
 
@@ -1507,7 +1509,7 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 #ifdef CONFIG_MSM_ACTUATOR
 	pcam->act_sdev = msm_actuator_probe(sdata->actuator_info);
 #endif
-#if !(defined(CONFIG_MACH_GOLDEN) || defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_SPR) || defined(CONFIG_MACH_LT02_TMO))
+#if !(defined(CONFIG_MACH_GOLDEN) || defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_SPR) || defined(CONFIG_MACH_LT02_TMO) || defined(CONFIG_MACH_CANE))
 	pcam->eeprom_sdev = msm_eeprom_probe(sdata->eeprom_info);
 #endif
 

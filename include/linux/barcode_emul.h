@@ -21,6 +21,9 @@
 
 #define FPGA_GPIO_BASE	300
 #define NR_FPGA_GPIO	16
+#if !defined(CONFIG_MACH_JF)
+#define FPGA_GPIO_VPS_SOUND_EN 15
+#endif
 #define ICE_FPGA_GPIO_TO_SYS(fpga_gpio)  (fpga_gpio + FPGA_GPIO_BASE)
 
 enum {
@@ -29,13 +32,13 @@ enum {
 	ICE_GPIOX,
 	ICE_I2C,
 	ICE_IRDA,
+	ICE_24M,
 	ICE_IRDA_SERRANO,
 };
 
-#ifndef CONFIG_NO_GPIO_EXPANDER_FPGA
 extern int ice_gpiox_set(int num, int val);
 extern int ice_gpiox_get(int num);
-#endif
+
 struct barcode_emul_platform_data {
 	int spi_clk;
 	int spi_si;
@@ -56,10 +59,19 @@ struct barcode_emul_platform_data {
 	void (*ir_remote_init) (void);
 	void (*ir_wake_en)(bool onoff);
 	void(*ir_vdd_onoff)(bool onoff);
+	void(*ir_led_poweron)(int);
 #endif
+#if defined(CONFIG_MACH_JF_DCM)
+	int(*get_fpga_felica_flag)(void);
+#endif	
 };
 
 #define GPIO_LEVEL_LOW        0
 #define GPIO_LEVEL_HIGH       1
+
+#define BEAMING_OFF           0
+#define BEAMING_ON            1
+
+#define STOP_BEAMING       0x00
 
 #endif /* _BARCODE_EMUL_H_ */

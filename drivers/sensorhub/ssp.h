@@ -49,7 +49,7 @@
 #define FAIL		0
 #define ERROR		-1
 
-#define FACTORY_DATA_MAX	63
+#define FACTORY_DATA_MAX	64
 #if SSP_DBG
 #define SSP_FUNC_DBG 1
 #define SSP_DATA_DBG 0
@@ -212,10 +212,6 @@ enum {
 
 #define MAX_GYRO	32767
 #define MIN_GYRO	-32768
-#if defined(CONFIG_SENSORS_SSP_GP2AP030A00F)
-#define LOW_LUX_MODE	1
-#define HIGH_LUX_MODE	2
-#endif
 /* SSP_INSTRUCTION_CMD */
 enum {
 	REMOVE_SENSOR = 0,
@@ -233,25 +229,35 @@ enum {
 	GYROSCOPE_SENSOR,
 	GEOMAGNETIC_SENSOR,
 	PRESSURE_SENSOR,
+	GESTURE_SENSOR,
 	PROXIMITY_SENSOR,
+	TEMPERATURE_HUMIDITY_SENSOR,
 	LIGHT_SENSOR,
 	PROXIMITY_RAW,
 	GEOMAGNETIC_RAW,
 	ORIENTATION_SENSOR,
+	SIG_MOTION_SENSOR,
+	STEP_DETECTOR,
+	STEP_COUNTER,
 	SENSOR_MAX,
 };
+
+#define SSP_BYPASS_SENSORS_EN_ALL (1 << ACCELEROMETER_SENSOR |\
+	1 << GYROSCOPE_SENSOR | 1 << GEOMAGNETIC_SENSOR | 1 << PRESSURE_SENSOR |\
+	1 << TEMPERATURE_HUMIDITY_SENSOR | 1 << LIGHT_SENSOR) /* PROXIMITY_SENSOR is not continuos */
 
 /* SENSOR_FACTORY_MODE_TYPE */
 enum {
 	ACCELEROMETER_FACTORY = 0,
 	GYROSCOPE_FACTORY,
 	GEOMAGNETIC_FACTORY,
-	GEOMAGNETIC_CHECK_CTRL_FACTORY,
 	PRESSURE_FACTORY,
 	MCU_FACTORY,
 	GYROSCOPE_TEMP_FACTORY,
 	GYROSCOPE_DPS_FACTORY,
 	MCU_SLEEP_FACTORY,
+	GESTURE_FACTORY,
+	TEMPHUMIDITY_CRC_FACTORY,
 	SENSOR_FACTORY_MAX,
 };
 
@@ -262,23 +268,18 @@ struct sensor_value {
 			s16 y;
 			s16 z;
 		};
-#if defined(CONFIG_SENSORS_SSP_GP2AP030A00F)
-		struct {
-			u16 data_als0;
-			u16 data_als1;
-			u16 lux_mode;
-		};
-#else
 		struct {
 			u16 r;
 			u16 g;
 			u16 b;
 			u16 w;
 		};
-#endif
-		u16 prox[4];
+		u8 prox[4];
 		s16 data[9];
 		s32 pressure[3];
+		u8 sig_motion;
+		u8 step_det;
+		u32 step_diff;
 	};
 };
 
@@ -302,7 +303,12 @@ struct ssp_data {
 	struct input_dev *pressure_input_dev;
 	struct input_dev *light_input_dev;
 	struct input_dev *prox_input_dev;
+	struct input_dev *temp_humi_input_dev;
 	struct input_dev *mag_input_dev;
+	struct input_dev *gesture_input_dev;
+	struct input_dev *sig_motion_input_dev;
+	struct input_dev *step_det_input_dev;
+	struct input_dev *step_cnt_input_dev;
 	struct i2c_client *client;
 	struct wake_lock ssp_wake_lock;
 	struct miscdevice akmd_device;
@@ -322,10 +328,10 @@ struct ssp_data {
 	struct device *prox_device;
 	struct device *light_device;
 	struct delayed_work work_firmware;
+	struct device *ges_device;
+	struct device *temphumidity_device;
 
 	bool bSspShutdown;
-	bool bCheckSuspend;
-	bool bDebugEnabled;
 	bool bMcuIRQTestSuccessed;
 	bool bAccelAlert;
 	bool bProximityRawEnabled;
@@ -334,9 +340,11 @@ struct ssp_data {
 	bool bBinaryChashed;
 	bool bProbeIsDone;
 
-	unsigned int uProxCanc;
+	unsigned char uProxCanc;
 	unsigned char uProxHiThresh;
 	unsigned char uProxLoThresh;
+	unsigned char uProxHiThresh_default;
+	unsigned char uProxLoThresh_default;
 	unsigned int uIr_Current;
 	unsigned char uFuseRomData[3];
 	unsigned char uFactorydata[FACTORY_DATA_MAX];
@@ -361,7 +369,7 @@ struct ssp_data {
 	unsigned int uFactoryProxAvg[4];
 	unsigned int uFactorydataReady;
 	s32 iPressureCal;
-
+	u64 step_count_total;
 	atomic_t aSensorEnable;
 	int64_t adDelayBuf[SENSOR_MAX];
 
@@ -374,9 +382,6 @@ struct ssp_data {
 		struct sensor_value *);
 	void (*report_sensor_data[SENSOR_MAX])(struct ssp_data *,
 		struct sensor_value *);
-	void (*set_prox_light_power)(bool);
-        void (*set_prox_led_power)(bool);
-        void (*sensor_power_on_vdd)(int, int);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
@@ -392,6 +397,7 @@ struct ssp_data {
 	int fw_dl_state;
 #ifdef CONFIG_SENSORS_SSP_SHTC1
 	char *comp_engine_ver;
+	char *comp_engine_ver2;
 	struct mutex cp_temp_adc_lock;
 #endif
 };
@@ -412,13 +418,16 @@ void initialize_pressure_factorytest(struct ssp_data *);
 void initialize_magnetic_factorytest(struct ssp_data *);
 void initialize_function_pointer(struct ssp_data *);
 void initialize_magnetic(struct ssp_data *);
+void initialize_gesture_factorytest(struct ssp_data *data);
+void initialize_temphumidity_factorytest(struct ssp_data *data);
 void remove_accel_factorytest(struct ssp_data *);
 void remove_gyro_factorytest(struct ssp_data *);
 void remove_prox_factorytest(struct ssp_data *);
 void remove_light_factorytest(struct ssp_data *);
 void remove_pressure_factorytest(struct ssp_data *);
 void remove_magnetic_factorytest(struct ssp_data *);
-void remove_magnetic(struct ssp_data *data);
+void remove_gesture_factorytest(struct ssp_data *data);
+void remove_temphumidity_factorytest(struct ssp_data *data);
 void destroy_sensor_class(void);
 int initialize_event_symlink(struct ssp_data *);
 int sensors_create_symlink(struct kobject *target,
@@ -431,10 +440,6 @@ int check_fwbl(struct ssp_data *);
 void remove_input_dev(struct ssp_data *);
 void remove_sysfs(struct ssp_data *);
 void remove_event_symlink(struct ssp_data *);
-int ssp_sleep_mode(struct ssp_data *);
-int ssp_resume_mode(struct ssp_data *);
-int ssp_ap_suspend(struct ssp_data *);
-int ssp_ap_resume(struct ssp_data *);
 int ssp_send_cmd(struct ssp_data *, char);
 int send_instruction(struct ssp_data *, u8, u8, u8 *, u8);
 int select_irq_msg(struct ssp_data *);
@@ -448,6 +453,7 @@ int set_sensor_position(struct ssp_data *);
 void sync_sensor_state(struct ssp_data *);
 void set_proximity_threshold(struct ssp_data *, unsigned char, unsigned char);
 void set_proximity_barcode_enable(struct ssp_data *, bool);
+void set_gesture_current(struct ssp_data *, unsigned char);
 unsigned int get_delay_cmd(u8);
 unsigned int get_msdelay(int64_t);
 unsigned int get_sensor_scanning_info(struct ssp_data *);
@@ -461,12 +467,17 @@ int proximity_open_lcd_ldi(struct ssp_data *);
 void report_acc_data(struct ssp_data *, struct sensor_value *);
 void report_gyro_data(struct ssp_data *, struct sensor_value *);
 void report_mag_data(struct ssp_data *, struct sensor_value *);
+void report_gesture_data(struct ssp_data *, struct sensor_value *);
 void report_pressure_data(struct ssp_data *, struct sensor_value *);
 void report_light_data(struct ssp_data *, struct sensor_value *);
 void report_prox_data(struct ssp_data *, struct sensor_value *);
 void report_prox_raw_data(struct ssp_data *, struct sensor_value *);
 void report_geomagnetic_raw_data(struct ssp_data *, struct sensor_value *);
+void report_sig_motion_data(struct ssp_data *, struct sensor_value *);
+void report_step_det_data(struct ssp_data *, struct sensor_value *);
+void report_step_cnt_data(struct ssp_data *, struct sensor_value *);
 int print_mcu_debug(char *, int *, int);
+void report_temp_humidity_data(struct ssp_data *, struct sensor_value *);
 unsigned int get_module_rev(struct ssp_data *data);
 void reset_mcu(struct ssp_data *);
 void convert_acc_data(s16 *);

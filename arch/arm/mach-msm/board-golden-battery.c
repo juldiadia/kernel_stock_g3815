@@ -29,9 +29,9 @@
 #include "board-8930.h"
 
 #if defined(CONFIG_BATTERY_SAMSUNG)
-#include <linux/battery/sec_battery.h>
-#include <linux/battery/sec_fuelgauge.h>
-#include <linux/battery/sec_charger.h>
+#include <linux/battery/sec_battery_8930.h>
+#include <linux/battery/sec_fuelgauge_8930.h>
+#include <linux/battery/sec_charger_8930.h>
 
 #define SEC_BATTERY_PMIC_NAME ""
 #define GPIO_INOK	43
@@ -42,7 +42,24 @@ static unsigned int sec_bat_recovery_mode;
 sec_battery_platform_data_t sec_battery_pdata;
 
 #if defined(CONFIG_MACH_GOLDEN)
-#if defined(CONFIG_MACH_GOLDEN_ATT) || defined(CONFIG_MACH_GOLDEN_VZW)
+#if defined(CONFIG_MACH_GOLDEN_ATT)
+static sec_charging_current_t charging_current_table[] = {
+	{1000,	1300,	150,	40*60},	/* Unknown */
+	{0,	0,	0,	0},					/* Battery */
+	{0,	0,	0,	0},					/* UPS */
+	{1000,	1300,	150,	40*60},	/* MAINS */
+	{460,	460,	150,	40*60},	/* USB */
+	{460,	460,	150,	40*60},	/* USB_DCP */
+	{1000,	1000,	150,	40*60},	/* USB_CDP */
+	{460,	460,	150,	40*60},	/* USB_ACA */
+	{1000,	1300,	150,	40*60},	/* MISC */
+	{0,	0,	0,	0},					/* Cardock */
+	{500,	500,	150,	40*60},	/* Wireless */
+	{1000,	1300,	150,	40*60},	/* UartOff */
+	{0,	0,	0,	0},					/* OTG */
+	{0,	0,	0,	0},					/* BMS */
+};
+#elif defined(CONFIG_MACH_GOLDEN_VZW)
 static sec_charging_current_t charging_current_table[] = {
 	{1000,	1000,	150,	40*60},	/* Unknown */
 	{0,	0,	0,	0},					/* Battery */
@@ -181,6 +198,10 @@ static bool sec_chg_gpio_init(void)
 
 static bool sec_bat_is_lpm(void) {return (bool)poweroff_charging; }
 
+static bool sec_bat_check_external_charging_status(void)
+{
+	return 0;
+}
 int extended_cable_type;
 
 static void sec_bat_initial_check(void)
@@ -230,16 +251,21 @@ static bool sec_bat_switch_to_normal(void) {return true; }
 
 static int sec_bat_check_cable_callback(void)
 {
+	union power_supply_propval value;
+	value.intval = 0;
+
+	psy_do_property("sec-charger", get,
+				POWER_SUPPLY_PROP_CHARGE_COUNTER, value);
 	msleep(500);
 
 	if (current_cable_type == POWER_SUPPLY_TYPE_BATTERY &&
-		gpio_get_value_cansleep(GPIO_INOK)) {
+		value.intval) {
 		pr_info("%s : VBUS IN\n", __func__);
 		return POWER_SUPPLY_TYPE_UARTOFF;
 	}
 
 	if (current_cable_type == POWER_SUPPLY_TYPE_UARTOFF &&
-		!gpio_get_value_cansleep(GPIO_INOK)) {
+		!value.intval) {
 		pr_info("%s : VBUS OUT\n", __func__);
 		return POWER_SUPPLY_TYPE_BATTERY;
 	}
@@ -521,6 +547,7 @@ sec_battery_platform_data_t sec_battery_pdata = {
 	.chg_gpio_init = sec_chg_gpio_init,
 
 	.is_lpm = sec_bat_is_lpm,
+	.check_external_charging_status = sec_bat_check_external_charging_status,
 	.check_jig_status = sec_bat_check_jig_status,
 	.check_cable_callback =
 		sec_bat_check_cable_callback,

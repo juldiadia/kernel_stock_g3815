@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-# Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+# Copyright (c) 2009-2011, The Linux Foundation. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -9,7 +9,7 @@
 #     * Redistributions in binary form must reproduce the above copyright
 #       notice, this list of conditions and the following disclaimer in the
 #       documentation and/or other materials provided with the distribution.
-#     * Neither the name of Code Aurora nor
+#     * Neither the name of The Linux Foundation nor
 #       the names of its contributors may be used to endorse or promote
 #       products derived from this software without specific prior written
 #       permission.
@@ -31,7 +31,7 @@
 # TODO: Accept arguments to indicate what to build.
 
 #
-# Modify for supporting of the Samsung MSM8930 targets.
+# Modify for supporting of the Samsung JF targets.
 #
 
 import glob
@@ -45,13 +45,13 @@ import tarfile
 
 version = 'build-all.py, version 0.01'
 
-build_dir = '../okernel'
+build_dir = '../../output/all-kernels'
 make_command = ["zImage", "modules"]
 make_env = os.environ
 pwd = os.environ.get("PWD")
 make_env.update({
         'ARCH': 'arm',
-        'CROSS_COMPILE': pwd + '/../prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-',
+        'CROSS_COMPILE': pwd + '/../prebuilts/gcc/linux-x86/arm/arm-eabi-4.7/bin/arm-eabi-',
         'KCONFIG_NOTIMESTAMP': 'true' })
 all_options = {}
 
@@ -89,36 +89,8 @@ def update_config(file, str):
 def scan_configs():
     """Get the full list of defconfigs appropriate for this tree."""
     names = {}
-    for n in glob.glob('arch/arm/configs/msm8930_biscotto_[t]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_cratertd_[c]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_baffinvetd_[c]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_express2_[at]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_golden_[astuv]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_higgs_spr_rev03_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_jasper2_vzw_[r]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_ks02_[sk]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_lt02_[astc]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_melius_[acklmstuzv]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_melius_eur_*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_serrano_[astuv][a-z][cortw]*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_serrano_eur_*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_express_eur_*_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
-    for n in glob.glob('arch/arm/configs/msm8930_cane_wilcox_eur_lte_defconfig'):
-        names[os.path.basename(n)[8:-10]] = n
+    for n in glob.glob('arch/arm/configs/jf_???_defconfig'):
+        names[os.path.basename(n)[:-10]] = n
     return names
 
 class Builder:
@@ -143,15 +115,15 @@ class Builder:
             self.fd.write(line)
             self.fd.flush()
             if all_options.verbose:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+            else:
                 for i in range(line.count('\n')):
                     count += 1
                     if count == 64:
                         count = 0
                         print
                     sys.stdout.write('.')
-                sys.stdout.flush()
-            else:
-                sys.stdout.write(line)
                 sys.stdout.flush()
         print
         result = proc.wait()
@@ -162,77 +134,44 @@ class Builder:
 failed_targets = []
 
 def build(target):
-    base_defconfig = []
-    variant_defconfig = []
-    debug_defconfig = ''
-    print 'Building %s' % target
-    if target[0:12] == 'biscotto_tmo':
-        base_defconfig = 'msm8930_%s_defconfig' % target[0:8]
-    elif target[0:15] == 'cratertd_chn_3g':
-        base_defconfig = 'msm8930_%s_defconfig' % target[0:8]
-    elif target[0:17] == 'baffinvetd_chn_3g':
-        base_defconfig = 'msm8930_%s_defconfig' % target[0:10]
-    elif target[0:15] == 'higgs_spr_rev03':
-        base_defconfig = 'msm8930_%s_defconfig' % target[0:5]
-    elif target[0:17] == 'jasper2_vzw_rev02':
-        base_defconfig = 'msm8930_%s_defconfig' % target[0:7]
-    elif target[0:4] == 'ks02':
-        base_defconfig = 'msm8930_%s_01_defconfig' % target[0:4]
-    elif target[0:8] == 'lt02_chn':
-        base_defconfig = 'msm8930_%s-chn_defconfig' % target[0:4]
-    elif target[0:6] == 'melius':
-        base_defconfig = 'msm8930_%s_01_defconfig' % target[0:6]
-    elif target[0:11] == 'serrano_eur':
-        base_defconfig = 'msm8930_%s_defconfig' % target[0:7]
-    elif target[0:7] == 'serrano':
-        base_defconfig = 'msm8930_%s_usa_defconfig' % target[0:7]
-    elif target[0:7] == 'express':
-        base_defconfig = 'msm8930_%s_defconfig' % target[0:7]
-    elif target[0:19] == 'cane_wilcox_eur_lte':
-        base_defconfig = 'msm8930_cane_defconfig'
-        variant_defconfig = 'msm8930_%s_defconfig' % target[0:19]
-    else:
-        base_defconfig = 'msm8930_%s_defconfig' % target[:-4]
-    variant_defconfig = 'msm8930_%s_defconfig' % target
-
-    if all_options.debug == 'eng':
-        debug_defconfig = '%s_eng_defconfig' % base_defconfig[:-10]
-        if target[0:4] == 'ks02':
-            debug_defconfig = '%s_eng_defconfig' % base_defconfig[:12]
-        elif target[0:6] == 'melius':
-            debug_defconfig = '%s_eng_defconfig' % base_defconfig[:14]
-        elif base_defconfig[0:19] == 'msm8930_serrano_usa':
-            debug_defconfig = '%s_eng_defconfig' % base_defconfig[0:15]
-    
-    if all_options.specified:
-        print 'Targets specified option [%s]' % all_options.specified
-        splitp = all_options.specified.index(':')
-        base_defconfig = 'msm8930_%s_defconfig' % all_options.specified[:splitp]
-        variant_defconfig = 'msm8930_%s_defconfig' % all_options.specified[splitp+1:]
-	
-    print 'Base defconfig : %s' % base_defconfig
-    print 'Variant defcon : %s' % variant_defconfig
-    print 'Debug defconfi : %s' % debug_defconfig
-    dest_dir = build_dir
+    dest_dir = os.path.join(build_dir, target)
     log_name = '%s/log-%s.log' % (build_dir, target)
     zImage_name = '%s/arch/arm/boot/zImage' % (dest_dir)
-    copy_zImage_name = '%s/zImage' % (build_dir)
+    bootImage_name = '%s/arch/arm/boot/boot.img' % (dest_dir) 
+    signedImage_name = '%s/arch/arm/boot/signed_boot.img' % (dest_dir)
+    tarball_name = '%s/%s.tar' % (build_dir, target)
 
+    if target == 'jf_att':
+        signing = "SGH-I337_NA_ATT_C"
+    elif target == 'jactive_att':
+        signing = "SGH-I537_NA_ATT_C"
+    elif target == 'jf_tmo':
+        signing = "SGH-M919_NA_TMB_C"
+    elif target == 'jf_vzw':
+        signing = "SCH-I545_NA_VZW_C"
+    elif target == 'jf_spr':
+        signing = "SPH-L720_NA_SPR_C"
+    elif target == 'jf_cri':
+        signing = "SCH-R970C_NA_CRI_C"
+    elif target == 'jf_usc':
+        signing = "SCH-R970_NA_USC_C"
+    elif target == 'jf_eur':
+        signing = "GT-I9505_EUR_XX_C"
     print 'Building %s in %s log %s' % (target, dest_dir, log_name)
     if not os.path.isdir(dest_dir):
         os.mkdir(dest_dir)
-    defconfig = 'arch/arm/configs/%s' % base_defconfig
+    defconfig = 'arch/arm/configs/%s_defconfig' % target[:-4]
     dotconfig = '%s/.config' % dest_dir
     savedefconfig = '%s/defconfig' % dest_dir
     shutil.copyfile(defconfig, dotconfig)
 
     devnull = open('/dev/null', 'r')
     subprocess.check_call(['make', 'O=%s' % dest_dir,
-        'VARIANT_DEFCONFIG=%s' % variant_defconfig,
-        'DEBUG_DEFCONFIG=%s' % debug_defconfig,
-	'SELINUX_DEFCONFIG=selinux_defconfig',
-	'SELINUX_LOG_DEFCONFIG=selinux_log_defconfig',
-        '%s' % base_defconfig], env=make_env, stdin=devnull)
+        'VARIANT_DEFCONFIG=%s_defconfig' % target,
+        'DEBUG_DEFCONFIG=%seng_defconfig' % target[:-4],
+#	'SELINUX_DEFCONFIG=%sselinux_defconfig' % target[:-4],
+#	'SELINUX_LOG_DEFCONFIG=%sselinux_log_defconfig' % target[:-4],
+        '%s_defconfig' % target[:-4]], env=make_env, stdin=devnull)
     devnull.close()
 
     if not all_options.updateconfigs:
@@ -248,6 +187,13 @@ def build(target):
                 fail_or_error = fail
             fail_or_error("Failed to build %s, see %s" % (target, build.logname))
 
+        if result == 0: 
+ 		os.rename(zImage_name, bootImage_name)
+		os.system('java -jar ../../buildscript/tools/signclient.jar -runtype ss_openssl_all -model %s -input %s -output %s' %(signing,bootImage_name,signedImage_name))
+		tar = tarfile.open(tarball_name, "w")
+		tar.add(signedImage_name, arcname='boot.img')
+		tar.close()
+
     # Copy the defconfig back.
     if all_options.configs or all_options.updateconfigs:
         devnull = open('/dev/null', 'r')
@@ -256,32 +202,8 @@ def build(target):
         devnull.close()
         shutil.copyfile(savedefconfig, defconfig)
 
-    shutil.copyfile(zImage_name, copy_zImage_name)
-    shutil.copyfile(zImage_name, '%s.%s' % (copy_zImage_name, target))
-   
-    # make boot.img, (zImage+ramdisk.img)
-    ramdisk_name ='%s/ramdisk.img.%s' % (build_dir,target)
-    if (os.path.isfile(ramdisk_name)):
-        print "Execute mkbootimg using ramdisk.img.%s" % target
-    	shutil.copyfile(ramdisk_name, '%s/ramdisk.img' % build_dir)
-        result = subprocess.call("mkbootimg.sh ../okernel ../okernel", shell=True)
-        if result != 0:
-            print "Skip mkbootimg, there is not mkbootimg.sh"
-        else:
-            shutil.move('%s/boot.tar' % (build_dir), '%s/boot_%s.tar' % (build_dir,target))
-    else:
-        print "Skip mkbootimg, tar only zImage for %s targets" % target
-    	tarball_name = '%s/boot_%s.tar' % (build_dir, target)
-        tar = tarfile.open(tarball_name, "w")
-        tar.add(copy_zImage_name, arcname='boot.img')
-        tar.close()
-        
-    print "End build %s targets\n" % target
-
 def build_many(allconf, targets):
     print "Building %d target(s)" % len(targets)
-    targets.sort()
-    print "Targets : %s" % targets
     for target in targets:
         if all_options.updateconfigs:
             update_config(allconf[target], all_options.updateconfigs)
@@ -299,20 +221,8 @@ def main():
     configs = scan_configs()
 
     usage = ("""
-           %prog [options] all				-- Build all targets
-           ex) $ build-all.py all
-           
-           %prog [options] target			-- Build predefined targets
-           ex) $ build-all.py express2_att
-           
-           %prog --list					-- List available predefined targets
-           ex) $ build-all.py --list
-           
-           %prog -s base_def:variant_def target		-- Build specific targets
-           ex) $ build-all.py -s serrano_usa:serrano_tmo serrano_tmo
-           
-           %prog [options] -d/-debug eng			-- DEBUG_DEFCONFIG 
-           ex) $ build-all.py -d eng express2_att""")
+           %prog [options] all                 -- Build all targets
+           %prog [options] jf_att jf_vzw jf_tmo jf_spr ...   -- List specific targets""")
     parser = OptionParser(usage=usage, version=version)
     parser.add_option('--configs', action='store_true',
             dest='configs',
@@ -330,12 +240,8 @@ def main():
             dest='updateconfigs',
             help="Update defconfigs with provided option setting, "
                  "e.g. --updateconfigs=\'CONFIG_USE_THING=y\'")
-    parser.add_option('-j', '--jobs', type='int', dest="jobs", default=12,
+    parser.add_option('-j', '--jobs', type='int', dest="jobs",
             help="Number of simultaneous jobs")
-    parser.add_option('-d', '--debug', type='str', dest="debug",
-            help="To use DEBUG_DEFCONFIG")
-    parser.add_option('-s', '--specify', type='str', dest="specified",
-            help="To specify targets")
     parser.add_option('-l', '--load-average', type='int',
             dest='load_average',
             help="Don't start multiple jobs unless load is below LOAD_AVERAGE")
@@ -345,6 +251,9 @@ def main():
     parser.add_option('-m', '--make-target', action='append',
             help='Build the indicated make target (default: %s)' %
                  ' '.join(make_command))
+    parser.add_option('-i', '--ignore-errors', action='store_true', 
+            dest="ignore",
+            help="Ignore errors from commands")
 
     (options, args) = parser.parse_args()
     global all_options
@@ -365,6 +274,9 @@ def main():
         make_command.append("-j%d" % options.jobs)
     if options.load_average:
         make_command.append("-l%d" % options.load_average)
+    if options.ignore:
+        make_command.append("-i")
+        make_command.append("-k")
 
     if args == ['all']:
         build_many(configs, configs.keys())

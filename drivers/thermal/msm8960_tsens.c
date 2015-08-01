@@ -64,7 +64,8 @@ enum tsens_trip_type {
 #define TSENS_UPPER_STATUS_CLR		BIT((tsens_status_cntl_start + 2))
 #define TSENS_MAX_STATUS_MASK		BIT((tsens_status_cntl_start + 3))
 
-#define TSENS_MEASURE_PERIOD				1
+#define TSENS_MEASURE_PERIOD				1 /* 1 means 250ms, 1 sec. default */
+
 #define TSENS_8960_SLP_CLK_ENA				BIT(26)
 
 #define TSENS_THRESHOLD_ADDR		(MSM_CLK_CTL_BASE + 0x00003624)
@@ -243,6 +244,17 @@ int tsens_get_temp(struct tsens_device *device, unsigned long *temp)
 }
 EXPORT_SYMBOL(tsens_get_temp);
 
+int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors)
+{
+        if (!tmdev)
+                return -ENODEV;
+
+        *tsens_num_sensors = tmdev->tsens_num_sensor;
+
+        return 0;
+}
+EXPORT_SYMBOL(tsens_get_max_sensor_num);
+
 static int tsens_tz_get_mode(struct thermal_zone_device *thermal,
 			      enum thermal_device_mode *mode)
 {
@@ -261,6 +273,7 @@ static ssize_t show_temp(struct device *dev, struct device_attribute *attr,
 {
 	struct tsens_device dev_temp;
 	unsigned long temp = 0;
+
 	dev_temp.sensor_num = 0;
 
 	tsens_get_temp(&dev_temp, &temp);
@@ -521,11 +534,10 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 	unsigned int reg_th, reg_cntl;
 	int code, hi_code, lo_code, code_err_chk;
 
-	if (!tm_sensor || trip < 0)
-		return -EINVAL;
-
 	code_err_chk = code = tsens_tz_degC_to_code(temp,
 					tm_sensor->sensor_num);
+	if (!tm_sensor || trip < 0)
+		return -EINVAL;
 
 	lo_code = TSENS_THRESHOLD_MIN_CODE;
 	hi_code = TSENS_THRESHOLD_MAX_CODE;
@@ -979,7 +991,7 @@ int msm_tsens_early_init(struct tsens_platform_data *pdata)
 
 static int __devinit tsens_tm_probe(struct platform_device *pdev)
 {
-	int rc, i, j;
+	int rc, i;
 
 	if (!tmdev) {
 		pr_info("%s : TSENS early init not done.\n", __func__);
@@ -1008,11 +1020,12 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 		goto err_create_file_curr;
 	}
 
-
 	rc = request_irq(TSENS_UPPER_LOWER_INT, tsens_isr,
 		IRQF_TRIGGER_RISING, "tsens_interrupt", tmdev);
 	if (rc < 0) {
 		pr_err("%s: request_irq FAIL: %d\n", __func__, rc);
+		for (i = 0; i < tmdev->tsens_num_sensor; i++)
+			thermal_zone_device_unregister(tmdev->sensor[i].tz_dev);
 		goto fail;
 	}
 	INIT_WORK(&tmdev->tsens_work, tsens_scheduler_fn);
@@ -1023,9 +1036,6 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 err_create_file_curr:
 	device_remove_file(&pdev->dev, &dev_attr_curr_temp);
 fail:
-	for (j = 0; j < i; j++)
-		thermal_zone_device_unregister(tmdev->sensor[j].tz_dev);
-
 	tsens_disable_mode();
 	kfree(tmdev);
 	tmdev = NULL;
@@ -1051,7 +1061,13 @@ static struct platform_driver tsens_tm_driver = {
 	.probe = tsens_tm_probe,
 	.remove = tsens_tm_remove,
 	.driver = {
+#if defined(CONFIG_SEC_PRODUCT_8960)
+		.name = "tsens8960-tm",
+#elif defined(CONFIG_SEC_PRODUCT_8930)
 		.name = "msm8930-tmu",
+#else
+		.name = "apq8064-tmu",
+#endif
 		.owner = THIS_MODULE,
 #ifdef CONFIG_PM
 		.pm	= &tsens_pm_ops,

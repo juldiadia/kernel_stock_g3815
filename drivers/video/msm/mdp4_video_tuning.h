@@ -19,28 +19,17 @@
 #ifndef _MDP4_VIDEO_TUNING_H_
 #define _MDP4_VIDEO_TUNING_H_
 #define SHARPNESS_DMB 52
-#if defined(CONFIG_MACH_CRATER) || defined (CONFIG_MACH_BAFFIN)
-#define SHARPNESS_VIDEO  0 
-#else
 #define SHARPNESS_VIDEO  -127
-#endif
 #define SHARPNESS_BYPASS 0
 #define SHARPNESS_NEGATIVE	0
 
 #define DMB_LUT		DMB_TUNE
-#if defined(CONFIG_FB_MSM_MIPI_HIMAX_TFT_VIDEO_HD_PT) \
-	|| defined(CONFIG_FB_MDP4_ENHANCE)
+
 #define GALLERY_LUT	DARKGAMMA_LUT
 #define VIDEO_LUT	DARKGAMMA_LUT
-#else
-#define GALLERY_LUT	BYPASS_LUT
-#define VIDEO_LUT	BYPASS_LUT
-#endif
 #define NEGATIVE_LUT	NEGATIVE_TUNE
-#define UI_LUT		BYPASS_LUT
+#define UI_LUT		UI_LUT
 
-#if defined(CONFIG_FB_MSM_MIPI_HIMAX_TFT_VIDEO_HD_PT) \
-	|| defined(CONFIG_FB_MDP4_ENHANCE)
 static unsigned int DARKGAMMA_LUT[] = {
 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00,
@@ -299,10 +288,8 @@ static unsigned int DARKGAMMA_LUT[] = {
 0xFE, 0xFE, 0xFE,
 0xFF, 0xFF, 0xFF
 };
-#endif
 
 
-#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_HD_PT)
 static unsigned int UI_LUT[] = {
 0x00, 0x00, 0x00,
 0x01, 0x01, 0x01,
@@ -561,7 +548,6 @@ static unsigned int UI_LUT[] = {
 0xFF, 0xFF, 0xFF,
 0xFF, 0xFF, 0xFF,
 };
-#endif
 
 static unsigned int BYPASS_LUT[] = {
 0x00, 0x00, 0x00,

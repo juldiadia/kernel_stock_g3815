@@ -21,7 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/miscdevice.h>
 #include <linux/earlysuspend.h>
-#include <linux/i2c/cypress_touchkey.h>
+#include <linux/i2c/cypress_touchkey_234.h>
 #include <linux/regulator/consumer.h>
 #include <asm/mach-types.h>
 #include <mach/msm8930-gpio.h>
@@ -80,7 +80,7 @@ struct cypress_touchkey_info {
 	struct cypress_touchkey_platform_data	*pdata;
 	struct input_dev			*input_dev;
 	struct early_suspend			early_suspend;
-	struct device	*dev;	
+	struct device	*dev;
 	char			phys[32];
 	unsigned char			keycode[NUM_OF_KEY];
 	u8			sensitivity[NUM_OF_KEY];
@@ -110,7 +110,7 @@ static void cypress_touchkey_late_resume(struct early_suspend *h);
 #endif
 
 static int touchkey_led_status;
-static int touchled_cmd_reversed;
+//static int touchled_cmd_reversed;
 
 #ifdef CONFIG_LEDS_CLASS
 static void cypress_touchkey_led_work(struct work_struct *work)
@@ -125,6 +125,8 @@ static void cypress_touchkey_led_work(struct work_struct *work)
 	else
 		buf = CYPRESS_LED_ON;
 
+	touchkey_led_status = buf;
+
 	dev_info(&info->client->dev, "%s: led : %s\n", __func__,
 				buf == CYPRESS_LED_ON ? "on" : "off");
 
@@ -135,10 +137,8 @@ static void cypress_touchkey_led_work(struct work_struct *work)
 		dev_err(&info->client->dev,
 			"%s: [Touchkey] i2c write error [%d]\n",
 			__func__, ret);
-		touchled_cmd_reversed = 1;
+		//touchled_cmd_reversed = 1;
 	}
-
-	touchkey_led_status = buf;
 
 	mutex_unlock(&info->touchkey_led_mutex);
 }
@@ -879,7 +879,7 @@ static struct attribute *touchkey_attributes[] = {
 	&dev_attr_touchkey_firm_version_phone.attr,
 	&dev_attr_touchkey_firm_version_panel.attr,
 	&dev_attr_touchkey_brightness.attr,
-	&dev_attr_touch_sensitivity.attr,	
+	&dev_attr_touch_sensitivity.attr,
 	&dev_attr_touchkey_back.attr,
 	&dev_attr_touchkey_menu.attr,
 	&dev_attr_touchkey_raw_data0.attr,
@@ -889,7 +889,7 @@ static struct attribute *touchkey_attributes[] = {
 	&dev_attr_touchkey_recent.attr,
 	&dev_attr_touchkey_raw_data2.attr,
 	&dev_attr_touchkey_raw_data3.attr,
-#endif	
+#endif
 	&dev_attr_touchkey_idac0.attr,
 	&dev_attr_touchkey_idac1.attr,
 	&dev_attr_touchkey_threshold.attr,
@@ -918,7 +918,7 @@ static int cypress_touchkey_i2c_check(struct cypress_touchkey_info *info)
 		ret = i2c_smbus_read_i2c_block_data(info->client, CYPRESS_GEN, 4, data);
 		if (ret >= 0) {
 			info->ic_fw_ver = data[1];
-			info->module_ver = data[2];			
+			info->module_ver = data[2];
 			dev_info(&info->client->dev, "Touchkey ic_fw_ver: 0x%02x, module_ver =0x%02x\n",
 				info->ic_fw_ver, info->module_ver);
 			break;
@@ -1055,7 +1055,7 @@ static int __devinit cypress_touchkey_probe(struct i2c_client *client,
 	} else {
 		dev_err(&client->dev, "[TouchKey] FW update does not need!\n");
 	}
-	
+
 #ifdef USE_AUTO_CAL
 	cypress_touchkey_auto_cal(info);
 #endif
@@ -1091,12 +1091,12 @@ static int __devinit cypress_touchkey_probe(struct i2c_client *client,
 			dev_err(&client->dev, "fail to create led workquewe.\n");
 		else
 			INIT_WORK(&info->led_work, cypress_touchkey_led_work);
-	
+
 		info->leds.name = TOUCHKEY_BACKLIGHT;
 		info->leds.brightness = LED_FULL;
 		info->leds.max_brightness = LED_FULL;
 		info->leds.brightness_set = cypress_touchkey_brightness_set;
-	
+
 		ret = led_classdev_register(&client->dev, &info->leds);
 		if (ret)
 			goto err_led_class_dev;
@@ -1105,7 +1105,7 @@ static int __devinit cypress_touchkey_probe(struct i2c_client *client,
 	printk(KERN_ERR "%s: TKEY probe done.\n", __func__);
 	return 0;
 
-#ifdef CONFIG_LEDS_CLASS	
+#ifdef CONFIG_LEDS_CLASS
 err_led_class_dev:
 	if (info->led_wq)
 		destroy_workqueue(info->led_wq);
@@ -1115,9 +1115,9 @@ err_led_class_dev:
 err_sysfs:
 err_device_create:
 err_fw_update:
-	mutex_destroy(&info->fw_lock);	
+	mutex_destroy(&info->fw_lock);
 	if (info->irq >= 0)
-		free_irq(info->irq, info);	
+		free_irq(info->irq, info);
 err_req_irq:
 	input_unregister_device(input_dev);
 err_reg_input_dev:
@@ -1164,8 +1164,11 @@ static int cypress_touchkey_resume(struct device *dev)
 	info->power_onoff(1);
 	cypress_touchkey_con_hw(info, true);
 	msleep(300);
-	if (touchled_cmd_reversed) {
-		touchled_cmd_reversed = 0;
+	//if (touchled_cmd_reversed) {
+	//	touchled_cmd_reversed = 0;
+		ret = i2c_smbus_write_byte_data(info->client,
+				CYPRESS_GEN, touchkey_led_status);
+		msleep(30);
 		ret = i2c_smbus_write_byte_data(info->client,
 				CYPRESS_GEN, touchkey_led_status);
 		if (ret < 0)
@@ -1173,7 +1176,7 @@ static int cypress_touchkey_resume(struct device *dev)
 					ret);
 		else
 			printk(KERN_ERR "cypress: LED returned on\n");
-	}
+	//}
 #ifdef USE_AUTO_CAL
 	cypress_touchkey_auto_cal(info);
 #endif

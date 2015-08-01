@@ -187,14 +187,6 @@ config KEYBOARD_GPIO
 	  To compile this driver as a module, choose M here: the
 	  module will be called gpio_keys.
 
-config KEYBOARD_GPIO_EXTENDED_RESUME_EVENT
-    bool "GPIO Button event when device resume"
-    depends on KEYBOARD_GPIO
-    default n
-    help
-     This feature support extended gpio button events device resume time.
-     Feature designed based QC MSM8x30 models. 
-
 config KEYBOARD_GPIO_POLLED
 	tristate "Polled GPIO buttons"
 	depends on GENERIC_GPIO
@@ -618,7 +610,6 @@ config KEYBOARD_W90P910
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called w90p910_keypad.
-
 config KEYBOARD_TC360_TOUCHKEY
 	tristate "Coreriver touchkey support"
 	default n
@@ -627,12 +618,13 @@ config KEYBOARD_TC360_TOUCHKEY
 	  cypress touchkey.
 	  To compile this driver as a
 	  module, choose M here.
-
 config SENSORS_HALL
-	tristate "HALL"
+	bool "HALL"
 	help
-		Say Y here to enable the HALL.
+	  Say Y here to enable the HALL
+
 endif
 
 source "drivers/input/keyboard/cypress_touchkey/Kconfig"
-source "drivers/input/keyboard/melfas_touchkey/Kconfig"
+source "drivers/input/keyboard/cypress_touchkey_236/Kconfig"
+

@@ -336,4 +336,3 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 							ocv, batt_temp_degc);
 	return 100;
 }
-

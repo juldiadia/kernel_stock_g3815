@@ -30,7 +30,6 @@
 #include <linux/mfd/max77693.h>
 #include <linux/mfd/max77693-private.h>
 #include <linux/regulator/machine.h>
-#include <mach/msm8930-gpio.h>
 
 #include <mach/sec_debug.h>
 #include <linux/mfd/pm8xxx/misc.h>
@@ -167,7 +166,7 @@ static int max77693_i2c_probe(struct i2c_client *i2c,
 		pr_info("%s: device found: rev.0x%x, ver.0x%x\n", __func__,
 				max77693->pmic_rev, max77693->pmic_ver);
 	}
-
+#if defined(CONFIG_MACH_JF)
 #if defined(CONFIG_MACH_JF_VZW) || defined(CONFIG_MACH_JF_LGT)
 	if (kernel_sec_get_debug_level() == KERNEL_SEC_DEBUG_LEVEL_LOW) {
 		pm8xxx_hard_reset_config(PM8XXX_DISABLE_HARD_RESET);
@@ -176,53 +175,17 @@ static int max77693_i2c_probe(struct i2c_client *i2c,
 		pm8xxx_hard_reset_config(PM8XXX_DISABLE_HARD_RESET);
 		max77693_write_reg(i2c, MAX77693_PMIC_REG_MAINCTRL1, 0x0c);
 	}
-#elif defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_SERRANO_ATT)	\
-	|| defined(CONFIG_MACH_SERRANO_VZW) || defined(CONFIG_MACH_SERRANO_TMO)	\
-	|| defined(CONFIG_MACH_SERRANO_SPR) || defined(CONFIG_MACH_SERRANO_USC) || defined(CONFIG_MACH_LT02_CHN_CTC)
-	if (kernel_sec_get_debug_level() == KERNEL_SEC_DEBUG_LEVEL_LOW) {
-#if defined(CONFIG_SEC_DISABLE_HARDRESET)
-		pm8xxx_hard_reset_config(PM8XXX_DISABLE_HARD_RESET);
-#endif
-		max77693_write_reg(i2c, MAX77693_PMIC_REG_MAINCTRL1, 0x04);
-	} else {
-		pm8xxx_hard_reset_config(PM8XXX_DISABLE_HARD_RESET);
-		max77693_write_reg(i2c, MAX77693_PMIC_REG_MAINCTRL1, 0x0b);
-	}
 #else
 	if (kernel_sec_get_debug_level() == KERNEL_SEC_DEBUG_LEVEL_LOW) {
-#if defined(CONFIG_SEC_DISABLE_HARDRESET)
-		pm8xxx_hard_reset_config(PM8XXX_DISABLE_HARD_RESET);
-#endif
 		max77693_write_reg(i2c, MAX77693_PMIC_REG_MAINCTRL1, 0x04);
 	} else {
 		pm8xxx_hard_reset_config(PM8XXX_DISABLE_HARD_RESET);
 		max77693_write_reg(i2c, MAX77693_PMIC_REG_MAINCTRL1, 0x0c);
 	}
 #endif
-#if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_SERRANO)
+#endif
 	max77693_update_reg(i2c, MAX77693_CHG_REG_SAFEOUT_CTRL, 0x00, 0x30);
-#endif
-#if defined(CONFIG_MACH_KS02)
-	reg_data = 0x22;
-	max77693_write_reg(i2c,MAX77693_LED_REG_IFLASH, reg_data);
-	max77693_write_reg(i2c,MAX77693_LED_REG_RESERVED_01, reg_data);
-	
-	reg_data = 0x33;
-	max77693_write_reg(i2c,MAX77693_LED_REG_ITORCH, reg_data);
-	
-	reg_data = 0xc0;
-	max77693_write_reg(i2c,MAX77693_LED_REG_ITORCHTORCHTIMER, reg_data);
-	reg_data = 0x87;
-	max77693_write_reg(i2c,MAX77693_LED_REG_FLASH_TIMER, reg_data);
-	reg_data = 0x5A;
-	max77693_write_reg(i2c,MAX77693_LED_REG_FLASH_EN, reg_data);
-	reg_data = 0xEC;
-	max77693_write_reg(i2c,MAX77693_LED_REG_MAX_FLASH1,reg_data);
-	reg_data = 0x00;
-	max77693_write_reg(i2c,MAX77693_LED_REG_MAX_FLASH2, reg_data);
-	reg_data = 0x083;
-	max77693_write_reg(i2c,MAX77693_LED_REG_VOUT_CNTL, reg_data);
-#endif
+
 	max77693->muic = i2c_new_dummy(i2c->adapter, I2C_ADDR_MUIC);
 	i2c_set_clientdata(max77693->muic, max77693);
 
@@ -345,6 +308,7 @@ u8 max77693_dumpaddr_muic[] = {
 	MAX77693_MUIC_REG_CTRL3,
 };
 
+
 u8 max77693_dumpaddr_haptic[] = {
 	MAX77693_HAPTIC_REG_CONFIG1,
 	MAX77693_HAPTIC_REG_CONFIG2,
@@ -362,6 +326,7 @@ u8 max77693_dumpaddr_haptic[] = {
 	MAX77693_HAPTIC_REG_CONFIG_PWM3,
 	MAX77693_HAPTIC_REG_CONFIG_PWM4,
 };
+
 
 static int max77693_freeze(struct device *dev)
 {
@@ -406,9 +371,11 @@ static int max77693_restore(struct device *dev)
 		max77693_write_reg(i2c, max77693_dumpaddr_haptic[i],
 				max77693->reg_haptic_dump[i]);
 
+
 	return 0;
 }
 #endif
+
 
 const struct dev_pm_ops max77693_pm = {
 	.suspend = max77693_suspend,

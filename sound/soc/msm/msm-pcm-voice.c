@@ -29,8 +29,7 @@
 #include "msm-pcm-voice.h"
 #include "qdsp6/q6voice.h"
 
-#if defined(CONFIG_MACH_KS02) || defined(CONFIG_MACH_MELIUS_SKT) \
-    || defined(CONFIG_MACH_MELIUS_KTT) || defined(CONFIG_MACH_MELIUS_LGT) || defined(CONFIG_MACH_SERRANO_KOR_LTE)
+#if defined(CONFIG_SEC_DEVIDE_RINGTONE_GAIN)
 int ringback_tone_state=0;
 #endif
 
@@ -286,19 +285,23 @@ static int msm_voice_volume_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] = 0;
 	return 0;
 }
-
+#ifdef CONFIG_SND_SOC_ES325
+int es325_set_VEQ_max_gain(int volume);
+#endif
 static int msm_voice_volume_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	int volume = ucontrol->value.integer.value[0];
-#if defined(CONFIG_MACH_KS02) || defined(CONFIG_MACH_MELIUS_SKT) \
-    || defined(CONFIG_MACH_MELIUS_KTT) || defined(CONFIG_MACH_MELIUS_LGT) || defined(CONFIG_MACH_SERRANO_KOR_LTE)
+#if defined(CONFIG_SEC_DEVIDE_RINGTONE_GAIN)
     if(ringback_tone_state)
     	volume +=100;
 #endif
 	pr_debug("%s: volume: %d\n", __func__, volume);
 	voc_set_rx_vol_index(voc_get_session_id(VOICE_SESSION_NAME),
 						RX_PATH, volume);
+#ifdef CONFIG_SND_SOC_ES325
+	es325_set_VEQ_max_gain(volume);
+#endif
 	return 0;
 }
 
@@ -313,8 +316,7 @@ static int msm_volte_volume_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	int volume = ucontrol->value.integer.value[0];
-#if defined(CONFIG_MACH_KS02) || defined(CONFIG_MACH_MELIUS_SKT) \
-    || defined(CONFIG_MACH_MELIUS_KTT) || defined(CONFIG_MACH_MELIUS_LGT) || defined(CONFIG_MACH_SERRANO_KOR_LTE)
+#if defined(CONFIG_SEC_DEVIDE_RINGTONE_GAIN)
     if(ringback_tone_state)
     	volume +=100;
 #endif
@@ -341,8 +343,7 @@ static int msm_voice2_volume_put(struct snd_kcontrol *kcontrol,
 			     RX_PATH, volume);
 	return 0;
 }
-#if defined(CONFIG_MACH_KS02) || defined(CONFIG_MACH_MELIUS_SKT) \
-    || defined(CONFIG_MACH_MELIUS_KTT) || defined(CONFIG_MACH_MELIUS_LGT) || defined(CONFIG_MACH_SERRANO_KOR_LTE)
+#if defined(CONFIG_SEC_DEVIDE_RINGTONE_GAIN)
 static int msm_ringback_tone_state_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -501,6 +502,9 @@ static int msm_voice_tty_mode_put(struct snd_kcontrol *kcontrol,
 	voc_set_tty_mode(voc_get_session_id(VOICE_SESSION_NAME), tty_mode);
 
 	voc_set_tty_mode(voc_get_session_id(VOICE2_SESSION_NAME), tty_mode);
+
+	voc_set_tty_mode(voc_get_session_id(VOLTE_SESSION_NAME), tty_mode);
+
 	return 0;
 }
 static int msm_voice_widevoice_put(struct snd_kcontrol *kcontrol,
@@ -544,6 +548,7 @@ static int msm_loopback_get(struct snd_kcontrol *kcontrol,
 }
 
 
+
 static int msm_voice_slowtalk_put(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
@@ -558,7 +563,6 @@ static int msm_voice_slowtalk_put(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
-
 #ifdef CONFIG_SEC_DHA_SOL_MAL
 static int msm_sec_dha_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
@@ -571,8 +575,8 @@ static int msm_sec_dha_put(struct snd_kcontrol *kcontrol,
 {
 	int i = 0;
 
-	short dha_mode = ucontrol->value.integer.value[0];
-	short dha_select = ucontrol->value.integer.value[1];
+	int dha_mode = ucontrol->value.integer.value[0];
+	int dha_select = ucontrol->value.integer.value[1];
 	short dha_param[12] = {0,};
 	for (i = 0; i < 12; i++) {
 		dha_param[i] = (short)ucontrol->value.integer.value[2+i];
@@ -623,7 +627,11 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 				msm_voice_rx_device_mute_put),
 	SOC_SINGLE_EXT("Voice Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_voice_mute_get, msm_voice_mute_put),
-#ifdef CONFIG_VZW_VOLUME
+#if defined(CONFIG_MACH_JF_VZW) || defined(CONFIG_MACH_JF_USC)|| \
+	defined(CONFIG_MACH_MELIUS_USC) || defined(CONFIG_MACH_SERRANO_USC) || \
+	defined(CONFIG_MACH_SERRANO_VZW) || defined(CONFIG_MACH_M2_VZW) || \
+	defined(CONFIG_MACH_GOLDEN_VZW)
+	/* 8 level Voice Rx volume for VZW and USC */
 	SOC_SINGLE_EXT("Voice Rx Volume", SND_SOC_NOPM, 0, 7, 0,
 				msm_voice_volume_get, msm_voice_volume_put),
 #else
@@ -658,8 +666,7 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 		       msm_voice2_mute_get, msm_voice2_mute_put),
 	SOC_SINGLE_EXT("Voice2 Rx Volume", SND_SOC_NOPM, 0, 5, 0,
 		       msm_voice2_volume_get, msm_voice2_volume_put),
-#if defined(CONFIG_MACH_KS02) || defined(CONFIG_MACH_MELIUS_SKT) \
-    || defined(CONFIG_MACH_MELIUS_KTT) || defined(CONFIG_MACH_MELIUS_LGT) || defined(CONFIG_MACH_SERRANO_KOR_LTE)
+#if defined(CONFIG_SEC_DEVIDE_RINGTONE_GAIN)
 	SOC_SINGLE_EXT("Ringback Tone State", SND_SOC_NOPM, 0, 1, 0,
 		       msm_ringback_tone_state_get, msm_ringback_tone_state_put),
 #endif

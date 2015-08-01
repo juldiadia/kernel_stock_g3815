@@ -1,18 +1,14 @@
 #ifndef _GPIO_KEYS_H
 #define _GPIO_KEYS_H
+/* DVFS feature : HOME_KEY BOOSTER */
+#define KEY_BOOSTER
+#ifdef KEY_BOOSTER
+#include <linux/cpufreq.h>
+#define KEY_BOOSTER_OFF_TIME	300
+#define KEY_BOOSTER_CHG_TIME	200
+#endif
 
 struct device;
-
-#if defined(CONFIG_KEYBOARD_GPIO_EXTENDED_RESUME_EVENT)
-enum KEY_SUPPORT {
-	NOT_SUPPORT_RESUME_KEY_EVENT = 0,
-	SUPPORT_RESUME_KEY_EVENT
-};
-enum KEY_FORCE_REPORT {
-	FORCE_KEY_REPORT_OFF = 0,
-	FORCE_KEY_REPORT_ON
-};
-#endif
 
 struct gpio_keys_button {
 	/* Configuration parameters */
@@ -26,9 +22,6 @@ struct gpio_keys_button {
 	bool can_disable;
 	int value;		/* axis value for EV_ABS */
 	unsigned int irq;	/* Irq number in case of interrupt keys */
-#if defined(CONFIG_KEYBOARD_GPIO_EXTENDED_RESUME_EVENT)
-	int support_evt;	/* enable to support resume gpio events */
-#endif
 };
 
 struct gpio_keys_platform_data {

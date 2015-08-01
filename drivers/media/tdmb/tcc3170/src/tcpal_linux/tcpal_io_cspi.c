@@ -173,8 +173,8 @@ static s32 tcpal_cspi_open(void)
 	memset(&tcpal_cspi_io_data, 0, sizeof(tcpal_cspi_io_data));
 	memset(spi_data->buff_init_cmd, 0xFF, SPICMD_BUFF_LEN);
 #if defined(RX_TX_BUF_ALIGNED)
-	memset(spi_rx_buff, 0, RX_TX_BUFF_MAX);
-	memset(spi_tx_buff, 0, RX_TX_BUFF_MAX);
+    memset(spi_rx_buff, 0, RX_TX_BUFF_MAX);
+    memset(spi_tx_buff, 0, RX_TX_BUFF_MAX);
 #endif
 
 #ifdef __USE_TC_CPU__

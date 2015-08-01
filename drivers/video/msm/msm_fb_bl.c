@@ -24,7 +24,6 @@
 
 static int msm_fb_bl_get_brightness(struct backlight_device *pbd)
 {
-	printk(KERN_INFO "msm_fb_bl_get_brightness %d\n", pbd->props.brightness);
 	return pbd->props.brightness;
 }
 
@@ -33,11 +32,8 @@ static int msm_fb_bl_update_status(struct backlight_device *pbd)
 	struct msm_fb_data_type *mfd = bl_get_data(pbd);
 	__u32 bl_lvl;
 
-	printk(KERN_INFO "msm_fb_bl_update_status %d\n", pbd->props.brightness);
 	bl_lvl = pbd->props.brightness;
-#if !defined(CONFIG_MACH_CRATERTD_CHN_3G) && !defined(CONFIG_MACH_BAFFINVETD_CHN_3G)
 	bl_lvl = mfd->fbi->bl_curve[bl_lvl];
-#endif
 	down(&mfd->sem);
 	msm_fb_set_backlight(mfd, bl_lvl);
 	up(&mfd->sem);
@@ -60,18 +56,10 @@ void msm_fb_config_backlight(struct msm_fb_data_type *mfd)
 	fbi = mfd->fbi;
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
-	printk(KERN_INFO "msm_fb_config_backlight\n");
 	if ((pdata) && (pdata->set_backlight)) {
 		snprintf(name, sizeof(name), "msmfb_bl%d", mfd->index);
-#if defined(CONFIG_MACH_CRATERTD_CHN_3G) || defined(CONFIG_MACH_BAFFINVETD_CHN_3G)
-		props.max_brightness = FB_BACKLIGHT_MAX;
-		props.brightness = FB_BACKLIGHT_MAX;
-#else
 		props.max_brightness = FB_BACKLIGHT_LEVELS - 1;
 		props.brightness = FB_BACKLIGHT_LEVELS - 1;
-#endif
-		props.type = BACKLIGHT_PLATFORM;
-		printk(KERN_INFO "name: %s\n", name);
 		pbd =
 		    backlight_device_register(name, fbi->dev, mfd,
 					      &msm_fb_bl_ops, &props);

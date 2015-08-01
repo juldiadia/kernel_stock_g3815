@@ -1420,7 +1420,7 @@ static long venc_set_vui_timing_info(struct video_client_ctx *client_ctx,
 	if (!client_ctx)
 		return -EINVAL;
 	if (inst->framerate_mode == VENC_MODE_VFR) {
-		WFD_MSG_ERR("VUI timing info not suported in VFR mode ");
+		WFD_MSG_INFO("VUI timing info not suported in VFR mode ");
 		return -EINVAL;
 	}
 	vcd_property_hdr.prop_id = VCD_I_ENABLE_VUI_TIMING_INFO;
@@ -1962,6 +1962,7 @@ err:
 static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
 {
 	int rc = 0;
+	u32 ion_flag = 0;
 	struct venc_inst *inst = sd->dev_priv;
 	struct video_client_ctx *client_ctx = &inst->venc_client;
 	struct mem_region *mregion = arg;
@@ -1969,6 +1970,7 @@ static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
 	unsigned long kernel_vaddr, phy_addr, user_vaddr;
 	int pmem_fd;
 	struct file *file;
+	struct ion_handle *buff_handle = NULL;
 	s32 buffer_index = -1;
 
 	if (inst->streaming) {
@@ -1981,9 +1983,14 @@ static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
 			WFD_MSG_ERR("Address lookup failed\n");
 			goto err;
 		}
+		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_OUTPUT,
+				pmem_fd, kernel_vaddr, buffer_index,
+				&buff_handle);
+
 		vcd_frame.virtual = (u8 *) kernel_vaddr;
 		vcd_frame.frm_clnt_data = mregion->cookie;
 		vcd_frame.alloc_len = mregion->size;
+		vcd_frame.buff_ion_handle = buff_handle;
 
 		rc = vcd_fill_output_buffer(client_ctx->vcd_handle, &vcd_frame);
 		if (rc)
@@ -2052,7 +2059,11 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 	}
 	heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
 	heap_mask |= inst->secure ? 0 : ION_HEAP(ION_IOMMU_HEAP_ID);
+#if !defined(CONFIG_MSM_IOMMU) && defined(CONFIG_SEC_PRODUCT_8960)
+	ion_flags |= inst->secure ? ION_SECURE : ION_FORCE_CONTIGUOUS;
+#else
 	ion_flags |= inst->secure ? ION_SECURE : 0;
+#endif
 
 	if (vcd_get_ion_status()) {
 		for (i = 0; i < 4; ++i) {

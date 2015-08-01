@@ -115,7 +115,7 @@ u32 vcd_sched_add_client(struct vcd_clnt_ctxt *cctxt)
 				cctxt->reqd_perf_lvl = cctxt->frm_p_units *
 					cctxt->frm_rate.fps_numerator /
 					cctxt->frm_rate.fps_denominator;
-
+			
 			cctxt->sched_clnt_hdl = sched_cctxt;
 			memset(sched_cctxt, 0,
 				sizeof(struct vcd_sched_clnt_ctx));

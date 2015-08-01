@@ -31,7 +31,7 @@
 #include "qdsp6/q6voice.h"
 
 #define VOIP_MIN_Q_LEN 2
-#define VOIP_MAX_Q_LEN 4
+#define VOIP_MAX_Q_LEN 2
 #define VOIP_MAX_VOC_PKT_SIZE 640
 #define VOIP_MIN_VOC_PKT_SIZE 320
 
@@ -256,8 +256,15 @@ static int msm_voip_fens_get(struct snd_kcontrol *kcontrol,
 static struct snd_kcontrol_new msm_voip_controls[] = {
 	SOC_SINGLE_EXT("Voip Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_voip_mute_get, msm_voip_mute_put),
+#if defined(CONFIG_MACH_MELIUS_USC) || defined(CONFIG_MACH_SERRANO_USC) || \
+	defined(CONFIG_MACH_SERRANO_VZW) || defined(CONFIG_MACH_GOLDEN_VZW)
+	/* USC and VZW have 8 step volumes */
+	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, 7, 0,
+				msm_voip_volume_get, msm_voip_volume_put),
+#else //CONFIG_MACH_MELIUS_USC CONFIG_MACH_SERRANO_USC
 	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, 5, 0,
 				msm_voip_volume_get, msm_voip_volume_put),
+#endif
 	SOC_SINGLE_MULTI_EXT("Voip Mode Rate Config", SND_SOC_NOPM, 0, 23850,
 				0, 2, msm_voip_mode_rate_config_get,
 				msm_voip_mode_rate_config_put),
@@ -348,7 +355,7 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 		snd_pcm_period_elapsed(prtd->capture_substream);
 	} else {
 		spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
-		pr_err("UL data dropped\n");
+		pr_debug("UL data dropped\n");
 	}
 
 	wake_up(&prtd->out_wait);
@@ -425,7 +432,7 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt,
 	} else {
 		*pkt_len = 0;
 		spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
-		pr_err("DL data not available\n");
+		pr_debug("DL data not available\n");
 	}
 	wake_up(&prtd->in_wait);
 }
@@ -591,6 +598,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct voip_drv_info *prtd = runtime->private_data;
 	unsigned long dsp_flags;
+	int size;
 
 	count = frames_to_bytes(runtime, frames);
 
@@ -609,14 +617,19 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 					struct voip_buf_node, list);
 			list_del(&buf_node->list);
 			spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
-			if (prtd->mode == MODE_PCM)
+			if (prtd->mode == MODE_PCM) {
 				ret = copy_to_user(buf,
 						   &buf_node->frame.voc_pkt,
-						   count);
-			else
+						   buf_node->frame.len);
+			} else {
+				size = sizeof(buf_node->frame.header) +
+				       sizeof(buf_node->frame.len) +
+				       buf_node->frame.len;
+
 				ret = copy_to_user(buf,
 						   &buf_node->frame,
-						   count);
+						   size);
+			}
 			if (ret) {
 				pr_err("%s: Copy to user retuned %d\n",
 					__func__, ret);

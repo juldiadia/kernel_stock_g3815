@@ -2611,7 +2611,7 @@ static void sd_scanpartition_async(void *data, async_cookie_t cookie)
 	dev_set_uevent_suppress(ddev, 1);
 
 	/* No minors to use for partitions */
-	if (!disk_part_scan_enabled(gd)) {
+	if (!disk_partitionable(gd)) {
 		sd_printk(KERN_NOTICE, sdkp, "No disc partitions\n");
 		goto exit;
 	}
@@ -2659,7 +2659,6 @@ static int sd_media_scan_thread(void *__sdkp)
 	int ret;
 	sdkp->async_end = 1;
 	sdkp->device->changed = 0;
-
 	while (!kthread_should_stop()) {
 		wait_event_interruptible_timeout(sdkp->delay_wait,
 			(sdkp->thread_remove && sdkp->async_end), 3*HZ);

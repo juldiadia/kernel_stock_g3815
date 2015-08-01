@@ -224,7 +224,7 @@ int gp2a_cal_mode_read_file(char *mode)
 		return err;
 	}
 	err = cal_mode_filp->f_op->read(cal_mode_filp,
-		(char *)&mode,
+		(char *)mode,
 		sizeof(u8), &cal_mode_filp->f_pos);
 
 	if (err != sizeof(u8)) {
@@ -553,7 +553,7 @@ irqreturn_t gp2a_irq_handler(int irq, void *data)
 
 static int gp2a_setup_irq(struct gp2a_data *gp2a)
 {
-	int rc = -EIO;
+	int rc;
 	struct gp2a_platform_data *pdata = gp2a->pdata;
 	int irq = -1;
 	u8 value;

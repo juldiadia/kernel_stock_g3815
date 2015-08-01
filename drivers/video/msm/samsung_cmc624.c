@@ -34,6 +34,7 @@
 #include <linux/mfd/pm8xxx/pm8038.h>
 #include <mach/msm8930-gpio.h>
 #include <linux/i2c/samsung_cmc624.h>
+#include "mipi_novatek_NT35596.h"
 
 #if defined(CONFIG_FB_MSM_MIPI_NOVATEK_VIDEO_WXGA_PT_PANEL)
 #include "samsung_cmc624_tune_konalte.h"
@@ -61,6 +62,7 @@ static struct regulator *display_3_3v;
 */
 
 #define LCD_PWR_EN 70
+#define PWM_DUTY_SHARP 86 / 82
 
 #if defined(CONFIG_FB_MSM_MIPI_NOVATEK_VIDEO_HD_PT_PANEL)
 #define CABC_CUTOFF_BACKLIGHT_VALUE	40
@@ -79,7 +81,7 @@ static struct cmc624RegisterSet cmc624_TuneSeq[CMC624_MAX_SETTINGS];
 static int cmc624_TuneSeqLen;
 #define CMC624_BRIGHTNESS_MAX_LEVEL 1600
 
-extern bool is_hover_on;
+// extern bool is_hover_on; //Dibya
 
 struct cmc624_state_type cmc624_state = {
 	.cabc_mode = CABC_OFF_MODE,
@@ -380,7 +382,7 @@ const struct str_main_tuning tune_value[MAX_BACKGROUND_MODE][MAX_mDNIe_MODE] = {
 						ARRAY_SIZE(standard_vtcall_cabcoff)},
 		.value[CABC_ON_MODE] = {.name = "STD_VTCALL_ON", .flag = 0,
 						.tune = standard_vtcall_cabcon, .plut = LUT_DEFAULT, .size =
-						ARRAY_SIZE(standard_vtcall_cabcon)} },				
+						ARRAY_SIZE(standard_vtcall_cabcon)} },
 		{.value[CABC_OFF_MODE] = {
 				.name = "STD_BROWSER_OFF", .flag = 0, .tune =
 				standard_browser_cabcoff, .plut = LUT_DEFAULT, .size =
@@ -589,7 +591,7 @@ const struct str_main_tuning tune_value[MAX_BACKGROUND_MODE][MAX_mDNIe_MODE] = {
 		.value[CABC_ON_MODE]  = {
 				.name = "AUT_VTCALL_ON", .flag = 0, .tune =
 				auto_vtcall_cabcon, .plut = LUT_DEFAULT , .size =
-				ARRAY_SIZE(auto_vtcall_cabcon) } },
+				ARRAY_SIZE(auto_vtcall_cabcon) } },				
 		{.value[CABC_OFF_MODE] = {
 				.name = "AUT_BROWSER_OFF", .flag = 0, .tune =
 				auto_browser_cabcoff, .plut = LUT_DEFAULT , .size =
@@ -915,7 +917,13 @@ void cmc624_pwm_control(int value)
 	mutex_lock(&tuning_mutex);
 	cmc624_I2cWrite16(0x00, 0x0001);
 	cmc624_I2cWrite16(0xF8, 0x0011);
-	cmc624_I2cWrite16(0xF9, value); /* value = 0~2047 */
+
+	/* Set pwm value regarding LCD panel */
+	if(g_lcd_id == LCD_PANEL_SHARP)
+        	cmc624_I2cWrite16(0xF9, value * PWM_DUTY_SHARP); /* value = 0~2047 */
+	else
+        	cmc624_I2cWrite16(0xF9, value); /* value = 0~2047 */
+
 	cmc624_I2cWrite16(0xFF, 0x0000);
 	mutex_unlock(&tuning_mutex);
 }
@@ -940,7 +948,8 @@ void cmc624_pwm_control_cabc(int value255)
 	idx = tune_value[cmc624_state.background][cmc624_state.scenario].value[cmc624_state.cabc_mode].plut;
 
 	/* Change LUT table value when hover on */
-	if( is_hover_on && cmc624_state.cabc_mode == CABC_ON_MODE && cmc624_state.scenario == mDNIe_VIDEO_MODE)
+//	if( is_hover_on && cmc624_state.cabc_mode == CABC_ON_MODE && cmc624_state.scenario == mDNIe_VIDEO_MODE) //Dibya
+	if( cmc624_state.cabc_mode == CABC_ON_MODE && cmc624_state.scenario == mDNIe_VIDEO_MODE)
 		idx = LUT_DEFAULT;
 	
 	p_plut = power_lut[cmc624_state.power_lut_idx][idx];
@@ -965,15 +974,27 @@ void cmc624_pwm_control_cabc(int value255)
 	cmc624_I2cWrite16(0x00, 0x0001);
 
 	/*PowerLUT*/
-	cmc624_I2cWrite16(0xBB, (p_plut[0] * value / 2047));
-	cmc624_I2cWrite16(0xBC, (p_plut[1] * value / 2047));
-	cmc624_I2cWrite16(0xBD, (p_plut[2] * value / 2047));
-	cmc624_I2cWrite16(0xBE, (p_plut[3] * value / 2047));
-	cmc624_I2cWrite16(0xBF, (p_plut[4] * value / 2047));
-	cmc624_I2cWrite16(0xC0, (p_plut[5] * value / 2047));
-	cmc624_I2cWrite16(0xC1, (p_plut[6] * value / 2047));
-	cmc624_I2cWrite16(0xC2, (p_plut[7] * value / 2047));
-	cmc624_I2cWrite16(0xC3, (p_plut[8] * value / 2047));
+    if (g_lcd_id == LCD_PANEL_SHARP) {
+        cmc624_I2cWrite16(0xBB, (p_plut[0] * value * PWM_DUTY_SHARP / 2047));
+	    cmc624_I2cWrite16(0xBC, (p_plut[1] * value * PWM_DUTY_SHARP / 2047));
+	    cmc624_I2cWrite16(0xBD, (p_plut[2] * value * PWM_DUTY_SHARP / 2047));
+	    cmc624_I2cWrite16(0xBE, (p_plut[3] * value * PWM_DUTY_SHARP / 2047));
+	    cmc624_I2cWrite16(0xBF, (p_plut[4] * value * PWM_DUTY_SHARP / 2047));
+	    cmc624_I2cWrite16(0xC0, (p_plut[5] * value * PWM_DUTY_SHARP / 2047));
+	    cmc624_I2cWrite16(0xC1, (p_plut[6] * value * PWM_DUTY_SHARP / 2047));
+	    cmc624_I2cWrite16(0xC2, (p_plut[7] * value * PWM_DUTY_SHARP / 2047));
+	    cmc624_I2cWrite16(0xC3, (p_plut[8] * value * PWM_DUTY_SHARP / 2047));
+    } else {
+        cmc624_I2cWrite16(0xBB, (p_plut[0] * value / 2047));
+	    cmc624_I2cWrite16(0xBC, (p_plut[1] * value / 2047));
+	    cmc624_I2cWrite16(0xBD, (p_plut[2] * value / 2047));
+	    cmc624_I2cWrite16(0xBE, (p_plut[3] * value / 2047));
+	    cmc624_I2cWrite16(0xBF, (p_plut[4] * value / 2047));
+	    cmc624_I2cWrite16(0xC0, (p_plut[5] * value / 2047));
+	    cmc624_I2cWrite16(0xC1, (p_plut[6] * value / 2047));
+	    cmc624_I2cWrite16(0xC2, (p_plut[7] * value / 2047));
+	    cmc624_I2cWrite16(0xC3, (p_plut[8] * value / 2047));
+    }
 
 	cmc624_I2cWrite16(0xF8, 0x0010);
 	cmc624_I2cWrite16(0xFF, 0x0000);
@@ -1105,7 +1126,7 @@ void cabc_onoff_ctrl(int value)
 
 	if (value)
 		_cabc_on = 1;
-
+		
 	if (value >= 5)
 		cmc624_state.power_lut_idx = LUT_LEVEL_OUTDOOR_2;
 	else

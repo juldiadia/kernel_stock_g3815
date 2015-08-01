@@ -26,7 +26,7 @@
 #include "devices-msm8x60.h"
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-#include <linux/i2c/cypress_touchkey.h>
+#include <linux/i2c/cypress_touchkey_234.h>
 #endif
 
 #ifdef CONFIG_KEYBOARD_TC360_TOUCHKEY
@@ -266,7 +266,8 @@ void __init input_touchkey_init(void)
 	gpio_tlmm_config(GPIO_CFG(GPIO_TKEY_INT, 0,
 			GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-	#if defined(CONFIG_MACH_SERRANO_ATT) ||defined(CONFIG_MACH_SERRANO_VZW) ||defined(CONFIG_MACH_SERRANO_SPR)
+#if defined(CONFIG_MACH_SERRANO_ATT) ||defined(CONFIG_MACH_SERRANO_VZW) \
+	||defined(CONFIG_MACH_SERRANO_SPR) ||defined(CONFIG_MACH_SERRANO_LRA)
 		if (system_rev < BOARD_REV07)
 	#elif defined(CONFIG_MACH_SERRANO_USC)
 		if (system_rev < BOARD_REV05)

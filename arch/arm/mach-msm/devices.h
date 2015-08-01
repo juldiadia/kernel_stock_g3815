@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/devices.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -58,39 +58,25 @@ extern struct platform_device msm_device_uart_dm9;
 extern struct platform_device mpq8064_device_uartdm_gsbi6;
 
 extern struct platform_device msm8960_device_uart_gsbi2;
-
-#if defined(CONFIG_GSM_MODEM_SPRD6500)
-extern struct platform_device msm8960_device_qup_spi_gsbi5;
-#endif
-#if defined (CONFIG_GSM_MODEM_SPRD6500)
-extern struct platform_device msm8960_device_uart_gsbi12;
-#endif
-
 extern struct platform_device msm8960_device_uart_gsbi5;
 extern struct platform_device msm8960_device_uart_gsbi8;
+extern struct platform_device msm8930_device_uart_gsbi10;
+extern struct platform_device msm8930_device_uart_gsbi11;
 extern struct platform_device msm8960_device_ssbi_pmic;
-#ifdef CONFIG_MOTOR_DRV_TSP5000
 extern struct platform_device msm8960_device_qup_i2c_gsbi1;
-#endif
 extern struct platform_device msm8960_device_qup_i2c_gsbi2;
 extern struct platform_device msm8960_device_qup_i2c_gsbi3;
 extern struct platform_device msm8960_device_qup_i2c_gsbi4;
 extern struct platform_device msm8960_device_qup_i2c_gsbi5;
+extern struct platform_device msm8960_device_qup_i2c_gsbi7;
 extern struct platform_device msm8960_device_qup_i2c_gsbi8;
 extern struct platform_device msm8960_device_qup_i2c_gsbi9;
 extern struct platform_device msm8960_device_qup_i2c_gsbi10;
 extern struct platform_device msm8960_device_qup_i2c_gsbi11;
 extern struct platform_device msm8960_device_qup_i2c_gsbi12;
-
-#if !defined(CONFIG_GSM_MODEM_SPRD6500)
 extern struct platform_device msm8960_device_qup_spi_gsbi1;
-#endif
 extern struct platform_device msm8960_device_qup_spi_gsbi2;
 extern struct platform_device msm8960_device_qup_spi_gsbi11;
-#if defined(CONFIG_MACH_KS02)
-extern struct platform_device msm8930_device_qup_spi_gsbi11;
-#endif
-
 extern struct platform_device msm8960_gemini_device;
 extern struct platform_device msm8960_mercury_device;
 extern struct platform_device msm8960_device_i2c_mux_gsbi4;
@@ -108,9 +94,6 @@ extern struct platform_device msm8960_device_ebi1_ch0_erp;
 extern struct platform_device msm8960_device_ebi1_ch1_erp;
 
 extern struct platform_device msm8930_device_qup_spi_gsbi1;
-#if defined(CONFIG_SENSOR_LT02_CTC)
-extern struct platform_device msm8930_device_qup_i2c_gsbi1;
-#endif
 extern struct platform_device apq8064_device_uart_gsbi1;
 extern struct platform_device apq8064_device_uart_gsbi3;
 extern struct platform_device apq8064_device_uart_gsbi4;
@@ -119,6 +102,9 @@ extern struct platform_device apq8064_device_uart_gsbi7;
 extern struct platform_device apq8064_device_qup_i2c_gsbi1;
 extern struct platform_device apq8064_device_qup_i2c_gsbi3;
 extern struct platform_device apq8064_device_qup_i2c_gsbi4;
+extern struct platform_device apq8064_device_qup_i2c_gsbi2;
+extern struct platform_device apq8064_device_qup_i2c_gsbi7;
+extern struct platform_device apq8064_device_qup_spi_gsbi4;
 extern struct platform_device apq8064_device_qup_spi_gsbi5;
 extern struct platform_device apq8064_slim_ctrl;
 extern struct platform_device apq8064_device_ssbi_pmic1;
@@ -143,10 +129,18 @@ extern struct platform_device msm8960_pc_cntr;
 extern struct platform_device msm8064_pc_cntr;
 extern struct platform_device msm8930_pc_cntr;
 
+extern struct platform_device msm8960_cpu_slp_status;
+extern struct platform_device msm8064_cpu_slp_status;
+extern struct platform_device msm8930_cpu_slp_status;
+
 extern struct platform_device msm_device_gadget_peripheral;
 extern struct platform_device msm_device_hsusb_host;
 extern struct platform_device msm_device_hsusb_host2;
 extern struct platform_device msm_device_hsic_host;
+
+extern struct platform_device msm8960_cpu_slp_status;
+extern struct platform_device msm8064_cpu_slp_status;
+extern struct platform_device msm8930_cpu_slp_status;
 
 extern struct platform_device msm_device_otg;
 extern struct platform_device msm_android_usb_device;
@@ -238,7 +232,9 @@ extern struct platform_device msm_device_ssbi7;
 extern struct platform_device msm_gsbi1_qup_spi_device;
 
 extern struct platform_device msm_device_vidc_720p;
-
+#ifdef CONFIG_RADIO_USE_MI2S
+ extern struct platform_device msm_cpudai_mi2s;
+#endif
 extern struct platform_device msm_pcm;
 extern struct platform_device msm_multi_ch_pcm;
 extern struct platform_device msm_lowlatency_pcm;
@@ -261,9 +257,6 @@ extern struct platform_device msm_cpu_fe;
 extern struct platform_device msm_stub_codec;
 extern struct platform_device msm_voice;
 extern struct platform_device msm_voip;
-#ifdef CONFIG_RADIO_USE_MI2S
-extern struct platform_device msm_cpudai_mi2s;
-#endif
 extern struct platform_device msm_lpa_pcm;
 extern struct platform_device msm_pcm_hostless;
 extern struct platform_device msm_cpudai_afe_01_rx;
@@ -277,6 +270,10 @@ extern struct platform_device msm_cpudai_incall_record_rx;
 extern struct platform_device msm_cpudai_incall_record_tx;
 extern struct platform_device msm_i2s_cpudai0;
 extern struct platform_device msm_i2s_cpudai1;
+extern struct platform_device msm_i2s_cpudai4;
+extern struct platform_device msm_i2s_cpudai5;
+extern struct platform_device msm_cpudai_stub;
+extern struct platform_device msm_fm_loopback;
 
 extern struct platform_device msm_pil_q6v3;
 extern struct platform_device msm_pil_modem;
@@ -492,3 +489,5 @@ extern struct platform_device bmdm_8064_device;
 
 extern struct platform_device sglte_mdm_8064_device;
 extern struct platform_device sglte2_qsc_8064_device;
+
+extern struct dev_avtimer_data dev_avtimer_pdata;

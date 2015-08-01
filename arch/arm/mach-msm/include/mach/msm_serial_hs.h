@@ -45,6 +45,7 @@ struct msm_serial_hs_platform_data {
 	int uart_cts_gpio;
 	int uart_rfr_gpio;
 	int userid;
+	int uartdm_rx_buf_size;
 };
 
 unsigned int msm_hs_tx_empty(struct uart_port *uport);
@@ -53,8 +54,5 @@ void msm_hs_request_clock_on(struct uart_port *uport);
 void msm_hs_set_mctrl(struct uart_port *uport,
 				    unsigned int mctrl);
 
-#if defined(CONFIG_BT_BCM4334)
 struct uart_port * msm_hs_get_port_by_id(int num);
-#endif
-
 #endif

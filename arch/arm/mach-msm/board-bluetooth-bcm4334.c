@@ -30,15 +30,11 @@
 #include <linux/platform_device.h>
 #include <linux/rfkill.h>
 #include <linux/wakelock.h>
-#include <linux/mfd/pm8xxx/pm8921.h>
-#include <linux/regulator/consumer.h>
 
 #include <asm/mach-types.h>
 
-//#include <mach/msm8960-gpio.h>
-//#include "board-8960.h"
-#include <mach/ks02-gpio.h>
-#include "board-8930.h"
+#include <mach/msm8960-gpio.h>
+#include "board-8960.h"
 #include "devices.h"
 
 #define BT_UART_CFG
@@ -46,45 +42,27 @@
 
 static struct rfkill *bt_rfkill;
 
-#define BT_UART_RTS 29
-#define BT_UART_CTS 28
-#define BT_UART_RXD 27
-#define BT_UART_TXD 26
-#define BT_HOST_WAKE 6
-
-#define GPIO_BT_UART_RTS BT_UART_RTS
-#define GPIO_BT_UART_CTS BT_UART_CTS
-#define GPIO_BT_UART_RXD BT_UART_RXD
-#define GPIO_BT_UART_TXD BT_UART_TXD
-#define GPIO_BT_HOST_WAKE BT_HOST_WAKE
-
-#if defined(CONFIG_MACH_KS02)
-extern unsigned int system_rev;
-static struct regulator *btsensor_1p8;
-#endif
-
-
 #ifdef BT_UART_CFG
 static unsigned bt_uart_on_table[] = {
 	GPIO_CFG(GPIO_BT_UART_RTS, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-		 GPIO_CFG_8MA),
+		 GPIO_CFG_2MA),
 	GPIO_CFG(GPIO_BT_UART_CTS, 2, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
-		 GPIO_CFG_8MA),
+		 GPIO_CFG_2MA),
 	GPIO_CFG(GPIO_BT_UART_RXD, 2, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
-		 GPIO_CFG_8MA),
+		 GPIO_CFG_2MA),
 	GPIO_CFG(GPIO_BT_UART_TXD, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-		 GPIO_CFG_8MA),
+		 GPIO_CFG_2MA),
 };
 
 static unsigned bt_uart_off_table[] = {
-	GPIO_CFG(GPIO_BT_UART_RTS, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-		 GPIO_CFG_8MA),
-	GPIO_CFG(GPIO_BT_UART_CTS, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-		 GPIO_CFG_8MA),
-	GPIO_CFG(GPIO_BT_UART_RXD, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-		 GPIO_CFG_8MA),
-	GPIO_CFG(GPIO_BT_UART_TXD, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-		 GPIO_CFG_8MA),
+	GPIO_CFG(GPIO_BT_UART_RTS, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+		 GPIO_CFG_2MA),
+	GPIO_CFG(GPIO_BT_UART_CTS, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+		 GPIO_CFG_2MA),
+	GPIO_CFG(GPIO_BT_UART_RXD, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+		 GPIO_CFG_2MA),
+	GPIO_CFG(GPIO_BT_UART_TXD, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+		 GPIO_CFG_2MA),
 };
 #endif
 
@@ -95,12 +73,6 @@ static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 
 	if (!blocked) {
 		pr_info("[BT] Bluetooth Power On.\n");
-		#if 0//defined(CONFIG_MACH_KS02)
-		if(system_rev > BOARD_REV06 ){
-			regulator_enable(btsensor_1p8);	// regulator ON
-			msleep(50);
-		}
-		#endif
 #ifdef BT_UART_CFG
 	for (pin = 0; pin < ARRAY_SIZE(bt_uart_on_table); pin++) {
 			rc = gpio_tlmm_config(bt_uart_on_table[pin],
@@ -110,7 +82,7 @@ static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 				       __func__, bt_uart_on_table[pin], rc);
 	}
 #endif
-        gpio_direction_output(GPIO_BT_EN, 1);
+		gpio_set_value(gpio_rev(BT_EN), 1);
 		msleep(50);
 	} else {
 #ifdef BT_UART_CFG
@@ -123,14 +95,7 @@ static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 	}
 #endif
 		pr_info("[BT] Bluetooth Power Off.\n");
-		gpio_direction_output(GPIO_BT_EN, 0);
-		gpio_set_value(GPIO_BT_WAKE, 0);	//tseop.kim : set bt ext_wake pin to low for reduce sleep current
-		#if 0//defined(CONFIG_MACH_KS02)
-		if(system_rev > BOARD_REV06 ){
-			msleep(50);
-			regulator_disable(btsensor_1p8);  // regulator OFF
-		}
-		#endif
+		gpio_set_value(gpio_rev(BT_EN), 0);
 	}
 	return 0;
 }
@@ -142,80 +107,34 @@ static const struct rfkill_ops bcm4334_bt_rfkill_ops = {
 static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-#ifdef BT_UART_CFG
-	int pin = 0;
-#endif
 
-	struct pm_gpio bt_en = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.pull	   = PM_GPIO_PULL_UP_30,
-		.vin_sel	= PM_GPIO_VIN_S4,
-		.out_strength   = PM_GPIO_STRENGTH_NO,
-		.function       = PM_GPIO_FUNC_NORMAL,
-	};
-
-    rc = gpio_request(GPIO_BT_EN, "bt_en");
-	if (rc < 0) {
-		pr_err("%s: request bt_en pin failed\n", __func__);
-		gpio_free(GPIO_BT_EN);
-		return -1;
-	}
-
-	rc = pm8xxx_gpio_config(GPIO_BT_EN, &bt_en);
-	if (rc < 0) {
-		pr_err("%s: configure bt_en gpio failed\n", __func__);
-		gpio_free(GPIO_BT_EN);
-		return -1;
-	}
-
-#if 0
-	rc = gpio_request(GPIO_BT_EN, "bcm4334_bten_gpio");
+	rc = gpio_request(gpio_rev(BT_EN), "bcm4334_bten_gpio");
 	if (unlikely(rc)) {
 		pr_err("[BT] GPIO_BT_EN request failed.\n");
 		return rc;
 	}
-#endif
 
-#ifdef BT_UART_CFG
-	for (pin = 0; pin < ARRAY_SIZE(bt_uart_off_table); pin++) {
-		rc = gpio_tlmm_config(bt_uart_off_table[pin], GPIO_CFG_ENABLE);
-		if (rc < 0)
-			pr_err("%s: gpio_tlmm_config(%#x)=%d\n",
-			__func__, bt_uart_off_table[pin], rc);
-	}
-#endif
+	gpio_tlmm_config(GPIO_CFG(GPIO_BT_UART_RTS, 0, GPIO_CFG_OUTPUT,
+		GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(GPIO_BT_UART_CTS, 0, GPIO_CFG_OUTPUT,
+		GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(GPIO_BT_UART_RXD, 0, GPIO_CFG_OUTPUT,
+		GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(GPIO_BT_UART_TXD, 0, GPIO_CFG_OUTPUT,
+		GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
+	gpio_tlmm_config(GPIO_CFG(gpio_rev(BT_EN), 0, GPIO_CFG_OUTPUT,
+		GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA), GPIO_CFG_ENABLE);
 
-#if 0
-//	gpio_tlmm_config(GPIO_CFG(gpio_rev(BT_EN), 0, GPIO_CFG_OUTPUT,
-//		GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA), GPIO_CFG_ENABLE);
-#endif
+	gpio_direction_output(gpio_rev(BT_EN), 0);
 
-    //gpio_set_value(GPIO_BT_EN, 0);
-    rc = gpio_direction_output(GPIO_BT_EN, 0);
-	if (rc < 0) {
-		pr_err("%s: request bt_en gpio direction failed\n", __func__);
-		gpio_free(GPIO_BT_EN);
-		return -1;
-	}
-
-	#if defined(CONFIG_MACH_KS02)
-	if(system_rev > BOARD_REV06 ){
-		btsensor_1p8 = regulator_get(&pdev->dev, "vwcn_bt");
-		if (IS_ERR(btsensor_1p8))
-			return -ENOMEM;
-		regulator_set_voltage(btsensor_1p8,1800000,1800000);
-		regulator_enable(btsensor_1p8);	// regulator ON
-	}
-	#endif
 	bt_rfkill = rfkill_alloc("bcm4334 Bluetooth", &pdev->dev,
 				RFKILL_TYPE_BLUETOOTH, &bcm4334_bt_rfkill_ops,
 				NULL);
 
 	if (unlikely(!bt_rfkill)) {
 		pr_err("[BT] bt_rfkill alloc failed.\n");
-		gpio_free(GPIO_BT_EN);
+		gpio_free(gpio_rev(BT_EN));
 		return -ENOMEM;
 	}
 
@@ -226,7 +145,7 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 	if (unlikely(rc)) {
 		pr_err("[BT] bt_rfkill register failed.\n");
 		rfkill_destroy(bt_rfkill);
-		gpio_free(GPIO_BT_EN);
+		gpio_free(gpio_rev(BT_EN));
 		return -1;
 	}
 
@@ -240,7 +159,7 @@ static int bcm4334_bluetooth_remove(struct platform_device *pdev)
 	rfkill_unregister(bt_rfkill);
 	rfkill_destroy(bt_rfkill);
 
-	gpio_free(GPIO_BT_EN);
+	gpio_free(gpio_rev(BT_EN));
 
 	return 0;
 }
@@ -285,22 +204,25 @@ static struct platform_device msm_bluesleep_device = {
 
 static void gpio_rev_init(void)
 {
-	bluesleep_resources[0].start = BT_HOST_WAKE;
-	bluesleep_resources[0].end = BT_HOST_WAKE;
-	bluesleep_resources[1].start = GPIO_BT_WAKE;
-	bluesleep_resources[1].end = GPIO_BT_WAKE;
-	bluesleep_resources[2].start = MSM_GPIO_TO_INT(BT_HOST_WAKE);
-	bluesleep_resources[2].end = MSM_GPIO_TO_INT(BT_HOST_WAKE);
+	bluesleep_resources[0].start = gpio_rev(BT_HOST_WAKE);
+	bluesleep_resources[0].end = gpio_rev(BT_HOST_WAKE);
+	bluesleep_resources[1].start = gpio_rev(BT_WAKE);
+	bluesleep_resources[1].end = gpio_rev(BT_WAKE);
+	bluesleep_resources[2].start = MSM_GPIO_TO_INT(gpio_rev(BT_HOST_WAKE));
+	bluesleep_resources[2].end = MSM_GPIO_TO_INT(gpio_rev(BT_HOST_WAKE));
 }
 #endif
 
+#ifdef BT_LPM_ENABLE
 extern void bluesleep_setup_uart_port(struct platform_device *uart_dev);
+#endif
 
 static int __init bcm4334_bluetooth_init(void)
 {
 #ifdef BT_LPM_ENABLE
 	gpio_rev_init();
 	platform_device_register(&msm_bluesleep_device);
+        bluesleep_setup_uart_port(&msm_device_uart_dm6);
 #endif
 	return platform_driver_register(&bcm4334_bluetooth_platform_driver);
 }

@@ -380,8 +380,10 @@ static int __cpuidle_register_device(struct cpuidle_device *dev)
 
 	if (!dev)
 		return -EINVAL;
+
 	cpu_dev = get_cpu_device((unsigned long)dev->cpu);
 	cpuidle_driver = cpuidle_get_driver();
+
 	if (!try_module_get(cpuidle_driver->owner))
 		return -EINVAL;
 

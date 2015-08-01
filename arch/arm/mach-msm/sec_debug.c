@@ -20,7 +20,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <linux/moduleparam.h>
+#include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/ctype.h>
 #include <linux/notifier.h>
@@ -46,16 +46,38 @@
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 #endif
-#include <mach/restart.h>
+#include <linux/debugfs.h>
 #include <asm/system_info.h>
+#include <linux/seq_file.h>
+
+/* onlyjazz.ed26 : make the restart_reason global to enable it early
+   in sec_debug_init and share with restart functions */
+
 
 #ifdef CONFIG_SEC_DEBUG_DOUBLE_FREE
 #include <linux/circ_buf.h>
 #endif
 
+#ifdef CONFIG_USER_RESET_DEBUG
+enum sec_debug_reset_reason_t {
+	RR_S = 1,
+	RR_W = 2,
+	RR_D = 3,
+	RR_K = 4,
+	RR_M = 5,
+	RR_P = 6,
+	RR_R = 7,
+	RR_B = 8,
+	RR_N = 9,
+};
+
+static int reset_reason = RR_N;
+#endif
+
 enum sec_debug_upload_cause_t {
 	UPLOAD_CAUSE_INIT = 0xCAFEBABE,
 	UPLOAD_CAUSE_KERNEL_PANIC = 0x000000C8,
+    UPLOAD_CAUSE_POWER_LONG_PRESS = 0x00000085,
 	UPLOAD_CAUSE_FORCED_UPLOAD = 0x00000022,
 	UPLOAD_CAUSE_CP_ERROR_FATAL = 0x000000CC,
 	UPLOAD_CAUSE_MDM_ERROR_FATAL = 0x000000EE,
@@ -153,13 +175,12 @@ struct sec_debug_core_t {
 /* enable sec_debug feature */
 static unsigned enable = 1;
 static unsigned enable_user = 1;
+#ifndef CONFIG_USER_RESET_DEBUG
 static unsigned reset_reason = 0xFFEEFFEE;
+#endif
 static char sec_build_info[100];
 static unsigned int secdbg_paddr;
 static unsigned int secdbg_size;
-#ifdef CONFIG_SEC_SSR_DEBUG_LEVEL_CHK
-static unsigned enable_cp_debug = 1;
-#endif
 
 unsigned int sec_dbg_level;
 
@@ -169,8 +190,11 @@ module_param_named(enable, enable, uint, 0644);
 module_param_named(enable_user, enable_user, uint, 0644);
 module_param_named(reset_reason, reset_reason, uint, 0644);
 module_param_named(runtime_debug_val, runtime_debug_val, uint, 0644);
+#ifndef CONFIG_MACH_JF
 #ifdef CONFIG_SEC_SSR_DEBUG_LEVEL_CHK
+static unsigned enable_cp_debug = 1;
 module_param_named(enable_cp_debug, enable_cp_debug, uint, 0644);
+#endif
 #endif
 
 static int force_error(const char *val, struct kernel_param *kp);
@@ -178,11 +202,12 @@ module_param_call(force_error, force_error, NULL, NULL, 0644);
 
 static int dbg_set_cpu_affinity(const char *val, struct kernel_param *kp);
 module_param_call(setcpuaff, dbg_set_cpu_affinity, NULL, NULL, 0644);
-
 static char *sec_build_time[] = {
 	__DATE__,
 	__TIME__
 };
+static char build_root[] = __FILE__;
+
 
 /* klaatu - schedule log */
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
@@ -208,8 +233,8 @@ struct sec_debug_log {
 	struct secavc_log secavc[CONFIG_NR_CPUS][AVC_LOG_MAX];
 #endif
 #ifdef CONFIG_SEC_DEBUG_DCVS_LOG
-	atomic_t dcvs_log_idx ;
-	struct dcvs_debug dcvs_log[DCVS_LOG_MAX] ;
+	atomic_t dcvs_log_idx[CONFIG_NR_CPUS] ;
+	struct dcvs_debug dcvs_log[CONFIG_NR_CPUS][DCVS_LOG_MAX] ;
 #endif
 #ifdef CONFIG_SEC_DEBUG_FUELGAUGE_LOG
 	atomic_t fg_log_idx;
@@ -241,8 +266,7 @@ static int rwsem_debug_init;
 static spinlock_t rwsem_debug_lock;
 #endif	/* CONFIG_SEC_DEBUG_SEMAPHORE_LOG */
 
-#ifdef CONFIG_SEC_DEBUG_DOUBLE_FREE
-static void __hexdump(void *mem, unsigned long size)
+void __hexdump(void *mem, unsigned long size)
 {
 	#define WORDS_PER_LINE 4
 	#define WORD_SIZE 4
@@ -262,7 +286,6 @@ static void __hexdump(void *mem, unsigned long size)
 	}
 
 }
-#endif
 
 #ifdef CONFIG_SEC_DEBUG_DOUBLE_FREE
 
@@ -524,7 +547,7 @@ void *kfree_hook(void *p, void *caller)
 	void *tofree = NULL;
 	unsigned long addr = (unsigned long)p;
 	struct kfree_info_entry entry;
-	struct kfree_info_entry *pentry;
+	struct kfree_info_entry *pentry = NULL;
 
 	if (!virt_addr_valid(addr)) {
 		/* there are too many NULL pointers so don't print for NULL */
@@ -539,7 +562,7 @@ void *kfree_hook(void *p, void *caller)
 		return (void *)(addr&~(KFREE_HOOK_BYPASS_MASK));
 	}
 
-	spin_lock_irqsave((spinlock_t *)&circ_buf_lock, flags);
+	spin_lock_irqsave(&circ_buf_lock, flags);
 
 	if (kfree_circ_buf.head == 0)
 		pr_debug("%s: circular buffer head rounded to zero.", __func__);
@@ -560,7 +583,7 @@ void *kfree_hook(void *p, void *caller)
 	if (match) {
 		pr_err("%s: 0x%08lx was already freed by %pS()\n",
 			__func__, (unsigned long)p, match->caller);
-		spin_unlock_irqrestore((spinlock_t *)&circ_buf_lock, flags);
+		spin_unlock_irqrestore(&circ_buf_lock, flags);
 		if (__do_panic_for_dblfree())
 			panic("double free detected!");
 		/* if we don't panic we just return without adding this entry
@@ -606,7 +629,7 @@ void *kfree_hook(void *p, void *caller)
 		return NULL;
 	}
 
-	spin_unlock_irqrestore((spinlock_t *)&circ_buf_lock, flags);
+	spin_unlock_irqrestore(&circ_buf_lock, flags);
 	return NULL;
 }
 #endif
@@ -637,11 +660,6 @@ static int force_error(const char *val, struct kernel_param *kp)
 	} else if (!strncmp(val, "undef", 5)) {
 		pr_emerg("Generating a undefined instruction exception!\n");
 		BUG();
-#ifdef CONFIG_SEC_L1_DCACHE_PANIC_CHK
-	} else if (!strncmp(val, "ldcache", 7)) {
-		pr_emerg("Generating a sec_l1_dcache_check_fail!\n");
-		sec_l1_dcache_check_fail();
-#endif
 	} else if (!strncmp(val, "bushang", 7)) {
 		void __iomem *p;
 		pr_emerg("Generating Bus Hang!\n");
@@ -665,6 +683,7 @@ static int force_error(const char *val, struct kernel_param *kp)
 		while (kmalloc(128*1024, GFP_KERNEL))
 			i++;
 		pr_emerg("Allocated %d KB!\n", i*128);
+
 	} else if (!strncmp(val, "memcorrupt", 10)) {
 		int *ptr = kmalloc(sizeof(int), GFP_KERNEL);
 		*ptr++ = 4;
@@ -682,6 +701,8 @@ static int force_error(const char *val, struct kernel_param *kp)
 
 	return 0;
 }
+
+
 static int dbg_set_cpu_affinity(const char *val, struct kernel_param *kp)
 {
 	char *endptr;
@@ -689,7 +710,6 @@ static int dbg_set_cpu_affinity(const char *val, struct kernel_param *kp)
 	int cpu;
 	struct cpumask mask;
 	long ret;
-
 	pid = (pid_t)memparse(val, &endptr);
 	if (*endptr != '@') {
 		pr_info("%s: invalid input strin: %s\n", __func__, val);
@@ -702,9 +722,9 @@ static int dbg_set_cpu_affinity(const char *val, struct kernel_param *kp)
 		__func__, pid, cpu);
 	ret = sched_setaffinity(pid, &mask);
 	pr_info("%s: sched_setaffinity returned %ld\n", __func__, ret);
-
 	return 0;
 }
+
 /* for sec debug level */
 static int __init sec_debug_level(char *str)
 {
@@ -753,6 +773,7 @@ bool kernel_sec_set_debug_level(int level)
 
 	return 1;
 }
+EXPORT_SYMBOL(kernel_sec_set_debug_level);
 
 int kernel_sec_get_debug_level(void)
 {
@@ -770,6 +791,59 @@ int kernel_sec_get_debug_level(void)
 	}
 	return sec_dbg_level;
 }
+EXPORT_SYMBOL(kernel_sec_get_debug_level);
+
+#ifdef CONFIG_SEC_MONITOR_BATTERY_REMOVAL
+static unsigned normal_off = 0;
+static int __init power_normal_off(char *val)
+{
+	normal_off = strncmp(val, "1",1) ? 0 : 1;
+	pr_info("%s, normal_off: %d\n", __func__, normal_off);
+	return 1;
+}
+__setup("normal_off=", power_normal_off);
+
+bool kernel_sec_set_normal_pwroff(int value)
+{
+	int normal_poweroff = value;
+	pr_info(" %s, value :%d\n", __func__, value);
+	sec_set_param(param_index_normal_poweroff, &normal_poweroff);
+
+	return 1;
+}
+EXPORT_SYMBOL(kernel_sec_set_normal_pwroff);
+
+static int sec_get_normal_off(void *data, u64 *val)
+{
+	*val = normal_off;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(normal_off_fops, sec_get_normal_off, NULL, "%lld\n");
+
+static int __init sec_logger_init(void)
+{
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *dent;
+	struct dentry *dbgfs_file;
+
+	dent = debugfs_create_dir("sec_logger", 0);
+	if (IS_ERR_OR_NULL(dent)) {
+		pr_err("Failed to create debugfs dir of sec_logger\n");
+		return PTR_ERR(dent);
+	}
+
+	dbgfs_file = debugfs_create_file("normal_off", 0664, dent, NULL, &normal_off_fops);
+	
+	if (IS_ERR_OR_NULL(dbgfs_file)) {
+		pr_err("Failed to create debugfs file of normal_off file\n");
+		debugfs_remove_recursive(dent);
+		return PTR_ERR(dbgfs_file);
+	}
+#endif
+	return 0;
+}
+late_initcall(sec_logger_init);
+#endif
 
 /* core reg dump function*/
 static void sec_debug_save_core_reg(struct sec_debug_core_t *core_reg)
@@ -959,11 +1033,12 @@ void sec_debug_hw_reset(void)
 	while (1)
 		;
 }
-
+EXPORT_SYMBOL(sec_debug_hw_reset);
 
 #ifdef CONFIG_SEC_PERIPHERAL_SECURE_CHK
 void sec_peripheral_secure_check_fail(void)
 {
+
 	sec_debug_set_qc_dload_magic(0);
 	sec_debug_set_upload_magic(0x77665507);
 	pr_emerg("(%s) %s\n", __func__, sec_build_info);
@@ -972,52 +1047,24 @@ void sec_peripheral_secure_check_fail(void)
 	outer_flush_all();
 	msm_restart(0, "peripheral_hw_reset");
 
-	while (1)
-		;
+	while (1);
 }
 #endif
-
-
-#ifdef CONFIG_SEC_L1_DCACHE_PANIC_CHK
-void sec_l1_dcache_check_fail(void)
-{
-	sec_debug_set_qc_dload_magic(0);
-	sec_debug_set_upload_magic(0x77665588);
-	pr_emerg("(%s) %s\n", __func__, sec_build_info);
-	pr_emerg("(%s) rebooting...\n", __func__);
-	flush_cache_all();
-	outer_flush_all();
-	msm_restart(0, "l1_dcache_reset");
-
-	while (1)
-		;
-}
-EXPORT_SYMBOL(sec_l1_dcache_check_fail);
-#endif
-
 
 #ifdef CONFIG_SEC_DEBUG_LOW_LOG
 unsigned sec_debug_get_reset_reason(void)
 {
-	return reset_reason;
+return reset_reason;
 }
 #endif
-
 static int sec_debug_panic_handler(struct notifier_block *nb,
 		unsigned long l, void *buf)
 {
 	unsigned int len;
 	emerg_pet_watchdog();
-	sec_debug_set_qc_dload_magic(1);
 	sec_debug_set_upload_magic(0x776655ee);
 
-	if (!enable) {
-#ifdef CONFIG_SEC_DEBUG_LOW_LOG
-		sec_debug_hw_reset();
-#endif
-		return -EPERM;
-	}
-	len = strlen(buf);
+	len = strnlen(buf, 15);
 	if (!strncmp(buf, "User Fault", len))
 		sec_debug_set_upload_cause(UPLOAD_CAUSE_USER_FAULT);
 	else if (!strncmp(buf, "Crash Key", len))
@@ -1025,6 +1072,8 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 	else if (!strncmp(buf, "CP Crash", len))
 		sec_debug_set_upload_cause(UPLOAD_CAUSE_CP_ERROR_FATAL);
 	else if (!strncmp(buf, "MDM Crash", len))
+		sec_debug_set_upload_cause(UPLOAD_CAUSE_MDM_ERROR_FATAL);
+	else if (strnstr(buf, "external_modem", len) != NULL)
 		sec_debug_set_upload_cause(UPLOAD_CAUSE_MDM_ERROR_FATAL);
 	else if (strnstr(buf, "modem", len) != NULL)
 		sec_debug_set_upload_cause(UPLOAD_CAUSE_MODEM_RST_ERR);
@@ -1039,7 +1088,20 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 	else
 		sec_debug_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
 
+#if !defined(CONFIG_MACH_JF) && defined(CONFIG_SEC_SSR_DEBUG_LEVEL_CHK)
+	if (!enable && !enable_cp_debug) {
+#else
+	if (!enable) {
+#endif
+#ifdef CONFIG_SEC_DEBUG_LOW_LOG
+		sec_debug_hw_reset();
+#endif
+		return -EPERM;
+	}
+
+/* enable after SSR feature
 	ssr_panic_handler_for_sec_dbg();
+*/
 	sec_debug_dump_stack();
 	sec_debug_hw_reset();
 	return 0;
@@ -1062,19 +1124,26 @@ int sec_debug_dump_stack(void)
 	flush_cache_all();
 	return 0;
 }
+EXPORT_SYMBOL(sec_debug_dump_stack);
 
-#if defined(CONFIG_MACH_BISCOTTO)
 void sec_debug_check_crash_key(unsigned int code, int value)
 {
 	static enum { NONE, STEP1, STEP2, STEP3} state = NONE;
 	pr_info("[%s] code(0x%x), value(%d)\n", __func__, code, value);
+
+	if (code == KEY_POWER) {
+		if (value)
+			sec_debug_set_upload_cause(UPLOAD_CAUSE_POWER_LONG_PRESS);
+		else
+			sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
+	}
 
 	if (!enable)
 		return;
 
 	switch (state) {
 	case NONE:
-		if (code == KEY_WPS_BUTTON && value)
+		if (code == KEY_VOLUMEDOWN && value)
 			state = STEP1;
 		else
 			state = NONE;
@@ -1103,41 +1172,7 @@ void sec_debug_check_crash_key(unsigned int code, int value)
 		break;
 	}
 }
-#else
-void sec_debug_check_crash_key(unsigned int code, int value)
-{
-	static enum { NONE, STEP1, STEP2} state = NONE;
-	pr_info("[%s] code(0x%x), value(%d)\n", __func__, code, value);
 
-	if (!enable)
-		return;
-
-	switch (state) {
-	case NONE:
-		if (code == KEY_VOLUMEUP && value)
-			state = STEP1;
-		else
-			state = NONE;
-		break;
-	case STEP1:
-		if (code == KEY_VOLUMEDOWN && value)
-			state = STEP2;
-		else
-			state = NONE;
-		break;
-	case STEP2:
-		if (code == KEY_POWER && value) {
-			emerg_pet_watchdog();
-			dump_all_task_info();
-			dump_cpu_stat();
-			panic("Crash Key");
-		} else {
-			state = NONE;
-		}
-		break;
-	}
-}
-#endif
 static struct notifier_block nb_reboot_block = {
 	.notifier_call = sec_debug_normal_reboot_handler
 };
@@ -1149,11 +1184,11 @@ static struct notifier_block nb_panic_block = {
 static void sec_debug_set_build_info(void)
 {
 	char *p = sec_build_info;
-	strncat(p, "Kernel Build Info : ", 20);
-	strncat(p, "Date:", 5);
-	strncat(p, sec_build_time[0], 12);
-	strncat(p, "Time:", 5);
-	strncat(p, sec_build_time[1], 9);
+	strlcat(p, "Kernel Build Info : ", sizeof(sec_build_info));
+	strlcat(p, "Date:", sizeof(sec_build_info));
+	strlcat(p, sec_build_time[0], sizeof(sec_build_info));
+	strlcat(p, "Time:", sizeof(sec_build_info));
+	strlcat(p, sec_build_time[1], sizeof(sec_build_info));
 }
 
 static int __init __init_sec_debug_log(void)
@@ -1182,8 +1217,15 @@ static int __init __init_sec_debug_log(void)
 		return -EFAULT;
 	}
 
+	memset(vaddr->sched, 0x0, sizeof(struct sched_log));
+	memset(vaddr->irq, 0x0, sizeof(struct irq_log));
+	memset(vaddr->irq_exit, 0x0, sizeof(struct irq_exit_log));
+	memset(vaddr->timer_log, 0x0, sizeof(struct timer_log));
+#ifdef CONFIG_SEC_DEBUG_MSGLOG
+	memset(vaddr->secmsg, 0x0, sizeof(struct secmsg_log));
+#endif
 #ifdef CONFIG_SEC_DEBUG_AVC_LOG
-	memset(vaddr->secavc, 0x0, sizeof(vaddr->secavc));
+	memset(vaddr->secavc, 0x0, sizeof(struct secavc_log));
 #endif
 
 	for (i = 0; i < CONFIG_NR_CPUS; i++) {
@@ -1199,7 +1241,8 @@ static int __init __init_sec_debug_log(void)
 #endif
 	}
 #ifdef CONFIG_SEC_DEBUG_DCVS_LOG
-		atomic_set(&(vaddr->dcvs_log_idx), -1);
+	for (i = 0; i < CONFIG_NR_CPUS; i++)
+		atomic_set(&(vaddr->dcvs_log_idx[i]), -1);
 #endif
 #ifdef CONFIG_SEC_DEBUG_FUELGAUGE_LOG
 		atomic_set(&(vaddr->fg_log_idx), -1);
@@ -1240,7 +1283,26 @@ int sec_debug_save_panic_info(const char *str, unsigned int caller)
 	return 0;
 }
 
-int sec_debug_subsys_add_var_mon(char *name, unsigned int size, unsigned int pa)
+int sec_debug_subsys_add_infomon(char *name, unsigned int size, unsigned int pa)
+{
+	if (!secdbg_krait)
+		return -ENOMEM;
+
+	if (secdbg_krait->info_mon.idx >= ARRAY_SIZE(secdbg_krait->info_mon.var))
+		return -ENOMEM;
+
+	strlcpy(secdbg_krait->info_mon.var[secdbg_krait->info_mon.idx].name,
+		name, sizeof(secdbg_krait->info_mon.var[0].name));
+	secdbg_krait->info_mon.var[secdbg_krait->info_mon.idx].sizeof_type
+		= size;
+	secdbg_krait->info_mon.var[secdbg_krait->info_mon.idx].var_paddr = pa;
+
+	secdbg_krait->info_mon.idx++;
+
+	return 0;
+}
+
+int sec_debug_subsys_add_varmon(char *name, unsigned int size, unsigned int pa)
 {
 	if (!secdbg_krait)
 		return -ENOMEM;
@@ -1255,6 +1317,29 @@ int sec_debug_subsys_add_var_mon(char *name, unsigned int size, unsigned int pa)
 
 	secdbg_krait->var_mon.idx++;
 
+	return 0;
+}
+#ifdef CONFIG_SEC_DEBUG_MDM_FILE_INFO
+void sec_set_mdm_subsys_info(char *str_buf)
+{
+	snprintf(secdbg_krait->mdmerr_info,
+		sizeof(secdbg_krait->mdmerr_info), "%s", str_buf);
+}
+#endif
+static int ___build_root_init(char *str)
+{
+	char *st, *ed;
+	int len;
+	ed = strstr(str, "/android/kernel");
+	if (!ed || ed == str)
+		return -1;
+	*ed = '\0';
+	st = strrchr(str, '/');
+	if (!st)
+		return -1;
+	st++;
+	len = (unsigned long)ed - (unsigned long)st + 1;
+	memmove(str, st, len);
 	return 0;
 }
 
@@ -1317,10 +1402,15 @@ int sec_debug_subsys_init(void)
 		&secdbg_krait->fb_info.rgb_bitinfo.a_off,
 		&secdbg_krait->fb_info.rgb_bitinfo.a_len);
 
-	SEC_DEBUG_SUBSYS_ADD_STR_TO_MONITOR(unit_name);
-	SEC_DEBUG_SUBSYS_ADD_STR_TO_MONITOR(linux_banner);
-	SEC_DEBUG_SUBSYS_ADD_VAR_TO_MONITOR(global_pvs);
-	SEC_DEBUG_SUBSYS_ADD_STR_TO_MONITOR(pmic_version);
+	ADD_STR_TO_INFOMON(unit_name);
+	ADD_VAR_TO_INFOMON(system_rev);
+	if (___build_root_init(build_root) == 0)
+		ADD_STR_TO_INFOMON(build_root);
+	ADD_STR_TO_INFOMON(linux_banner);
+
+	ADD_VAR_TO_VARMON(boost_uv);
+	ADD_VAR_TO_VARMON(speed_bin);
+	ADD_VAR_TO_VARMON(pvs_bin);
 
 	if (secdbg_paddr) {
 		secdbg_krait->sched_log.sched_idx_paddr = secdbg_paddr +
@@ -1346,6 +1436,36 @@ int sec_debug_subsys_init(void)
 		secdbg_krait->sched_log.irq_exit_struct_sz =
 			sizeof(struct irq_exit_log);
 		secdbg_krait->sched_log.irq_exit_array_cnt = SCHED_LOG_MAX;
+
+#ifdef CONFIG_SEC_DEBUG_MSG_LOG
+		secdbg_krait->sched_log.msglog_idx_paddr = secdbg_paddr +
+			offsetof(struct sec_debug_log, idx_secmsg);
+		secdbg_krait->sched_log.msglog_buf_paddr = secdbg_paddr +
+			offsetof(struct sec_debug_log, secmsg);
+		secdbg_krait->sched_log.msglog_struct_sz =
+			sizeof(struct secmsg_log);
+		secdbg_krait->sched_log.msglog_array_cnt = MSG_LOG_MAX;
+#else
+		secdbg_krait->sched_log.msglog_idx_paddr = 0;
+		secdbg_krait->sched_log.msglog_buf_paddr = 0;
+		secdbg_krait->sched_log.msglog_struct_sz = 0;
+		secdbg_krait->sched_log.msglog_array_cnt = 0;
+#endif
+
+#ifdef CONFIG_SEC_DEBUG_AVC_LOG
+		secdbg_krait->avc_log.secavc_idx_paddr = secdbg_paddr +
+			offsetof(struct sec_debug_log, idx_secavc);
+		secdbg_krait->avc_log.secavc_buf_paddr = secdbg_paddr +
+			offsetof(struct sec_debug_log, secavc);
+		secdbg_krait->avc_log.secavc_struct_sz =
+			sizeof(struct secavc_log);
+		secdbg_krait->avc_log.secavc_array_cnt = AVC_LOG_MAX;
+#else
+		secdbg_krait->avc_log.secavc_idx_paddr = 0;
+		secdbg_krait->avc_log.secavc_buf_paddr = 0;
+		secdbg_krait->avc_log.secavc_struct_sz = 0;
+		secdbg_krait->avc_log.secavc_array_cnt = 0;
+#endif
 	}
 
 	/* fill magic nubmer last to ensure data integrity when the magic
@@ -1366,17 +1486,12 @@ int __init sec_debug_init(void)
 
 	pr_emerg("%s: enable=%d\n", __func__, enable);
 
-	restart_reason = ioremap_nocache((unsigned long)restart_reason, SZ_4K);
 	/* check restart_reason here */
 	pr_emerg("%s: restart_reason : 0x%x\n", __func__,
 		(unsigned int)restart_reason);
 
 	register_reboot_notifier(&nb_reboot_block);
 	atomic_notifier_chain_register(&panic_notifier_list, &nb_panic_block);
-
-	sec_debug_set_build_info();
-	sec_debug_set_upload_magic(0x776655ee);
-	sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
 
 	if (!enable)
 		return -EPERM;
@@ -1386,6 +1501,9 @@ int __init sec_debug_init(void)
 #endif
 
 	debug_semaphore_init();
+	sec_debug_set_build_info();
+	sec_debug_set_upload_magic(0x776655ee);
+	sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
 
 	return 0;
 }
@@ -1395,11 +1513,13 @@ int sec_debug_is_enabled(void)
 	return enable;
 }
 
+#ifndef CONFIG_MACH_JF
 #ifdef CONFIG_SEC_SSR_DEBUG_LEVEL_CHK
 int sec_debug_is_enabled_for_ssr(void)
 {
 	return enable_cp_debug;
 }
+#endif
 #endif
 
 /* klaatu - schedule log */
@@ -1753,6 +1873,60 @@ static int __init sec_debug_user_fault_init(void)
 	return 0;
 }
 device_initcall(sec_debug_user_fault_init);
+
+#ifdef CONFIG_USER_RESET_DEBUG
+static int set_reset_reason_proc_show(struct seq_file *m, void *v)
+{
+	if (reset_reason == RR_S)
+		seq_printf(m, "SPON\n");
+	else if (reset_reason == RR_W)
+		seq_printf(m, "WPON\n");
+	else if (reset_reason == RR_D)
+		seq_printf(m, "DPON\n");
+	else if (reset_reason == RR_K)
+		seq_printf(m, "KPON\n");
+	else if (reset_reason == RR_M)
+		seq_printf(m, "MPON\n");
+	else if (reset_reason == RR_P)
+		seq_printf(m, "PPON\n");
+	else if (reset_reason == RR_R)
+		seq_printf(m, "RPON\n");
+	else if (reset_reason == RR_B)
+		seq_printf(m, "BPON\n");
+	else
+		seq_printf(m, "NPON\n");
+
+	return 0;
+}
+
+static int sec_reset_reason_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, set_reset_reason_proc_show, NULL);
+}
+
+static const struct file_operations sec_reset_reason_proc_fops = {
+	.open = sec_reset_reason_proc_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int __init sec_debug_reset_reason_init(void)
+{
+	struct proc_dir_entry *entry;
+
+	entry = proc_create("reset_reason", S_IWUGO, NULL,
+		&sec_reset_reason_proc_fops);
+
+	if (!entry)
+		return -ENOMEM;
+
+	return 0;
+}
+
+device_initcall(sec_debug_reset_reason_init);
+#endif
+
 #ifdef CONFIG_SEC_DEBUG_DCVS_LOG
 void sec_debug_dcvs_log(int cpu_no, unsigned int prev_freq,
 						unsigned int new_freq)
@@ -1761,12 +1935,12 @@ void sec_debug_dcvs_log(int cpu_no, unsigned int prev_freq,
 	if (!secdbg_log)
 		return;
 
-	i = atomic_inc_return(&(secdbg_log->dcvs_log_idx))
+	i = atomic_inc_return(&(secdbg_log->dcvs_log_idx[cpu_no]))
 		& (DCVS_LOG_MAX - 1);
-	secdbg_log->dcvs_log[i].cpu_no = cpu_no;
-	secdbg_log->dcvs_log[i].prev_freq = prev_freq;
-	secdbg_log->dcvs_log[i].new_freq = new_freq;
-	secdbg_log->dcvs_log[i].time = cpu_clock(cpu_no);
+	secdbg_log->dcvs_log[cpu_no][i].cpu_no = cpu_no;
+	secdbg_log->dcvs_log[cpu_no][i].prev_freq = prev_freq;
+	secdbg_log->dcvs_log[cpu_no][i].new_freq = new_freq;
+	secdbg_log->dcvs_log[cpu_no][i].time = cpu_clock(cpu_no);
 }
 #endif
 #ifdef CONFIG_SEC_DEBUG_FUELGAUGE_LOG

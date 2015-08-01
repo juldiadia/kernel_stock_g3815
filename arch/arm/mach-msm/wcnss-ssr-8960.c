@@ -50,6 +50,8 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 
 	pr_err("%s: smsm state changed\n", MODULE_NAME);
 
+	wcnss_riva_dump_pmic_regs();
+
 	if (!(new_state & SMSM_RESET))
 		return;
 
@@ -100,6 +102,7 @@ static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
 		panic(MODULE_NAME ": Watchdog bite received from Riva");
 
 	ss_restart_inprogress = true;
+	wcnss_riva_log_debug_regs();
 	subsystem_restart_dev(riva_8960_dev);
 
 	return IRQ_HANDLED;
@@ -249,22 +252,18 @@ static int __init riva_ssr_module_init(void)
 	if (ret < 0) {
 		pr_err("%s: Unable to register with ssr. (%d)\n",
 				MODULE_NAME, ret);
-		goto restart_init_fail;
+		goto out;
 	}
 	riva_ramdump_dev = create_ramdump_device("riva");
 	if (!riva_ramdump_dev) {
 		pr_err("%s: Unable to create ramdump device.\n",
 				MODULE_NAME);
 		ret = -ENOMEM;
-		goto ramdump_device_fail;
+		goto out;
 	}
 	INIT_DELAYED_WORK(&cancel_vote_work, riva_post_bootup);
 
 	pr_info("%s: module initialized\n", MODULE_NAME);
-ramdump_device_fail:
-    subsys_unregister(riva_8960_dev);
-restart_init_fail:
-    free_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ, NULL);
 out:
 	return ret;
 }

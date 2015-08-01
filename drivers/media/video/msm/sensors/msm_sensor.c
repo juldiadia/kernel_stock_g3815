@@ -1816,7 +1816,7 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	/*End : shchang@qualcomm.com : 1104 - FROM*/
 
 	if (s_ctrl->func_tbl->eeprom_power_down)
-			s_ctrl->func_tbl->eeprom_power_down(s_ctrl); 
+			s_ctrl->func_tbl->eeprom_power_down(s_ctrl);
 #else
 	rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
 	if (rc < 0) {
@@ -1970,6 +1970,11 @@ int32_t msm_sensor_power(struct v4l2_subdev *sd, int on)
 		if (rc < 0) {
 			pr_err("%s: %s power_up failed rc = %d\n", __func__,
 				s_ctrl->sensordata->sensor_name, rc);
+#if defined(CONFIG_S5K4ECGX)
+			if (s_ctrl->func_tbl->sensor_power_down(s_ctrl) < 0)
+				pr_err("%s: %s power_down failed\n", __func__,
+				s_ctrl->sensordata->sensor_name);
+#endif
 			s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
 		} else {
 			if (s_ctrl->func_tbl->sensor_match_id)

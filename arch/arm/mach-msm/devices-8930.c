@@ -25,19 +25,18 @@
 #include <mach/iommu_domains.h>
 #include <mach/msm_rtb.h>
 #include <mach/msm_cache_dump.h>
-#if defined(CONFIG_GSM_MODEM_SPRD6500)
-#include <mach/dma.h>
-#include <linux/dma-mapping.h>
-#endif
+
 #ifdef CONFIG_RADIO_USE_MI2S
 #include <sound/msm-dai-q6.h>
 #endif
+
 #include "devices.h"
 #include "rpm_log.h"
 #include "rpm_stats.h"
 #include "rpm_rbcpr_stats.h"
 #include "footswitch.h"
 #include "acpuclock-krait.h"
+#include "pm.h"
 
 #ifdef CONFIG_MSM_MPM
 #include <mach/mpm.h>
@@ -45,6 +44,20 @@
 #define MSM8930_RPM_MASTER_STATS_BASE	0x10B100
 #define MSM8930_PC_CNTR_PHYS	(MSM8930_IMEM_PHYS + 0x664)
 #define MSM8930_PC_CNTR_SIZE		0x40
+
+static struct msm_pm_sleep_status_data msm_pm_slp_sts_data = {
+	.base_addr = MSM_ACC0_BASE + 0x08,
+	.cpu_offset = MSM_ACC1_BASE - MSM_ACC0_BASE,
+	.mask = 1UL << 13,
+};
+
+struct platform_device msm8930_cpu_slp_status = {
+	.name		= "cpu_slp_status",
+	.id		= -1,
+	.dev = {
+		.platform_data = &msm_pm_slp_sts_data,
+	},
+};
 
 static struct resource msm8930_resources_pccntr[] = {
 	{
@@ -532,6 +545,7 @@ struct platform_device msm8930_rpm_device = {
 	.name   = "msm_rpm",
 	.id     = -1,
 };
+
 #ifdef CONFIG_RADIO_USE_MI2S
 struct msm_mi2s_pdata mi2s_data = {
 	.rx_sd_lines = MSM_MI2S_SD1 ,   /* sd0 */
@@ -960,17 +974,20 @@ static struct msm_bus_vectors vidc_vdec_720p_vectors[] = {
 		.ib  = 7000000,
 	},
 };
+/*This value is modified because internally we use
+ * lower value. But OEM has increased it. This is correct value
+ * for oem*/
 static struct msm_bus_vectors vidc_venc_1080p_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_HD_CODEC_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 700000000,
+		.ab  = 400000000,
 		.ib  = 2560000000U,
 	},
 	{
 		.src = MSM_BUS_MASTER_HD_CODEC_PORT1,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1000000000,
+		.ab  = 550000000,
 		.ib  = 2560000000U,
 	},
 	{
@@ -1111,127 +1128,7 @@ static struct msm_bus_scale_pdata vidc_bus_client_data = {
 };
 #endif
 
-#if defined(CONFIG_GSM_MODEM_SPRD6500)
-#define MSM_GSBI5_PHYS		0x16400000
-#define MSM_GSBI5_QUP_PHYS	(MSM_GSBI5_PHYS + 0x80000)
-static struct resource resources_qup_spi_gsbi5[] = {
-	{
-		.name = "spi_base",
-		.start = MSM_GSBI5_QUP_PHYS,
-		.end = MSM_GSBI5_QUP_PHYS + SZ_4K - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name = "gsbi_base",
-		.start = MSM_GSBI5_PHYS,
-		.end = MSM_GSBI5_PHYS + 4 - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name = "spi_irq_in",
-		.start = GSBI5_QUP_IRQ,
-		.end = GSBI5_QUP_IRQ,
-		.flags = IORESOURCE_IRQ,
-	},
-	{
-		.name = "spi_clk",
-		.start = 25,
-		.end = 25,
-		.flags = IORESOURCE_IO,
-	},
-	{
-		.name = "spi_cs",
-		.start = 24,
-		.end = 24,
-		.flags = IORESOURCE_IO,
-	},
-	{
-		.name = "spi_miso",
-		.start = 23,
-		.end = 23,
-		.flags = IORESOURCE_IO,
-	},
-	{
-		.name = "spi_mosi",
-		.start = 22,
-		.end = 22,
-		.flags = IORESOURCE_IO,
-	},
-#if 0
-	{
-		.name = "spidm_channels",
-		.start = 7,
-		.end = 8,
-		.flags = IORESOURCE_DMA,
-	},
-	{
-		.name = "spidm_crci",
-		.start = 7,
-		.end = 8,
-		.flags = IORESOURCE_DMA,
-	},
-#endif
-};
-struct platform_device msm8960_device_qup_spi_gsbi5 = {
-	.name = "spi_qsd",
-	.id = 0,
-	.num_resources = ARRAY_SIZE(resources_qup_spi_gsbi5),
-	.resource = resources_qup_spi_gsbi5,
-};
-#endif
-
-
-#ifdef CONFIG_GSM_MODEM_SPRD6500
-
-#define MSM_GSBI12_PHYS		0x12480000
-#define MSM_UART12DM_PHYS	(MSM_GSBI12_PHYS + 0x10000)
-
-static struct resource resources_uart_gsbi12[] = {
-	{
-		.start	= MSM_UART12DM_PHYS,
-		.end	= MSM_UART12DM_PHYS + PAGE_SIZE - 1,
-		.name	= "uartdm_resource",
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= GSBI12_UARTDM_IRQ,
-		.end	= GSBI12_UARTDM_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= MSM_GSBI12_PHYS,
-		.end	= MSM_GSBI12_PHYS + 4 - 1,
-		.name	= "gsbi_resource",
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start = DMOV_HSUART_GSBI12_TX_CHAN,
-		.end = DMOV_HSUART_GSBI12_RX_CHAN,
-		.name = "uartdm_channels",
-		.flags = IORESOURCE_DMA,
-	},
-	{
-		.start = DMOV_HSUART_GSBI12_TX_CRCI,
-		.end = DMOV_HSUART_GSBI12_RX_CRCI,
-		.name = "uartdm_crci",
-		.flags = IORESOURCE_DMA,
-	},
-};
-
-static u64 msm_uart_dm12_dma_mask = DMA_BIT_MASK(32);
-struct platform_device msm8960_device_uart_gsbi12 = {
-	.name	= "msm_serial_hs",
-	.id	= 1,
-	.num_resources	= ARRAY_SIZE(resources_uart_gsbi12),
-	.resource	= resources_uart_gsbi12,
-	.dev	= {
-		.dma_mask		= &msm_uart_dm12_dma_mask,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
-	},
-};
-#endif
-
-#if !defined(CONFIG_SENSOR_LT02_CTC)	
+#if !defined(CONFIG_SENSOR_LT02_CTC)
 #if defined(CONFIG_MACH_KS02)
 
 #define MSM_GSBI11_PHYS	0x12440000
@@ -1344,100 +1241,6 @@ struct platform_device msm8930_device_qup_spi_gsbi1 = {
 };
 #endif
 #endif//CONFIG_SENSOR_LT02_CTC
-
-#if defined(CONFIG_SENSOR_LT02_CTC)
-#define MSM_GSBI1_PHYS		0x16000000
-#define MSM_GSBI1_QUP_PHYS	(MSM_GSBI1_PHYS + 0x80000)
-#define MSM_QUP_SIZE		SZ_4K
-
-static struct resource resources_qup_i2c_gsbi1[] = {
- {
-  .name = "gsbi_qup_i2c_addr",
-  .start = MSM_GSBI1_PHYS,
-  .end = MSM_GSBI1_PHYS + 4 - 1,
-  .flags = IORESOURCE_MEM,
- },
- {
-  .name = "qup_phys_addr",
-  .start = MSM_GSBI1_QUP_PHYS,
-  .end = MSM_GSBI1_QUP_PHYS + MSM_QUP_SIZE - 1,
-  .flags = IORESOURCE_MEM,
- },
- {
-  .name = "qup_err_intr",
-  .start = MSM8930_GSBI1_QUP_IRQ,
-  .end = MSM8930_GSBI1_QUP_IRQ,
-  .flags = IORESOURCE_IRQ,
- },
- {
-  .name = "i2c_clk",
-  .start = 9,
-  .end = 9,
-  .flags = IORESOURCE_IO,
- },
- {
-  .name = "i2c_sda",
-  .start = 8,
-  .end = 8,
-  .flags = IORESOURCE_IO,
- },
-};
-struct platform_device msm8930_device_qup_i2c_gsbi1 = {
- .name  = "qup_i2c",
- .id  = 21,
- .num_resources = ARRAY_SIZE(resources_qup_i2c_gsbi1),
- .resource = resources_qup_i2c_gsbi1,
-};
-
-
-
-#define MSM_GSBI9_PHYS		0x1A100000
-#define MSM_GSBI9_QUP_PHYS	(MSM_GSBI9_PHYS + 0x80000)
-#define MSM_QUP_SIZE		SZ_4K
-
-static struct resource resources_qup_i2c_gsbi9[] = {
-	{
-		.name	= "gsbi_qup_i2c_addr",
-		.start	= MSM_GSBI9_PHYS,
-		.end	= MSM_GSBI9_PHYS + 4 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "qup_phys_addr",
-		.start	= MSM_GSBI9_QUP_PHYS,
-		.end	= MSM_GSBI9_QUP_PHYS + MSM_QUP_SIZE - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "qup_err_intr",
-		.start	= GSBI9_QUP_IRQ,
-		.end	= GSBI9_QUP_IRQ,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-	 .name = "i2c_clk",
-	 .start = 96,
-	 .end = 96,
-	 .flags = IORESOURCE_IO,
-	},
-	{
-	 .name = "i2c_sda",
-	 .start = 95,
-	 .end = 95,
-	 .flags = IORESOURCE_IO,
-	},
-
-};
-
-struct platform_device msm8960_device_qup_i2c_gsbi9 = {
-	.name		= "qup_i2c",
-	.id		= 20,
-	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi9),
-	.resource	= resources_qup_i2c_gsbi9,
-};
-
-#endif
-
 #define MSM_VIDC_BASE_PHYS 0x04400000
 #define MSM_VIDC_BASE_SIZE 0x00100000
 

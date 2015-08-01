@@ -8,6 +8,8 @@
 #include "a2220_melius_tmo.h"
 #elif defined CONFIG_MACH_MELIUS_USC
 #include "a2220_melius_usc.h"
+#elif defined CONFIG_MACH_MELIUS_VZW
+#include "a2220_melius_vzw.h"
 #elif defined CONFIG_MACH_MELIUS_SPR
 #include "a2220_melius_spr.h"
 #elif defined CONFIG_MACH_MELIUS_MTR
@@ -37,6 +39,8 @@
 #include "a2220_serrano_att.h"
 #elif defined CONFIG_MACH_SERRANO_VZW
 #include "a2220_serrano_vzw.h"
+#elif defined CONFIG_MACH_SERRANO_LRA
+#include "a2220_serrano_vzw.h"
 #elif defined CONFIG_MACH_CRATER
 #include "a2220_serrano_craterTD.h"
 #elif defined CONFIG_MACH_BAFFIN
@@ -55,6 +59,16 @@
 #include "a2220_cane.h"
 #elif defined CONFIG_MACH_LOGANRE
 #include "a2220_loganre.h"
+#elif defined(_d2tmo_) || defined(_d2ltetmo_) || defined(_d2lteMetroPCS_)
+#include "a2220_firmware_t999.h"
+#elif defined CONFIG_MACH_M2_SPR || defined(_d2vmu_)
+#include "a2220_firmware_l710.h"
+
+#elif defined (CONFIG_MACH_COMANCHE)
+
+#include "a2220_firmware_comanche.h"
+#elif defined (CONFIG_MACH_M2_ATT) 
+#include "a2220_firmware_i747.h"
 #else
-#include "a2220_default.h"
+#include "a2220_firmware_i747.h"
 #endif

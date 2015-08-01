@@ -197,11 +197,11 @@ rc_register_err:
 err_allocate_device:
 	device_destroy(user_rc_dev->rc_input_class,
 			MKDEV(MAJOR(user_rc_dev->rc_input_base_dev), 0));
-device_create_err:
-	cdev_del(&user_rc_dev->rc_input_cdev);
 cdev_add_err:
 	unregister_chrdev_region(user_rc_dev->rc_input_base_dev,
 							MAX_RC_DEVICES);
+device_create_err:
+	cdev_del(&user_rc_dev->rc_input_cdev);
 alloc_chrdev_err:
 	class_destroy(user_rc_dev->rc_input_class);
 err:

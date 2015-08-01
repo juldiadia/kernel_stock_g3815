@@ -308,6 +308,9 @@ void die(const char *str, struct pt_regs *regs, int err)
 	oops_enter();
 
 	raw_spin_lock_irq(&die_lock);
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+	secdbg_sched_msg("!!die!!");
+#endif
 	console_verbose();
 	bust_spinlocks(1);
 	if (!user_mode(regs))
@@ -315,9 +318,10 @@ void die(const char *str, struct pt_regs *regs, int err)
 	if (bug_type != BUG_TRAP_TYPE_NONE)
 		str = "Oops - BUG";
 	ret = __die(str, err, thread, regs);
-#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_SEC_DEBUG_SUBSYS)
+#ifdef CONFIG_SEC_DEBUG_SUBSYS
 	sec_debug_save_die_info(str, regs);
 #endif
+
 	if (regs && kexec_should_crash(thread->task))
 		crash_kexec(regs);
 

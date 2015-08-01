@@ -348,22 +348,23 @@ static inline unsigned int cpufreq_quick_get_max(unsigned int cpu)
 #ifdef CONFIG_SEC_DVFS
 enum {
 	BOOT_CPU = 0,
-	NON_BOOT_CPU,
 };
 
 int get_max_freq(void);
 int get_min_freq(void);
 
-#define MAX_FREQ_LIMIT		get_max_freq()
+#define MAX_FREQ_LIMIT		get_max_freq() /* 1512000 */
 #define MIN_FREQ_LIMIT		get_min_freq() /* 384000 */
 
 #define MIN_TOUCH_LIMIT		1134000
+#define MIN_TOUCH_HIGH_LIMIT		1890000
 #define MIN_TOUCH_LIMIT_SECOND	810000
+#define MIN_TOUCH_HIGH_LIMIT_SECOND	1566000
 
 #ifdef CONFIG_TARGET_SERIES_DALI
 #define MAX_UNICPU_LIMIT	1188000
 #else
-#define MAX_UNICPU_LIMIT	1026000
+#define MAX_UNICPU_LIMIT	1242000
 #endif
 
 #define UPDATE_NOW_BITS		0xFF

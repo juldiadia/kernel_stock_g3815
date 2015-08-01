@@ -152,12 +152,6 @@ static void matrix_keypad_scan(struct work_struct *work)
 
 			code = MATRIX_SCAN_CODE(row, col, keypad->row_shift);
 			input_event(input_dev, EV_MSC, MSC_SCAN, code);
-
-#if defined(CONFIG_MACH_KS02)			
-			printk("key [%d:%d] %s\n", row, col,
-					!(new_state[col] & (1 << row)) ?					
-					"pressed" : "released");
-#endif			
 			input_report_key(input_dev,
 					 keypad->keycodes[code],
 					 new_state[col] & (1 << row));

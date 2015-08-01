@@ -92,7 +92,7 @@ static void set_dvfs_off(struct work_struct *work)
 	printk(KERN_INFO "[TSP] DVFS Off!\n");
 }
 
-static void set_dvfs_lock(struct cyttsp4_mt_data *md, int32_t on)
+static void set_dvfs_lock(struct cyttsp4_mt_data *md, int on)
 {
 
 	int ret = 0;

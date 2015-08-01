@@ -29,13 +29,6 @@
 #define CONFIG_SII9234_RCP		1
 #include <linux/input.h>
 #endif
-#ifdef CONFIG_MHL_NEW_CBUS_MSC_CMD
-#include <linux/wakelock.h>
-#endif
-#include <linux/switch.h>
-#include "../msm_fb.h"
-#include "../hdmi_msm.h"
-#include "../external_common.h"
 
 /*Flag for MHL Factory test*/
 #define MHL_SS_FACTORY			1
@@ -403,13 +396,6 @@ enum cbus_command {
 	CBUS_GET_SC3_ERR_CODE =	0x6D,
 };
 
-enum mhl_vbus_type {
-	MHL_VBUS_TA_500mA,
-	MHL_VBUS_TA_900mA,
-	MHL_VBUS_TA_1500mA,
-	MHL_VBUS_USB,
-};
-
 enum mhl_status_enum_type {
 	NO_MHL_STATUS = 0x00,
 	MHL_INIT_DONE,
@@ -489,7 +475,6 @@ struct sii9234_data {
 	struct cbus_packet		cbus_pkt;
 	struct cbus_packet		cbus_pkt_buf[CBUS_PKT_BUF_COUNT];
 	struct device_cap		devcap;
-	u8 plim;
 	struct mhl_tx_status_type mhl_status_value;
 #ifdef CONFIG_SII9234_RCP
 	u8 error_key;
@@ -503,10 +488,6 @@ struct sii9234_data {
 	struct work_struct		redetect_work;
 	struct work_struct		rgnd_work;
 	struct work_struct		mhl_cbus_write_stat_work;
-#ifdef CONFIG_MHL_NEW_CBUS_MSC_CMD
-	struct wake_lock                mhl_wake_lock;
-#endif
-	struct switch_dev		mhl_event_switch;
 };
 
 struct msc_packet {
@@ -516,23 +497,22 @@ struct msc_packet {
 	u8	data_2;
 	struct list_head p_msc_packet_list;
 };
-
+typedef bool boolean;
 #ifdef CONFIG_MHL_NEW_CBUS_MSC_CMD
 static int sii9234_msc_req_locked(struct sii9234_data *sii9234,
 					struct msc_packet *msc_pkt);
 static int sii9234_enqueue_msc_work(struct sii9234_data *sii9234, u8 command,
 		u8 offset, u8 data_1, u8 data_2);
+#else
+static void cbus_command_response(struct sii9234_data *sii9234);
 #endif
 static struct device *sii9244_mhldev;
-extern struct external_common_state_type *external_common_state;
+extern void mhl_hpd_handler(bool state);
 static void sii9234_detection_callback(struct work_struct *work);
 static void sii9234_cancel_callback(void);
 static u8 sii9234_tmds_control(struct sii9234_data *sii9234, bool enable);
 static bool cbus_command_request(struct sii9234_data *sii9234,
 				 enum cbus_command command,
 				 u8 offset, u8 data);
-#ifndef CONFIG_MHL_NEW_CBUS_MSC_CMD
-static void cbus_command_response(struct sii9234_data *sii9234);
-#endif
 static irqreturn_t sii9234_irq_thread(int irq, void *data);
 #endif

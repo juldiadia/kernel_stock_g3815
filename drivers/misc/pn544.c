@@ -35,14 +35,8 @@
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
 #include <linux/pn544.h>
-#include <linux/wakelock.h>
 
-#ifdef CONFIG_NFC_PN547
-#include <mach/msm_xo.h>
-#include <linux/workqueue.h>
-#endif
-
-#define MAX_BUFFER_SIZE		512
+#define MAX_BUFFER_SIZE	512
 
 #define NFC_DEBUG 0
 #define MAX_TRY_I2C_READ	10
@@ -54,24 +48,13 @@ struct pn544_dev {
 	struct mutex read_mutex;
 	struct i2c_client *client;
 	struct miscdevice pn544_device;
-	void (*conf_gpio) (void);
+	int (*conf_gpio) (void);
 	unsigned int ven_gpio;
 	unsigned int firm_gpio;
 	unsigned int irq_gpio;
-
 	atomic_t irq_enabled;
 	atomic_t read_flag;
 	bool cancel_read;
-	struct wake_lock nfc_wake_lock;
-
-#ifdef CONFIG_NFC_PN547
-	unsigned int clk_req_gpio;
-	unsigned int clk_req_irq;
-	struct msm_xo_voter *nfc_clock;
-	struct work_struct work_nfc_clock;
-	struct workqueue_struct *wq_clock;
-	bool clock_state;
-#endif
 };
 
 static irqreturn_t pn544_dev_irq_handler(int irq, void *dev_id)
@@ -94,57 +77,18 @@ static irqreturn_t pn544_dev_irq_handler(int irq, void *dev_id)
 #if NFC_DEBUG
 	pr_info("pn544 : call\n");
 #endif
-	wake_lock_timeout(&pn544_dev->nfc_wake_lock, 2*HZ);
+
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_NFC_PN547
-static void nfc_work_func_clock(struct work_struct *work)
-{
-	struct pn544_dev *pn544_dev = container_of(work, struct pn544_dev,
-					      work_nfc_clock);
-	int ret = 0;
-
-	if (gpio_get_value(pn544_dev->clk_req_gpio)) {
-		if (pn544_dev->clock_state == false) {
-			ret = msm_xo_mode_vote(pn544_dev->nfc_clock,
-						MSM_XO_MODE_ON);
-			if (ret < 0) {
-				pr_err("%s:  Failed to vote for TCX0_A1 ON (%d)\n",
-						__func__, ret);
-			}
-			pn544_dev->clock_state = true;
-		}
-	} else {
-		if (pn544_dev->clock_state == true) {
-			ret = msm_xo_mode_vote(pn544_dev->nfc_clock,
-						MSM_XO_MODE_OFF);
-			if (ret < 0) {
-				pr_err("%s:  Failed to vote for TCX0_A1 OFF (%d)\n",
-						__func__, ret);
-			}
-			pn544_dev->clock_state = false;
-		}
-	}
-}
-
-static irqreturn_t pn544_dev_clk_req_irq_handler(int irq, void *dev_id)
-{
-	struct pn544_dev *pn544_dev = dev_id;
-	queue_work(pn544_dev->wq_clock, &pn544_dev->work_nfc_clock);
-	return IRQ_HANDLED;
-}
-#endif
-
-static ssize_t pn544_dev_read(struct file *filp, char __user *buf,
+static ssize_t pn544_dev_read(struct file *filp, char __user * buf,
 			      size_t count, loff_t *offset)
 {
 	struct pn544_dev *pn544_dev = filp->private_data;
 	char tmp[MAX_BUFFER_SIZE] = {0, };
 	int ret = 0;
-#ifdef CONFIG_NFC_PN544
 	int readingWatchdog = 0;
-#endif
+
 	if (count > MAX_BUFFER_SIZE)
 		count = MAX_BUFFER_SIZE;
 
@@ -157,9 +101,7 @@ static ssize_t pn544_dev_read(struct file *filp, char __user *buf,
 
 	mutex_lock(&pn544_dev->read_mutex);
 
-#ifdef CONFIG_NFC_PN544
 wait_irq:
-#endif
 
 	if (!gpio_get_value(pn544_dev->irq_gpio)) {
 		atomic_set(&pn544_dev->read_flag, 0);
@@ -192,9 +134,8 @@ wait_irq:
 	}
 
 	/* Read data */
-	ret = i2c_master_recv(pn544_dev->client, tmp, count);
+		ret = i2c_master_recv(pn544_dev->client, tmp, count);
 
-#ifdef CONFIG_NFC_PN544
 	/* If bad frame(from 0x51 to 0x57) is received from pn65n,
 	* we need to read again after waiting that IRQ is down.
 	* if data is not ready, pn65n will send from 0x51 to 0x57. */
@@ -206,8 +147,6 @@ wait_irq:
 		readingWatchdog++;
 		goto wait_irq;
 	}
-#endif
-
 #if NFC_DEBUG
 	pr_info("pn544: i2c_master_recv\n");
 #endif
@@ -286,6 +225,7 @@ static int pn544_dev_open(struct inode *inode, struct file *filp)
 	struct pn544_dev *pn544_dev = container_of(filp->private_data,
 						   struct pn544_dev,
 						   pn544_device);
+
 	filp->private_data = pn544_dev;
 
 	pr_debug("%s : %d,%d\n", __func__, imajor(inode), iminor(inode));
@@ -333,16 +273,16 @@ static long pn544_dev_ioctl(struct file *filp,
 				atomic_read(&pn544_dev->irq_enabled));
 		} else if (arg == 0) {
 			/* power off */
-			if (atomic_read(&pn544_dev->irq_enabled) == 1) {
-				atomic_set(&pn544_dev->irq_enabled, 0);
-				disable_irq_wake(pn544_dev->client->irq);
-				disable_irq_nosync(pn544_dev->client->irq);
-			}
-			pr_info("%s power off, irq=%d\n", __func__,
-				atomic_read(&pn544_dev->irq_enabled));
 			gpio_set_value(pn544_dev->firm_gpio, 0);
 			gpio_set_value_cansleep(pn544_dev->ven_gpio, 0);
 			usleep_range(10000, 10050);
+			if (atomic_read(&pn544_dev->irq_enabled) == 0) {
+				atomic_set(&pn544_dev->irq_enabled, 1);
+				enable_irq(pn544_dev->client->irq);
+				enable_irq_wake(pn544_dev->client->irq);
+			}
+			pr_info("%s power off, irq=%d\n", __func__,
+				atomic_read(&pn544_dev->irq_enabled));
 		} else if (arg == 3) {
 			pr_info("%s Read Cancel\n", __func__);
 			pn544_dev->cancel_read = true;
@@ -397,11 +337,7 @@ static int pn544_probe(struct i2c_client *client,
 	ret = gpio_request(platform_data->firm_gpio, "nfc_firm");
 	if (ret)
 		goto err_firm;
-#ifdef CONFIG_NFC_PN547
-	ret = gpio_request(platform_data->clk_req_gpio, "nfc_clk_req");
-	if (ret)
-		goto err_clk_req;
-#endif
+
 	pn544_dev = kzalloc(sizeof(*pn544_dev), GFP_KERNEL);
 	if (pn544_dev == NULL) {
 		dev_err(&client->dev,
@@ -409,27 +345,13 @@ static int pn544_probe(struct i2c_client *client,
 		ret = -ENOMEM;
 		goto err_exit;
 	}
-#ifdef CONFIG_NFC_PN547
-	pn544_dev->nfc_clock = msm_xo_get(MSM_XO_TCXO_A1, "nfc");
-	if (IS_ERR(pn544_dev->nfc_clock)) {
-		ret = PTR_ERR(pn544_dev->nfc_clock);
-		printk(KERN_ERR "%s: Couldn't get TCXO_A1 vote for NFC (%d)\n",
-					__func__, ret);
-		ret = -ENODEV;
-		goto err_get_clock;
-	}
-	pn544_dev->clock_state = false;
-#endif
+
 	pr_info("%s : IRQ num %d\n", __func__, client->irq);
 
 	pn544_dev->irq_gpio = platform_data->irq_gpio;
 	pn544_dev->ven_gpio = platform_data->ven_gpio;
 	pn544_dev->firm_gpio = platform_data->firm_gpio;
 	pn544_dev->conf_gpio = platform_data->conf_gpio;
-#ifdef CONFIG_NFC_PN547
-	pn544_dev->clk_req_gpio = platform_data->clk_req_gpio;
-	pn544_dev->clk_req_irq = platform_data->clk_req_irq;
-#endif
 	pn544_dev->client = client;
 
 	/* init mutex and queues */
@@ -437,11 +359,7 @@ static int pn544_probe(struct i2c_client *client,
 	mutex_init(&pn544_dev->read_mutex);
 
 	pn544_dev->pn544_device.minor = MISC_DYNAMIC_MINOR;
-#ifdef CONFIG_NFC_PN547
-	pn544_dev->pn544_device.name = "pn547";
-#else
 	pn544_dev->pn544_device.name = "pn544";
-#endif
 	pn544_dev->pn544_device.fops = &pn544_dev_fops;
 
 	ret = misc_register(&pn544_dev->pn544_device);
@@ -457,22 +375,7 @@ static int pn544_probe(struct i2c_client *client,
 	gpio_direction_input(pn544_dev->irq_gpio);
 	gpio_direction_output(pn544_dev->ven_gpio, 0);
 	gpio_direction_output(pn544_dev->firm_gpio, 0);
-#ifdef CONFIG_NFC_PN547
-	gpio_direction_input(pn544_dev->clk_req_gpio);
-#endif
-
 	i2c_set_clientdata(client, pn544_dev);
-	wake_lock_init(&pn544_dev->nfc_wake_lock,
-			WAKE_LOCK_SUSPEND, "nfc_wake_lock");
-#ifdef CONFIG_NFC_PN547
-	pn544_dev->wq_clock = create_singlethread_workqueue("nfc_wq");
-	if (!pn544_dev->wq_clock) {
-		ret = -ENOMEM;
-		pr_err("%s: could not create workqueue\n", __func__);
-		goto err_create_workqueue;
-	}
-	INIT_WORK(&pn544_dev->work_nfc_clock, nfc_work_func_clock);
-#endif
 	ret = request_irq(client->irq, pn544_dev_irq_handler,
 			  IRQF_TRIGGER_RISING, "pn544", pn544_dev);
 	if (ret) {
@@ -482,37 +385,14 @@ static int pn544_probe(struct i2c_client *client,
 	disable_irq_nosync(pn544_dev->client->irq);
 	atomic_set(&pn544_dev->irq_enabled, 0);
 
-#ifdef CONFIG_NFC_PN547
-	ret = request_irq(pn544_dev->clk_req_irq, pn544_dev_clk_req_irq_handler,
-		IRQF_SHARED | IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
-			, "pn544_clk_req", pn544_dev);
-	if (ret) {
-		dev_err(&client->dev, "request_irq(clk_req) failed\n");
-		goto err_request_irq_failed;
-	}
-
-	enable_irq_wake(pn544_dev->clk_req_irq);
-#endif
 	return 0;
 
 err_request_irq_failed:
-#ifdef CONFIG_NFC_PN547
-err_create_workqueue:
-#endif
 	misc_deregister(&pn544_dev->pn544_device);
-	wake_lock_destroy(&pn544_dev->nfc_wake_lock);
 err_misc_register:
 	mutex_destroy(&pn544_dev->read_mutex);
-#ifdef CONFIG_NFC_PN547
-	msm_xo_put(pn544_dev->nfc_clock);
-err_get_clock:
-#endif
 	kfree(pn544_dev);
 err_exit:
-#ifdef CONFIG_NFC_PN547
-	gpio_free(platform_data->clk_req_gpio);
-err_clk_req:
-#endif
 	gpio_free(platform_data->firm_gpio);
 err_firm:
 	gpio_free(platform_data->ven_gpio);
@@ -527,17 +407,12 @@ static int pn544_remove(struct i2c_client *client)
 	struct pn544_dev *pn544_dev;
 
 	pn544_dev = i2c_get_clientdata(client);
-	wake_lock_destroy(&pn544_dev->nfc_wake_lock);
 	free_irq(client->irq, pn544_dev);
 	misc_deregister(&pn544_dev->pn544_device);
 	mutex_destroy(&pn544_dev->read_mutex);
 	gpio_free(pn544_dev->irq_gpio);
 	gpio_free(pn544_dev->ven_gpio);
 	gpio_free(pn544_dev->firm_gpio);
-#ifdef CONFIG_NFC_PN547
-	gpio_free(pn544_dev->clk_req_gpio);
-	msm_xo_put(pn544_dev->nfc_clock);
-#endif
 	kfree(pn544_dev);
 
 	return 0;

@@ -81,7 +81,7 @@ static int Si4709_remove(struct i2c_client *client)
 static int si4709_i2c_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
-	int err = 0;
+//	int err = 0;
 	struct si4709_data *si4709_dev;
 
 	debug("----- %s %d\n", __func__, __LINE__);

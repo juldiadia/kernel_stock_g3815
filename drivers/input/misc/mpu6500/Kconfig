@@ -4,7 +4,6 @@ config INPUT_MPU6500
 	help
 	  Say Y here if you want support for the MPU-6500 sensor
 	  device.
-
 	  To compile this driver as a module, choose M here: the
 	  module will be called MPU6500.
 
@@ -14,7 +13,6 @@ config INPUT_MPU6500_SELFTEST
 	help
 	  Say Y here if you want support for self-test of the MPU-6500 sensor
 	  device.
-
 	  To compile this driver as a module, choose M here: the
 	  module will be called MPU6500.
 
@@ -24,7 +22,6 @@ config INPUT_MPU6500_LP
 	help
 	  Say Y here if you want support for LP features of the MPU-6500 sensor
 	  device.
-
 	  To compile this driver as a module, choose M here: the
 	  module will be called MPU6500.
 
@@ -34,6 +31,5 @@ config INPUT_MPU6500_POLLING
 	help
 	  Say Y here if you want support for polling-mode of the MPU-6500 sensor
 	  device.
-
 	  To compile this driver as a module, choose M here: the
 	  module will be called MPU6500.

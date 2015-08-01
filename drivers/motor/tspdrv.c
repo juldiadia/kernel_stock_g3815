@@ -48,22 +48,15 @@
 
 #include "tspdrv.h"
 #include <linux/vibrator.h>
-#ifdef CONFIG_MOTOR_DRV_TSP5000
-#include "immvibespi_TSP5000.c"
-#else
 #include "immvibespi.c"
-#endif
+
 #if defined(VIBE_DEBUG) && defined(VIBE_RECORD)
 #include <tspdrvRecorder.c>
 #endif
-
+#include <mach/msm_xo.h>
 /* Device name and version information */
 /* DO NOT CHANGE - this is auto-generated */
-#ifdef CONFIG_MOTOR_DRV_TSP5000
-#define VERSION_STR " v3.4.55.8\n"
-#else
 #define VERSION_STR " v3.4.55.7\n"
-#endif
 /* account extra space for future extra digits in version number */
 #define VERSION_STR_LEN 16
 /* initialized in tspdrv_probe */
@@ -81,7 +74,7 @@ static char g_bisplaying;
 #define SPI_BUFFER_SIZE \
 		(NUM_ACTUATORS * (VIBE_OUTPUT_SAMPLE_SIZE + SPI_HEADER_SIZE))
 static int g_bstoprequested;
-static struct actuator_samples_buffer g_samples_buffer[NUM_ACTUATORS] = {{0} };
+static actuator_samples_buffer g_samples_buffer[NUM_ACTUATORS] = {{0} };
 static char g_cwrite_buffer[SPI_BUFFER_SIZE];
 
 #define VIBE_TUNING
@@ -136,7 +129,11 @@ static int set_vibetonz(int timeout)
 	} else {
 		DbgOut((KERN_INFO "tspdrv: ENABLE\n"));
 		if (vibrator_drvdata.vib_model == HAPTIC_PWM) {
-			strength = 120;
+			#if defined(CONFIG_MACH_JF_TMO)
+				strength = 79;
+			#else
+				strength = 119;
+			#endif
 			/* 90% duty cycle */
 			ImmVibeSPI_ForceOut_SetSamples(0, 8, 1, &strength);
 		} else { /* HAPTIC_MOTOR */
@@ -191,7 +188,7 @@ static void enable_vibetonz_from_user(struct timed_output_dev *dev, int value)
 	vibrator_work = value;
 	schedule_work(&vibetonz_work);
 
-	if (value > 0) {
+	if (value > 0 && (value != TEST_MODE_TIME)) {
 		if (value > max_timeout)
 			value = max_timeout;
 
@@ -303,54 +300,41 @@ int vibetonz_clk_off(struct device *dev)
 static __devinit int tspdrv_probe(struct platform_device *pdev)
 {
 	struct vibrator_platform_data *pdata;
-	int ret = 0, i;   /* initialized below */
+	int ret, i;   /* initialized below */
 
 	DbgOut((KERN_INFO "tspdrv: tspdrv_probe.\n"));
 
-	pdata = pdev->dev.platform_data;
-	if (!pdata) {
-		DbgOut((KERN_ERR "tspdrv: no platfrom_data\n"));
-		goto fail;
+	/* This condition will be removed,after all board files changes done */
+	if (pdev->dev.platform_data == NULL) {
+		DbgOut(KERN_ERR "tspdrv: tspdrv probe failed, pdata is NULL");
+		return -EINVAL;
+	} else {
+		pdata = pdev->dev.platform_data;
+		vibrator_drvdata.vib_model = pdata->vib_model;
+		vibrator_drvdata.is_pmic_haptic_pwr_en = \
+				pdata->is_pmic_haptic_pwr_en;
+		if (pdata->vib_model == HAPTIC_PWM) {
+			if (pdata->is_pmic_vib_pwm)
+				vibrator_drvdata.vib_pwm_gpio = \
+				PM8921_GPIO_PM_TO_SYS(pdata->vib_pwm_gpio);
+			else
+				vibrator_drvdata.vib_pwm_gpio =
+					pdata->vib_pwm_gpio;
+		}
+		vibrator_drvdata.power_onoff = pdata->power_onoff;
 	}
-
-	vibrator_drvdata.vib_model = pdata->vib_model;
-	vibrator_drvdata.power_onoff = pdata->power_onoff;
-	vibrator_drvdata.is_pmic_haptic_pwr_en = \
-					pdata->is_pmic_haptic_pwr_en;
-	vibrator_drvdata.is_no_haptic_pwr = pdata->is_no_haptic_pwr;
-	if (!vibrator_drvdata.is_no_haptic_pwr) {
-		if (pdata->is_pmic_haptic_pwr_en)
-			vibrator_drvdata.haptic_pwr_en_gpio = \
-			PM8921_GPIO_PM_TO_SYS(pdata->haptic_pwr_en_gpio);
-		else
-			vibrator_drvdata.haptic_pwr_en_gpio = \
-				pdata->haptic_pwr_en_gpio;
-	}
-
-	if (pdata->vib_model == HAPTIC_PWM) {
-		vibrator_drvdata.vib_pwm_gpio = pdata->vib_pwm_gpio;
-		vibrator_drvdata.is_pmic_vib_en = \
-			pdata->is_pmic_vib_en;
-		if (pdata->is_pmic_vib_en)
-			vibrator_drvdata.vib_en_gpio = \
-			PM8921_GPIO_PM_TO_SYS(pdata->vib_en_gpio);
-		else
-			vibrator_drvdata.vib_en_gpio = \
-				pdata->vib_en_gpio;
-	}
-
 #ifdef IMPLEMENT_AS_CHAR_DRIVER
 	g_nmajor = register_chrdev(0, MODULE_NAME, &fops);
 	if (g_nmajor < 0) {
 		DbgOut((KERN_ERR "tspdrv: can't get major number.\n"));
 		ret = g_nmajor;
-		goto register_err;
+		return ret;
 	}
 #else
 	ret = misc_register(&miscdev);
 	if (ret) {
 		DbgOut((KERN_ERR "tspdrv: misc_register failed.\n"));
-		goto register_err;
+		return ret;
 	}
 #endif
 
@@ -366,11 +350,12 @@ static __devinit int tspdrv_probe(struct platform_device *pdev)
 	for (i = 0; i < NUM_ACTUATORS; i++) {
 		char *szName = g_szdevice_name + g_cchdevice_name;
 		ImmVibeSPI_Device_GetName(i,
-			szName, VIBE_MAX_DEVICE_NAME_LENGTH);
+				szName, VIBE_MAX_DEVICE_NAME_LENGTH);
 
 		/* Append version information and get buffer length */
 		strlcat(szName, VERSION_STR, sizeof(VERSION_STR));
-		g_cchdevice_name += strnlen(szName, sizeof(szName));
+		g_cchdevice_name +=
+			strnlen(szName, (VIBE_MAX_DEVICE_NAME_LENGTH+VERSION_STR_LEN)*NUM_ACTUATORS);
 
 		g_samples_buffer[i].nindex_playing_buffer = -1;/* Not playing */
 		g_samples_buffer[i].actuator_samples[0].nbuffer_size = 0;
@@ -381,15 +366,6 @@ static __devinit int tspdrv_probe(struct platform_device *pdev)
 	vibetonz_start();
 
 	return 0;
-
-register_err:
-#ifdef IMPLEMENT_AS_CHAR_DRIVER
-	unregister_chrdev(g_nmajor, MODULE_NAME);
-#else
-	misc_deregister(&miscdev);
-#endif
-fail:
-	return ret;
 }
 
 static int __devexit tspdrv_remove(struct platform_device *pdev)
@@ -493,8 +469,8 @@ static ssize_t write(struct file *file, const char *buf, size_t count,
 	while (i < count) {
 		int nindex_free_buffer;   /* initialized below */
 
-		struct samples_buffer *pinput_buffer =
-			(struct samples_buffer *)(&g_cwrite_buffer[i]);
+		samples_buffer *pinput_buffer =
+			(samples_buffer *)(&g_cwrite_buffer[i]);
 
 		if ((i + SPI_HEADER_SIZE) >= count) {
 			/*
@@ -502,7 +478,6 @@ static ssize_t write(struct file *file, const char *buf, size_t count,
 			** (Should never happen).
 			*/
 			DbgOut((KERN_EMERG "tspdrv: invalid buffer index.\n"));
-			return 0;
 		}
 
 		/* Check bit depth */
@@ -523,7 +498,6 @@ static ssize_t write(struct file *file, const char *buf, size_t count,
 			** (Should never happen).
 			*/
 			DbgOut((KERN_EMERG "tspdrv: invalid data size.\n"));
-			return 0;
 		}
 
 		/* Check actuator index */
@@ -623,6 +597,7 @@ static long ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case TSPDRV_MAGIC_NUMBER:
+	case TSPDRV_SET_MAGIC_NUMBER:
 		filp->private_data = (void *)TSPDRV_MAGIC_NUMBER;
 		break;
 

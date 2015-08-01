@@ -123,7 +123,7 @@ obj-$(CONFIG_VLYNQ)		+= vlynq/
 obj-$(CONFIG_STAGING)		+= staging/
 obj-y				+= platform/
 obj-y				+= ieee802154/
-obj-$(CONFIG_FM_RADIO)   += samsung/
+obj-$(CONFIG_FM_RADIO)   	+= samsung/
 #common clk code
 obj-y				+= clk/
 
@@ -142,19 +142,29 @@ obj-$(CONFIG_PM_DEVFREQ)	+= devfreq/
 #MobiCore
 obj-$(CONFIG_MOBICORE_SUPPORT)  += gud/
 
-obj-$(CONFIG_CORESIGHT)		+= coresight/
-
-obj-$(CONFIG_VIBETONZ)		+= motor/
-obj-$(CONFIG_MSM_VIBRATOR) += motor/
+obj-$(CONFIG_SENSORS_CORE)		+= sensors/
+ifdef CONFIG_MACH_SERRANO
+obj-$(CONFIG_MSM_VIBRATOR) += motor_msm8930/
+endif
+ifdef CONFIG_MACH_GOLDEN
+obj-$(CONFIG_MSM_VIBRATOR) += motor_msm8930/
+endif
+ifdef CONFIG_MACH_CANE
+obj-$(CONFIG_MSM_VIBRATOR) += motor_msm8930/
+endif
 obj-$(CONFIG_BATTERY_SAMSUNG)	+= battery/
-obj-$(CONFIG_INPUT_YAS_SENSORS)		+= sensors/
-obj-$(CONFIG_SENSORS_SSP)		+= sensorhub/
-obj-$(CONFIG_SENSORS_ALPS)		+= sensors_alps/
+obj-$(CONFIG_SENSORS_SSP)	+= sensorhub/
+ifdef CONFIG_MACH_MELIUS
+obj-$(CONFIG_VIBETONZ)          += motor_msm8930/
+else
+obj-$(CONFIG_VIBETONZ)          += motor/
+endif
 obj-$(CONFIG_SEC_FPGA)	+= barcode_emul/
-obj-$(CONFIG_ULTRASONIC_SENSOR)	+= ultrasonic/
+obj-$(CONFIG_IRDA_MC96)		+= irda/
 
-obj-$(CONFIG_AUTHENTEC_VPNCLIENT_INTERCEPTOR) += interceptor/
+obj-$(CONFIG_FELICA) += felica/
 
 ifeq (1, $(shell if [ -d ../../../../../../kernel/drivers/exfat ] ; then echo 1 ; fi))
-obj-y                           += exfat/
+	obj-y   += exfat/
 endif
+

@@ -32,11 +32,14 @@
 #include <linux/i2c/mxt224s.h>
 #endif
 #ifdef CONFIG_TOUCHSCREEN_MXTS
-#include <linux/i2c/mxts.h>
+#include <linux/i2c/mxts_msm8930.h>
 #endif
 
 #define MSM_8930_GSBI3_QUP_I2C_BUS_ID	3
 
+#define GPIO_TOUCH_IRQ		11
+#define GPIO_TOUCH_SDA		16
+#define GPIO_TOUCH_SCL		17
 
 #ifdef CONFIG_TOUCHSCREEN_MXT224E
 static void mxt224_power_onoff(int onoff)
@@ -604,6 +607,94 @@ void mxts_register_callback(struct tsp_callbacks *cb)
 	pr_debug("[TSP]mxts_register_callback\n");
 }
 
+#if defined(CONFIG_MACH_SERRANO) || defined(CONFIG_MACH_GOLDEN)
+static void mxts_power_onoff(int onoff)
+{
+	int ret = 0;
+
+	static struct regulator *reg_l31;
+	static struct regulator *reg_lvs6;
+
+	pr_info("[TSP] power %s\n", onoff ? "on" : "off");
+
+	if (!reg_l31) {
+		reg_l31 = regulator_get(NULL, "8917_l31");
+		if (IS_ERR(reg_l31)) {
+			pr_err("%s: could not get 8917_l31, rc = %ld\n",
+				__func__, PTR_ERR(reg_l31));
+			return;
+		}
+		ret = regulator_set_voltage(reg_l31, 3300000, 3300000);
+		if (ret) {
+			pr_err("%s: unable to set ldo31 voltage to 3.3V\n",
+				__func__);
+			return;
+		}
+	}
+
+	if (onoff) {
+		if (!regulator_is_enabled(reg_l31)) {
+			ret = regulator_enable(reg_l31);
+			if (ret) {
+				pr_err("%s: enable l31 failed, rc=%d\n",
+					__func__, ret);
+				return;
+			}
+			pr_info("%s: tsp 3.3V[l31] on is finished.\n", __func__);
+		} else
+			pr_info("%s: tsp 3.3V[l31] is alerady on.\n", __func__);
+	} else {
+		if (regulator_is_enabled(reg_l31)) {
+			ret = regulator_disable(reg_l31);
+			if (ret) {
+				pr_err("%s: disable l31 failed, rc=%d\n",
+					__func__, ret);
+				return;
+			}
+			pr_info("%s: tsp 3.3V[l31] off is finished.\n", __func__);
+		} else
+			pr_info("%s: tsp 3.3V[l31] is already off.\n", __func__);
+	}
+
+	if (!reg_lvs6) {
+		reg_lvs6 = regulator_get(NULL, "8917_lvs6");
+		if (IS_ERR(reg_lvs6)) {
+			pr_err("%s: could not get 8917_lvs6, rc = %ld\n",
+				__func__, PTR_ERR(reg_lvs6));
+			return;
+		}
+	}
+
+	if (onoff) {		
+		if (!regulator_is_enabled(reg_lvs6)) {
+			ret = regulator_enable(reg_lvs6);
+			if (ret) {
+				pr_err("%s: enable lvs6 failed, rc=%d\n",
+					__func__, ret);
+				return;
+			}
+			pr_info("%s: tsp 1.8V[lvs6] on is finished.\n", __func__);
+		} else
+			pr_info("%s: tsp 1.8V[lvs6] is already on.\n", __func__);
+	} else {
+		if (regulator_is_enabled(reg_lvs6)) {
+			ret = regulator_disable(reg_lvs6);
+			if (ret) {
+				pr_err("%s: enable lvs6 failed, rc=%d\n",
+					__func__, ret);
+				return;
+			}
+			pr_info("%s: tsp 1.8V[lvs6] off is finished.\n", __func__);
+		} else
+			pr_info("%s: tsp 1.8V[lvs6] is already off.\n", __func__);
+	}
+
+	msleep(30);
+
+	return;
+}
+
+#else
 static void mxts_power_onoff(int onoff)
 {
 	int ret = 0;
@@ -689,7 +780,7 @@ static void mxts_power_onoff(int onoff)
 
 	return;
 }
-
+#endif
 static int mxts_power_on(void)
 {
 	mxts_power_onoff(1);

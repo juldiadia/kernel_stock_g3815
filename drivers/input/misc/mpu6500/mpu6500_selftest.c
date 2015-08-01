@@ -399,7 +399,7 @@ int mpu6500_selftest_run(struct i2c_client *client,
 	}
 
 	regs[0] = mpu6500_selftest.pwm_mgmt[1] & ~(BIT_STBY_XG | BIT_STBY_YG | BIT_STBY_ZG);
-	result = mpu6500_i2c_write_single_reg(client, MPUREG_PWR_MGMT_2, regs[0]);
+	mpu6500_i2c_write_single_reg(client, MPUREG_PWR_MGMT_2, regs[0]);
 
 	result = mpu6500_i2c_write_single_reg(client, MPUREG_INT_ENABLE, 0);
 	if (result)
@@ -783,7 +783,7 @@ static int mpu6500_gyro_self_test(struct i2c_client *client,
 				DEF_ST_PRECISION * DEF_GYRO_CT_SHIFT_MIN *
 				DEF_SELFTEST_GYRO_SENS)
 				ret_val |= 1 << i;
-			if (st_shift_cust[i] > 
+			if (st_shift_cust[i] >
 				DEF_ST_PRECISION * DEF_GYRO_CT_SHIFT_MAX *
 				DEF_SELFTEST_GYRO_SENS)
 				ret_val |= 1 << i;

@@ -18,23 +18,17 @@
 #include <linux/hrtimer.h>
 
 #include "power.h"
-
 #ifdef CONFIG_SEC_DVFS
 #include <linux/cpufreq.h>
-#include <linux/rq_stats.h>
 #endif
+
+#include <linux/mfd/pm8xxx/misc.h>
+#include <mach/sec_debug.h>
+#include <mach/restart.h>
 
 #define MAX_BUF 100
 
 DEFINE_MUTEX(pm_mutex);
-
-#ifdef CONFIG_FTM_SLEEP
-suspend_state_t global_state;
-unsigned char ftm_sleep = 0;
-EXPORT_SYMBOL(ftm_sleep);
-
-extern void wakelock_force_suspend(void);
-#endif
 
 #ifdef CONFIG_PM_SLEEP
 
@@ -396,21 +390,8 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 		if (*s && len == strlen(*s) && !strncmp(buf, *s, len)) {
 #ifdef CONFIG_EARLYSUSPEND
 			if (state == PM_SUSPEND_ON || valid_state(state)) {
-#ifdef CONFIG_FTM_SLEEP
-			if(state == PM_SUSPEND_ON) {
-				global_state = PM_SUSPEND_ON;
-			} else {
-				global_state = PM_SUSPEND_MEM;
-			}
-#endif
 				error = 0;
 				request_suspend_state(state);
-			
-#ifdef CONFIG_FTM_SLEEP
-			if (ftm_sleep && global_state == PM_SUSPEND_MEM) {
-				wakelock_force_suspend();
-			}
-#endif
 				break;
 			}
 #else
@@ -425,61 +406,6 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 power_attr(state);
-
-
-#ifdef CONFIG_FTM_SLEEP /* for Factory Sleep cmd check */
-
-
-#define ftm_attr(_name) \
-static struct kobj_attribute _name##_attr = {	\
-	.attr	= {				\
-		.name = __stringify(_name),	\
-		.mode = 0775,			\
-	},					\
-	.show	= _name##_show,			\
-	.store	= _name##_store,		\
-}
-
-
-static ssize_t ftm_sleep_show(struct kobject *kobj, struct kobj_attribute *attr,
-			  char *buf)
-{
-	char *s = buf;
-#ifdef CONFIG_SUSPEND
-	switch(ftm_sleep) {
-		case 0 :
-			s += sprintf(s,"%d ", 0);
-			break;
-		case 1 :
-			s += sprintf(s,"%d ", 1);
-			break;
-	}
-#endif
-
-	if (s != buf)
-		/* convert the last space to a newline */
-		*(s-1) = '\n';
-
-	return (s - buf);
-}
-
-
-static ssize_t ftm_sleep_store(struct kobject *kobj, struct kobj_attribute *attr,
-			   const char *buf, size_t n)
-{
-	ssize_t ret = -EINVAL;
-	char *after;
-	unsigned char state = (unsigned char) simple_strtoul(buf, &after, 10);
-
-	ftm_sleep = state;
-
-	printk("%s, ftm_sleep = %d\n", __func__, ftm_sleep);        
-	return ret;
-
-}
-
-ftm_attr(ftm_sleep);
-#endif /* CONFIG_FTM_SLEEP */
 
 #ifdef CONFIG_PM_SLEEP
 /*
@@ -589,7 +515,7 @@ static unsigned long apps_min_freq;
 static unsigned long apps_max_freq;
 static unsigned long thermald_max_freq;
 
-static unsigned long touch_min_freq = MIN_TOUCH_LIMIT;
+static unsigned long touch_min_freq;
 static unsigned long unicpu_max_freq = MAX_UNICPU_LIMIT;
 
 
@@ -715,12 +641,6 @@ static ssize_t cpufreq_min_limit_store(struct kobject *kobj,
 
 	set_freq_limit(DVFS_APPS_MIN_ID, freq_min_limit);
 
-#ifdef CONFIG_SEC_DVFS_DUAL
-	if (freq_min_limit >= MAX_FREQ_LIMIT)
-		dual_boost(1);
-	else
-		dual_boost(0);
-#endif
 	return n;
 }
 
@@ -795,6 +715,39 @@ power_attr(cpufreq_min_limit);
 power_attr(cpufreq_table);
 #endif
 
+static ssize_t hard_reset_ctl_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", pm8xxx_hard_reset_enabled());
+}
+
+static ssize_t hard_reset_ctl_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t n)
+{
+	int ret = 0;
+	int enable;
+
+	ret = sscanf(buf, "%d", &enable);
+
+	if (ret != 1 || enable > 1)
+		return -EINVAL;
+
+	ret = pm8xxx_hard_reset_control(enable);
+	if (ret)
+		return -EPERM;
+
+	ret = resout_irq_control(enable);
+	if (ret)
+		return -EPERM;
+
+	pr_info("hard_reset_controlled = %d\n", enable);
+
+	return n;
+}
+
+power_attr(hard_reset_ctl);
+
 static struct attribute *g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
@@ -819,10 +772,7 @@ static struct attribute *g[] = {
 	&cpufreq_max_limit_attr.attr,
 	&cpufreq_table_attr.attr,
 #endif
-
-#ifdef CONFIG_FTM_SLEEP
-	&ftm_sleep_attr.attr,
-#endif
+	&hard_reset_ctl_attr.attr,
 	NULL,
 };
 

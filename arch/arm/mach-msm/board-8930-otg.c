@@ -80,7 +80,7 @@ static void __init msm_otg_power_init(int otg_test, int ovp)
 	}
 
 	ret = gpio_tlmm_config(GPIO_CFG(otg_test, GPIOMUX_FUNC_GPIO,
-			GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+			GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 			GPIO_CFG_ENABLE);
 	if (ret) {
 		pr_err("msm_otg: OTG_TEST gpio_tlmm_config failed. %d\n", ret);

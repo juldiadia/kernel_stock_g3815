@@ -25,8 +25,10 @@
 #elif defined(CONFIG_MACH_JF_SPR) || defined(CONFIG_MACH_JF_USC) || \
 	defined(CONFIG_MACH_JF_VZW) || defined(CONFIG_MACH_JF_LGT) || \
 	defined(CONFIG_MACH_JF_SKT) || defined(CONFIG_MACH_JF_KTT) || \
-	defined(CONFIG_MACH_JF_DCM)
+	defined(CONFIG_MACH_JF_DCM) || defined(CONFIG_MACH_JF_CRI)
 #define CHIP_CM3323_REV	9
+#elif defined(CONFIG_MACH_JFVE_EUR)
+#define CHIP_CM3323_REV	0
 #endif
 
 /*************************************************************************/

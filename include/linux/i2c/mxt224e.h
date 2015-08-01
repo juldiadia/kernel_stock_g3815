@@ -19,11 +19,6 @@
 #define MXT224_DEV_NAME "Atmel MXT224"
 
 extern struct class *sec_class;
-struct tsp_callbacks {
-	void (*inform_charger)(struct tsp_callbacks *tsp_cb, bool mode);
-};
-extern struct tsp_callbacks *charger_callbacks;
-
 enum {
 	RESERVED_T0 = 0,
 	RESERVED_T1,
@@ -114,8 +109,8 @@ struct mxt224_platform_data {
 	const u8 *t48_config_batt_e;
 	const u8 *t48_config_chrg_e;
 	void (*power_onoff)(int);
-	void (*register_cb)(struct tsp_callbacks *);
-	void (*read_ta_status)(bool *);
+	void (*register_cb)(void *);
+	void (*read_ta_status)(void *);
 	const u8 *config_fw_version;
 };
 
@@ -125,6 +120,75 @@ struct mxt224_platform_data {
 #define	MXT_REFERENCE_MODE  0x11
 #define	MXT_CTE_MODE        0x31
 
+#if defined(CONFIG_MACH_COMANCHE)
+#define THRESHOLD_E_TA		32
+#define THRESHOLD_E_BAT		32
+#define ACTIVE_DEPTH_TA		42
+#define ACTIVE_DEPTH_BAT	27
+
+#define MEDIAN_ERR_T48_ADDR_3_BAT	2
+#define MEDIAN_ERR_T48_ADDR_3_TA	2
+#define MEDIAN_ERR_T48_ADDR_8		0
+#define MEDIAN_ERR_T48_ADDR_9		0
+#define MEDIAN_ERR_T48_ADDR_35		40
+#define MEDIAN_ERR_T48_ADDR_39_BAT	81
+#define MEDIAN_ERR_T48_ADDR_39_TA	65
+#define MEDIAN_ERR_T46_ADDR_3_BAT	42
+#define MEDIAN_ERR_T46_ADDR_3_TA	63
+#define MEDIAN_ERR_T48_ADDR_38_TA	3
+
+#elif defined(CONFIG_MACH_APEXQ)
+#define THRESHOLD_E_TA		40
+#define THRESHOLD_E_BAT		33
+#define ACTIVE_DEPTH_TA		35
+#define ACTIVE_DEPTH_BAT	25
+
+#define MEDIAN_ERR_T48_ADDR_3_BAT	20
+#define MEDIAN_ERR_T48_ADDR_3_TA	10
+#define MEDIAN_ERR_T48_ADDR_8		1
+#define MEDIAN_ERR_T48_ADDR_9		2
+#define MEDIAN_ERR_T48_ADDR_35		45
+#define MEDIAN_ERR_T48_ADDR_39_BAT	65
+#define MEDIAN_ERR_T48_ADDR_39_TA	65
+#define MEDIAN_ERR_T46_ADDR_3_BAT	30
+#define MEDIAN_ERR_T46_ADDR_3_TA	52
+#define MEDIAN_ERR_T48_ADDR_38_TA	0
+
+#elif defined(CONFIG_MACH_AEGIS2)
+#define THRESHOLD_E_TA		40
+#define THRESHOLD_E_BAT		33
+#define ACTIVE_DEPTH_TA		35
+#define ACTIVE_DEPTH_BAT	25
+
+#define MEDIAN_ERR_T48_ADDR_3_BAT	20
+#define MEDIAN_ERR_T48_ADDR_3_TA	10
+#define MEDIAN_ERR_T48_ADDR_8		1
+#define MEDIAN_ERR_T48_ADDR_9		2
+#define MEDIAN_ERR_T48_ADDR_35		45
+#define MEDIAN_ERR_T48_ADDR_39_BAT	65
+#define MEDIAN_ERR_T48_ADDR_39_TA	65
+#define MEDIAN_ERR_T46_ADDR_3_BAT	30
+#define MEDIAN_ERR_T46_ADDR_3_TA	52
+#define MEDIAN_ERR_T48_ADDR_38_TA	0
+
+#elif defined(CONFIG_MACH_EXPRESS)
+#define THRESHOLD_E_TA		32
+#define THRESHOLD_E_BAT		32
+#define ACTIVE_DEPTH_TA		38
+#define ACTIVE_DEPTH_BAT	28
+
+#define MEDIAN_ERR_T48_ADDR_3_BAT	2
+#define MEDIAN_ERR_T48_ADDR_3_TA	10
+#define MEDIAN_ERR_T48_ADDR_8		0
+#define MEDIAN_ERR_T48_ADDR_9		0
+#define MEDIAN_ERR_T48_ADDR_35		40
+#define MEDIAN_ERR_T48_ADDR_39_BAT	47
+#define MEDIAN_ERR_T48_ADDR_39_TA	47
+#define MEDIAN_ERR_T46_ADDR_3_BAT	32
+#define MEDIAN_ERR_T46_ADDR_3_TA	48
+#define MEDIAN_ERR_T48_ADDR_38_TA	0
+
+#else
 #define THRESHOLD_E_TA		32
 #define THRESHOLD_E_BAT		32
 #define ACTIVE_DEPTH_TA		38
@@ -140,5 +204,13 @@ struct mxt224_platform_data {
 #define MEDIAN_ERR_T46_ADDR_3_BAT	32
 #define MEDIAN_ERR_T46_ADDR_3_TA	63
 #define MEDIAN_ERR_T48_ADDR_38_TA	0
+#endif
 
+#if defined(CONFIG_MACH_JAGUAR) || defined(CONFIG_MACH_APEXQ)
+#define VIRTUAL_KEYPAD_ISSUE
+#endif
+#if defined(CONFIG_MIPI_SAMSUNG_ESD_REFRESH)
+extern void set_esd_enable(void);
+extern void set_esd_disable(void);
+#endif
 #endif

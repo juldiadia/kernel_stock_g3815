@@ -51,16 +51,15 @@
 
 #define IOCTL_TDMB_GET_DATA_BUFFSIZE	_IO(IOCTL_MAGIC, 0)
 #define IOCTL_TDMB_GET_CMD_BUFFSIZE	_IO(IOCTL_MAGIC, 1)
-#define IOCTL_TDMB_POWER_ON		_IO(IOCTL_MAGIC, 2)
-#define IOCTL_TDMB_POWER_OFF		_IO(IOCTL_MAGIC, 3)
+#define IOCTL_TDMB_POWER_ON			_IO(IOCTL_MAGIC, 2)
+#define IOCTL_TDMB_POWER_OFF			_IO(IOCTL_MAGIC, 3)
 #define IOCTL_TDMB_SCAN_FREQ_ASYNC	_IO(IOCTL_MAGIC, 4)
 #define IOCTL_TDMB_SCAN_FREQ_SYNC	_IO(IOCTL_MAGIC, 5)
-#define IOCTL_TDMB_SCANSTOP		_IO(IOCTL_MAGIC, 6)
-#define IOCTL_TDMB_ASSIGN_CH		_IO(IOCTL_MAGIC, 7)
-#define IOCTL_TDMB_GET_DM		_IO(IOCTL_MAGIC, 8)
+#define IOCTL_TDMB_SCANSTOP			_IO(IOCTL_MAGIC, 6)
+#define IOCTL_TDMB_ASSIGN_CH			_IO(IOCTL_MAGIC, 7)
+#define IOCTL_TDMB_GET_DM				_IO(IOCTL_MAGIC, 8)
 #define IOCTL_TDMB_ASSIGN_CH_TEST	_IO(IOCTL_MAGIC, 9)
 #define IOCTL_TDMB_SET_AUTOSTART	_IO(IOCTL_MAGIC, 10)
-
 
 struct tdmb_dm {
 	unsigned int	rssi;
@@ -160,8 +159,6 @@ struct tdmb_drv_func {
 	unsigned long (*get_int_size) (void);
 };
 
-extern unsigned int get_hw_rev(void);
-
 extern unsigned int *tdmb_ts_head;
 extern unsigned int *tdmb_ts_tail;
 extern char *tdmb_ts_buffer;
@@ -185,8 +182,8 @@ extern struct tcbd_fic_ensbl *tcbd_fic_get_ensbl_info(s32 _disp);
 struct spi_device *tdmb_get_spi_handle(void);
 #endif
 
-#ifdef CONFIG_BATTERY_SEC
-extern unsigned int is_lpcharging_state(void);
+#ifdef CONFIG_SAMSUNG_LPM_MODE
+extern int poweroff_charging;
 #endif
 
 #endif

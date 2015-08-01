@@ -21,26 +21,31 @@
 
 #ifndef _FSA9485_H_
 #define _FSA9485_H_
-
+#if defined(CONFIG_MACH_LT02)
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
-
+#endif
 enum {
 	FSA9485_DETACHED,
-	FSA9485_ATTACHED,
-	TSU6721_ATTACHED,
-};
 
+	FSA9485_ATTACHED,
+#if defined(CONFIG_MACH_LT02)
+	TSU6721_ATTACHED,
+#endif
+};
+#if defined(CONFIG_MACH_LT02)
 enum {
 	DISABLE,
 	ENABLE
 };
-
+#endif
 enum {
 	FSA9485_DETACHED_DOCK = 0,
 	FSA9485_ATTACHED_DESK_DOCK,
 	FSA9485_ATTACHED_CAR_DOCK,
 };
 
+#define UART_SEL_SW	    58
+#if defined(CONFIG_MACH_LT02)
 enum {
 	USB_CALL = 0,
 	CDP_CALL,
@@ -55,12 +60,28 @@ enum {
 	MHL_CALL,
 	INCOMPATIBLE_CALL,
 };
-
+#endif
 struct fsa9485_platform_data {
-	void (*callback)(enum cable_type_t cable_type, int attached);
-	void (*oxp_callback)(int state);
+	void (*cfg_gpio) (void);
+	void (*otg_cb) (bool attached);
+	void (*usb_cb) (bool attached);
+	void (*uart_cb) (bool attached);
+	void (*charger_cb) (bool attached);
+	void (*jig_cb) (bool attached);
+	void (*mhl_cb) (bool attached);
+	void (*reset_cb) (void);
+	void (*set_init_flag) (void);
 	void (*mhl_sel) (bool onoff);
+	void (*dock_cb) (int attached);
 	int	(*dock_init) (void);
+	void (*usb_cdp_cb) (bool attached);
+	void (*smartdock_cb) (bool attached);
+	void (*audio_dock_cb) (bool attached);
+	void (*charging_cable_cb) (bool attached);
+#if defined(CONFIG_MACH_LT02)
+    void (*callback)(enum cable_type_t cable_type, int attached);
+	void (*oxp_callback)(int state);
+#endif
 };
 
 enum {
@@ -75,12 +96,12 @@ enum {
 
 extern void fsa9485_manual_switching(int path);
 extern void fsa9485_otg_detach(void);
-#if defined(CONFIG_VIDEO_MHL_V2)
-extern int dock_det(void);
+#if defined(CONFIG_MACH_AEGIS2)
+extern void fsa9485_checkandhookaudiodockfornoise(int value);
 #endif
+#if defined(CONFIG_MACH_LT02)
 extern int check_jig_state(void);
-
-extern int poweroff_charging;
+#endif
 extern struct class *sec_class;
 
 #endif /* _FSA9485_H_ */

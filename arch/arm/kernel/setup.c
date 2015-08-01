@@ -150,8 +150,6 @@ struct machine_desc *machine_desc __initdata;
 const char *unit_name;
 EXPORT_SYMBOL(unit_name);
 
-char pmic_version[16];
-EXPORT_SYMBOL(pmic_version);
 #endif
 
 static char default_command_line[COMMAND_LINE_SIZE] __initdata = CONFIG_CMDLINE;

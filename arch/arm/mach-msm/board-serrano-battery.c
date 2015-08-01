@@ -29,9 +29,9 @@
 #include "board-8930.h"
 
 #if defined(CONFIG_BATTERY_SAMSUNG)
-#include <linux/battery/sec_battery.h>
-#include <linux/battery/sec_fuelgauge.h>
-#include <linux/battery/sec_charger.h>
+#include <linux/battery/sec_battery_8930.h>
+#include <linux/battery/sec_fuelgauge_8930.h>
+#include <linux/battery/sec_charger_8930.h>
 
 #define SEC_BATTERY_PMIC_NAME ""
 
@@ -157,6 +157,11 @@ static bool sec_chg_gpio_init(void)
 
 static bool sec_bat_is_lpm(void) {return (bool)poweroff_charging; }
 
+static bool sec_bat_check_external_charging_status(void)
+{
+	return 0;
+}
+
 int extended_cable_type;
 
 static void sec_bat_initial_check(void)
@@ -181,11 +186,13 @@ static void sec_bat_initial_check(void)
 
 #if defined(CONFIG_MFD_MAX77693)
 extern void max77693_muic_monitor_status(void);
+
 static void sec_bat_monitor_additional_check(void)
 {
 	/* check muic cable status */
 	max77693_muic_monitor_status();
 }
+
 #endif
 
 static bool sec_bat_check_jig_status(void)
@@ -304,9 +311,9 @@ static int sec_bat_get_cable_from_extended_cable_type(
 static bool sec_bat_check_cable_result_callback(
 				int cable_type)
 {
+#if 0
 	struct regulator *l29;
 	current_cable_type = cable_type;
-
 	if(system_rev >= 0x6) {
 		if (current_cable_type == POWER_SUPPLY_TYPE_BATTERY)
 		{
@@ -327,6 +334,8 @@ static bool sec_bat_check_cable_result_callback(
 			}
 		}
 	}
+#endif
+
 	return true;
 }
 
@@ -424,7 +433,7 @@ static const sec_bat_adc_table_data_t temp_table[] = {
 	{1611,	-150},
 	{1660,	-200},
 };
-#elif defined(CONFIG_MACH_SERRANO_VZW)
+#elif defined(CONFIG_MACH_SERRANO_VZW) || defined(CONFIG_MACH_SERRANO_LRA)
 static const sec_bat_adc_table_data_t temp_table[] = {
 	{231,	700},
 	{268,	650},
@@ -495,7 +504,8 @@ static int polling_time_table[] = {
 
 static struct battery_data_t melius_battery_data[] = {
 	/* SDI battery data (High voltage 4.35V) */
-#if defined(CONFIG_MACH_SERRANO_SPR) || defined(CONFIG_MACH_SERRANO_ATT) || defined(CONFIG_MACH_SERRANO_VZW)
+#if defined(CONFIG_MACH_SERRANO_SPR) || defined(CONFIG_MACH_SERRANO_ATT) || defined(CONFIG_MACH_SERRANO_VZW)\
+	 || defined(CONFIG_MACH_SERRANO_LRA)
 	{
 		.RCOMP0 = 0x76,
 		.RCOMP_charging = 0x76,
@@ -525,6 +535,7 @@ sec_battery_platform_data_t sec_battery_pdata = {
 	.chg_gpio_init = sec_chg_gpio_init,
 
 	.is_lpm = sec_bat_is_lpm,
+	.check_external_charging_status = sec_bat_check_external_charging_status,
 	.check_jig_status = sec_bat_check_jig_status,
 	.check_cable_callback =
 		sec_bat_check_cable_callback,
@@ -662,16 +673,16 @@ sec_battery_platform_data_t sec_battery_pdata = {
 	.temp_low_threshold_event = -40,
 	.temp_low_recovery_event = 10,
 
-	.temp_high_threshold_normal = 617,
-	.temp_high_recovery_normal = 450,
+	.temp_high_threshold_normal = 600,
+	.temp_high_recovery_normal = 400,
 	.temp_low_threshold_normal = -40,
-	.temp_low_recovery_normal = 10,
+	.temp_low_recovery_normal = 0,
 
 	.temp_high_threshold_lpm = 450,
 	.temp_high_recovery_lpm = 430,
 	.temp_low_threshold_lpm = -30,
 	.temp_low_recovery_lpm = -10,
-#elif defined(CONFIG_MACH_SERRANO_VZW)
+#elif defined(CONFIG_MACH_SERRANO_VZW) || defined(CONFIG_MACH_SERRANO_LRA)
 	.temp_high_threshold_event = 601,
 	.temp_high_recovery_event = 430,
 	.temp_low_threshold_event = -70,

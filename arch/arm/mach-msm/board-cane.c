@@ -114,7 +114,7 @@
 #endif
 
 #ifdef CONFIG_NFC_PN547
-#include <linux/pn544.h>
+#include <linux/pn547.h>
 #endif
 
 #ifdef CONFIG_MFD_MAX77693
@@ -373,18 +373,20 @@ static struct platform_device pn547_i2c_gpio_device = {
 	},
 };
 
-static struct pn544_i2c_platform_data pn547_pdata = {
+static struct pn547_i2c_platform_data pn547_pdata = {
 	.conf_gpio = pn547_conf_gpio,
 	.irq_gpio = GPIO_NFC_IRQ,
 	.ven_gpio = GPIO_NFC_EN,
 	.firm_gpio = GPIO_NFC_FIRMWARE,
+#ifdef CONFIG_NFC_PN547_CLOCK_REQUEST
 	.clk_req_gpio = GPIO_NFC_CLK_REQ,
 	.clk_req_irq = MSM_GPIO_TO_INT(GPIO_NFC_CLK_REQ),
+#endif
 };
 
 static struct i2c_board_info pn547_info[] __initdata = {
 	{
-		I2C_BOARD_INFO("pn544", 0x2b),
+		I2C_BOARD_INFO("pn547", 0x2b),
 		.irq = MSM_GPIO_TO_INT(GPIO_NFC_IRQ),
 		.platform_data = &pn547_pdata,
 	},
@@ -3107,9 +3109,6 @@ static struct i2c_board_info sii_device_info[] __initdata = {
 	},
 };
 #endif /*CONFIG_FB_MSM_HDMI_MHL_8334*/
-
-#ifdef MSM8930_PHASE_2
-
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button gpio_keys_button[] = {
 	{
@@ -3130,6 +3129,7 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.debounce_interval	= 5, /* ms */
 		.desc			= "Vol Down",
 	},
+	#ifndef CONFIG_MACH_WILCOX_EUR_LTE
 	{
 		.code           = KEY_MENU,
 		.type		= EV_KEY,
@@ -3148,6 +3148,7 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.debounce_interval = 5,
 		.desc           = "back_key",
 	},
+	#endif
 	{
 		.code			= KEY_HOMEPAGE,
 		.type			= EV_KEY,
@@ -3186,13 +3187,14 @@ static struct gpio_keys_platform_data gpio_keys_platform_data = {
 };
 
 static struct platform_device msm8960_gpio_keys_device = {
-	.name	= "sec_keys",
+	.name	= "gpio-keys",
 	.id	= -1,
 	.dev	= {
 		.platform_data	= &gpio_keys_platform_data,
 	}
 };
 #endif
+#ifdef MSM8930_PHASE_2
 #ifdef CONFIG_2MIC_ES305
 static int a2220_hw_init(void)
 {
@@ -3556,7 +3558,7 @@ static struct platform_device msm_tsens_device = {
 static struct msm_thermal_data msm_thermal_pdata = {
 	.sensor_id = 9,
 	.poll_ms = 250,
-	.limit_temp_degC = 60,
+	.limit_temp_degC = 70,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 };
@@ -3672,25 +3674,25 @@ static struct sec_jack_buttons_zone jack_buttons_zones[] = {
 static struct sec_jack_zone jack_zones[] = {
 	[0] = {
 		.adc_high	= 3,
-		.delay_ms	= 10,
+		.delay_us	= 10000,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_3POLE,
 	},
 	[1] = {
 		.adc_high	= 910,
-		.delay_ms	= 10,
+		.delay_us	= 10000,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_3POLE,
 	},
 	[2] = {
 		.adc_high	= 951,
-		.delay_ms	= 10,
+		.delay_us	= 10000,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_4POLE,
 	},
 	[3] = {
 		.adc_high	= 9999,
-		.delay_ms	= 10,
+		.delay_us	= 10000,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_4POLE,
 	},
@@ -3883,8 +3885,8 @@ static struct sec_jack_platform_data sec_jack_data = {
 	.num_zones		= ARRAY_SIZE(jack_zones),
 	.buttons_zones		= jack_buttons_zones,
 	.num_buttons_zones	= ARRAY_SIZE(jack_buttons_zones),
-	.det_int		= MSM_GPIO_TO_INT(GPIO_EAR_DET),
-	.send_int		= MSM_GPIO_TO_INT(GPIO_SHORT_SENDEND),
+	.det_gpio		= GPIO_EAR_DET,
+	.send_end_gpio		= GPIO_SHORT_SENDEND,
 #if defined(CONFIG_SAMSUNG_JACK_GNDLDET)
 	.get_gnd_jack_state	= get_sec_gnd_jack_state,
 #endif

@@ -67,17 +67,6 @@ config SENSORS_SSP_BMP182
 	  To compile this driver as a module, choose M here: the
 	  module will be called ssp.
 
-config SENSORS_SSP_LPS25H
-	tristate "Sensors ssp lps25h"
-	default n
-	depends on I2C
-	help
-	  lps25h file for factory test in ssp driver.
-          If you say yes here you get lps25h support for
-	  factory test.
-	  To compile this driver as a module, choose M here: the
-	  module will be called ssp.
-
 config SENSORS_SSP_AT32UC3L0128
 	tristate "Sensors ssp at32uc3l0128"
 	default n
@@ -107,17 +96,6 @@ config SENSORS_SSP_SHTC1
 	help
 	  shtc1 file for factory test in ssp driver.
           If you say yes here you get shtc1 support for
-	  factory test.
-	  To compile this driver as a module, choose M here: the
-	  module will be called ssp.
-
-config SENSORS_SSP_GP2AP030A00F
-	tristate "Sensors ssp GP2AP030A00F"
-	default n
-	depends on I2C
-	help
-	  GP2AP030A00F file for factory test in ssp driver.
-          If you say yes here you get GP2AP030A00F support for
 	  factory test.
 	  To compile this driver as a module, choose M here: the
 	  module will be called ssp.

@@ -23,7 +23,6 @@
 #include <linux/workqueue.h>
 #include <linux/jiffies.h>
 #include <linux/gpio.h>
-#include <mach/msm_iomap.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
 #include <linux/of.h>
@@ -37,18 +36,13 @@
 #include <mach/peripheral-loader.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
+#include <linux/mfd/pm8xxx/misc.h>
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include "wcnss_prealloc.h"
 #endif
-#if defined(CONFIG_MACH_MELIUS_SKT) || defined(CONFIG_MACH_MELIUS_KTT) || \
-	defined(CONFIG_MACH_MELIUS_LGT)
-#if !defined(CONFIG_RADIO_IRIS) && defined(CONFIG_IR_REMOCON_FPGA)
-/* workaround about conflict with qualcomm FM radio gpio */
-#include <mach/msm8930-gpio.h>
-#endif
-#endif
 
 #define DEVICE "wcnss_wlan"
+#define CTRL_DEVICE "wcnss_ctrl"
 #define VERSION "1.01"
 #define WCNSS_PIL_DEVICE "wcnss"
 
@@ -81,6 +75,14 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
 #define WCNSS_MAX_FRAME_SIZE		(4*1024)
 #define WCNSS_VERSION_LEN			30
+#define WCNSS_MAX_CMD_LEN		(128)
+#define WCNSS_MIN_CMD_LEN		(3)
+#define WCNSS_MIN_SERIAL_LEN		(6)
+
+/* control messages from userspace */
+#define WCNSS_USR_CTRL_MSG_START  0x00000000
+#define WCNSS_USR_SERIAL_NUM      (WCNSS_USR_CTRL_MSG_START + 1)
+#define WCNSS_USR_HAS_CAL_DATA    (WCNSS_USR_CTRL_MSG_START + 2)
 
 /* message types */
 #define WCNSS_CTRL_MSG_START	0x01000000
@@ -111,6 +113,21 @@ struct wcnss_version {
 	unsigned char  minor;
 	unsigned char  version;
 	unsigned char  revision;
+};
+
+struct wcnss_pmic_dump {
+	char reg_name[10];
+	u16 reg_addr;
+};
+
+static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
+	{"S2", 0x1D8}, /* S2 */
+	{"L4", 0xB4},  /* L4 */
+	{"L10", 0xC0},  /* L10 */
+	{"LVS2", 0x62},   /* LVS2 */
+	{"S4", 0x1E8}, /*S4*/
+	{"LVS7", 0x06C}, /*LVS7*/
+	{"LVS1", 0x060}, /*LVS7*/
 };
 
 #define NVBIN_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"
@@ -243,7 +260,9 @@ static struct {
 	int	user_cal_available;
 	int	user_cal_rcvd;
 	int	user_cal_exp_size;
+	int	ctrl_device_opened;
 	int	device_opened;
+	struct mutex ctrl_lock;
 	struct mutex dev_lock;
 	wait_queue_head_t read_wait;
 } *penv = NULL;
@@ -316,10 +335,65 @@ static ssize_t wcnss_version_show(struct device *dev,
 
 static DEVICE_ATTR(wcnss_version, S_IRUSR,
 		wcnss_version_show, NULL);
+		
+/* wcnss_reset_intr() is invoked when host drivers fails to
+ * communicate with WCNSS over SMD; so logging these registers
+ * helps to know WCNSS failure reason */
+void wcnss_riva_log_debug_regs(void)
+{
+	void __iomem *ccu_base;
+	void __iomem *ccu_reg;
+	u32 reg = 0;
+
+	ccu_base = ioremap(MSM_RIVA_CCU_BASE, SZ_512);
+	if (!ccu_base) {
+		pr_err("%s: ioremap WCNSS CCU reg failed\n", __func__);
+		return;
+	}
+
+	ccu_reg = ccu_base + CCU_INVALID_ADDR_OFFSET;
+	reg = readl_relaxed(ccu_reg);
+	pr_info_ratelimited("%s: CCU_CCPU_INVALID_ADDR %08x\n", __func__, reg);
+
+	ccu_reg = ccu_base + CCU_LAST_ADDR0_OFFSET;
+	reg = readl_relaxed(ccu_reg);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR0 %08x\n", __func__, reg);
+
+	ccu_reg = ccu_base + CCU_LAST_ADDR1_OFFSET;
+	reg = readl_relaxed(ccu_reg);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR1 %08x\n", __func__, reg);
+
+	ccu_reg = ccu_base + CCU_LAST_ADDR2_OFFSET;
+	reg = readl_relaxed(ccu_reg);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
+
+	iounmap(ccu_base);
+}
+EXPORT_SYMBOL(wcnss_riva_log_debug_regs);
+
+void wcnss_riva_dump_pmic_regs(void)
+{
+	int i, rc;
+	u8  val;
+
+	for (i = 0; i < ARRAY_SIZE(wcnss_pmic_reg_dump); i++) {
+		val = 0;
+		rc = pm8xxx_read_register(wcnss_pmic_reg_dump[i].reg_addr,
+				&val);
+		if (rc)
+			pr_err("PMIC READ: Failed to read addr = %d\n",
+					wcnss_pmic_reg_dump[i].reg_addr);
+		else
+			pr_err("PMIC READ: addr = %x, value = %x\n",
+					wcnss_pmic_reg_dump[i].reg_addr, val);
+	}
+}
 
 /* interface to reset Riva by sending the reset interrupt */
 void wcnss_reset_intr(void)
 {
+	wcnss_riva_log_debug_regs();
+	wcnss_riva_dump_pmic_regs();
 	wmb();
 	__raw_writel(1 << 24, MSM_APCS_GCC_BASE + 0x8);
 }
@@ -407,17 +481,6 @@ static void wcnss_post_bootup(struct work_struct *work)
 	/* Since Riva is up, cancel any APPS vote for Iris & Riva VREGs  */
 	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
 		WCNSS_WLAN_SWITCH_OFF);
-
-#if defined(CONFIG_MACH_MELIUS_SKT) || defined(CONFIG_MACH_MELIUS_KTT) || \
-	defined(CONFIG_MACH_MELIUS_LGT)
-#if !defined(CONFIG_RADIO_IRIS) && defined(CONFIG_IR_REMOCON_FPGA)
-	/* workaround about conflict with qualcomm FM radio gpio */
-	gpio_tlmm_config(GPIO_CFG(GPIO_IRDA_SDA, 0,
-		GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA), 1);
-	gpio_tlmm_config(GPIO_CFG(GPIO_IRDA_SCL, 0,
-		GPIO_CFG_INPUT,	GPIO_CFG_NO_PULL, GPIO_CFG_8MA), 1);
-#endif
-#endif
 }
 
 static int
@@ -1260,6 +1323,80 @@ nv_download:
 
 
 
+static int wcnss_ctrl_open(struct inode *inode, struct file *file)
+{
+	int rc = 0;
+
+	if (!penv || penv->ctrl_device_opened)
+		return -EFAULT;
+
+	penv->ctrl_device_opened = 1;
+
+	return rc;
+}
+
+
+void process_usr_ctrl_cmd(u8 *buf, size_t len)
+{
+	u16 cmd = buf[0] << 8 | buf[1];
+
+	switch (cmd) {
+
+	case WCNSS_USR_SERIAL_NUM:
+		if (WCNSS_MIN_SERIAL_LEN > len) {
+			pr_err("%s: Invalid serial number\n", __func__);
+			return;
+		}
+		penv->serial_number = buf[2] << 24 | buf[3] << 16
+			| buf[4] << 8 | buf[5];
+		break;
+
+	case WCNSS_USR_HAS_CAL_DATA:
+		if (1 < buf[2])
+			pr_err("%s: Invalid data for cal %d\n", __func__,
+				buf[2]);
+		has_calibrated_data = buf[2];
+		break;
+
+	default:
+		pr_err("%s: Invalid command %d\n", __func__, cmd);
+		break;
+	}
+}
+
+static ssize_t wcnss_ctrl_write(struct file *fp, const char __user
+			*user_buffer, size_t count, loff_t *position)
+{
+	int rc = 0;
+	u8 buf[WCNSS_MAX_CMD_LEN];
+
+	if (!penv || !penv->ctrl_device_opened || WCNSS_MAX_CMD_LEN < count
+			|| WCNSS_MIN_CMD_LEN > count)
+		return -EFAULT;
+
+	mutex_lock(&penv->ctrl_lock);
+	rc = copy_from_user(buf, user_buffer, count);
+	if (0 == rc)
+		process_usr_ctrl_cmd(buf, count);
+
+	mutex_unlock(&penv->ctrl_lock);
+
+	return rc;
+}
+
+
+static const struct file_operations wcnss_ctrl_fops = {
+	.owner = THIS_MODULE,
+	.open = wcnss_ctrl_open,
+	.write = wcnss_ctrl_write,
+};
+
+static struct miscdevice wcnss_usr_ctrl = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = CTRL_DEVICE,
+	.fops = &wcnss_ctrl_fops,
+};
+
 static int
 wcnss_trigger_config(struct platform_device *pdev)
 {
@@ -1517,6 +1654,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 		return -ENOENT;
 
 	mutex_init(&penv->dev_lock);
+	mutex_init(&penv->ctrl_lock);
 	init_waitqueue_head(&penv->read_wait);
 
 	/*
@@ -1529,6 +1667,9 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	 * place
 	 */
 	pr_info(DEVICE " probed in built-in mode\n");
+
+	misc_register(&wcnss_usr_ctrl);
+
 	return misc_register(&wcnss_misc);
 
 }
@@ -1591,13 +1732,6 @@ static void __exit wcnss_wlan_exit(void)
 	wcnss_prealloc_deinit();
 #endif
 }
-
-static unsigned char prealloc_mac_mem[32*1024];
-void* wcnss_get_prealloc_mac_context(void)
-{
-	return prealloc_mac_mem;
-}
-EXPORT_SYMBOL(wcnss_get_prealloc_mac_context);
 
 module_init(wcnss_wlan_init);
 module_exit(wcnss_wlan_exit);

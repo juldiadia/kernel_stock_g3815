@@ -542,9 +542,9 @@ static int seek(u32 *frequency, int up, int mode)
 
 static int tune_freq(u32 frequency)
 {
-	int ret = 0;
+	int ret;
 
-	u16 channel = 0;
+	u16 channel;
 	struct tune_data_t tune_data;
 	mutex_lock(&(Si47xx_dev->lock));
 
@@ -829,8 +829,8 @@ int Si47xx_dev_resume(void)
 int Si47xx_dev_band_set(int band)
 {
 	int ret = 0;
-	u16 prev_band = 0;
-	u32 prev_bottom_of_band = 0;
+	u16 prev_band ;
+	u32 prev_bottom_of_band ;
 
 	debug("Si47xx_dev_band_set called");
 

@@ -42,13 +42,6 @@ enum sec_battery_voltage_mode {
 	SEC_BATTEY_VOLTAGE_OCV,
 };
 
-enum sec_battery_current_mode {
-	/* uA */
-	SEC_BATTEY_CURRENT_UA = 0,
-	/* mA */
-	SEC_BATTEY_CURRENT_MA,
-};
-
 enum sec_battery_capacity_mode {
 	/* designed capacity */
 	SEC_BATTEY_CAPACITY_DESIGNED = 0,
@@ -61,6 +54,8 @@ enum sec_battery_capacity_mode {
 };
 
 /* ADC type */
+#define SEC_BATTERY_ADC_TYPE_NUM	3
+
 enum sec_battery_adc_type {
 	/* NOT using this ADC channel */
 	SEC_BATTERY_ADC_TYPE_NONE = 0,
@@ -68,7 +63,6 @@ enum sec_battery_adc_type {
 	SEC_BATTERY_ADC_TYPE_AP,
 	/* ADC by additional IC */
 	SEC_BATTERY_ADC_TYPE_IC,
-	SEC_BATTERY_ADC_TYPE_NUM
 };
 
 enum sec_battery_adc_channel {
@@ -77,9 +71,6 @@ enum sec_battery_adc_channel {
 	SEC_BAT_ADC_CHANNEL_TEMP,
 	SEC_BAT_ADC_CHANNEL_TEMP_AMBIENT,
 	SEC_BAT_ADC_CHANNEL_FULL_CHECK,
-	SEC_BAT_ADC_CHANNEL_VOLTAGE_NOW,
-	SEC_BAT_ADC_CHANNEL_CURRENT_NOW,
-	SEC_BAT_ADC_CHANNEL_NUM
 };
 
 /* charging mode */
@@ -127,8 +118,12 @@ enum sec_battery_full_charged {
 	SEC_BATTERY_FULLCHARGED_NONE = 0,
 	/* current check by ADC */
 	SEC_BATTERY_FULLCHARGED_ADC,
+	/* current check by ADC and dual check (1st, 2nd top-off) */
+	SEC_BATTERY_FULLCHARGED_ADC_DUAL,
 	/* fuel gauge current check */
 	SEC_BATTERY_FULLCHARGED_FG_CURRENT,
+	/* fuel gauge current check and dual check (1st, 2nd top-off) */
+	SEC_BATTERY_FULLCHARGED_FG_CURRENT_DUAL,
 	/* time check */
 	SEC_BATTERY_FULLCHARGED_TIME,
 	/* SOC check */
@@ -266,14 +261,10 @@ enum sec_battery_temp_check {
   * check cable by interrupt
   */
 #define SEC_BATTERY_CABLE_CHECK_INT			8
-/* SEC_BATTERY_CABLE_CHECK_CHGINT
-  * check cable by charger interrupt
-  */
-#define SEC_BATTERY_CABLE_CHECK_CHGINT			16
 /* SEC_BATTERY_CABLE_CHECK_POLLING
   * check cable by GPIO polling
   */
-#define SEC_BATTERY_CABLE_CHECK_POLLING			32
+#define SEC_BATTERY_CABLE_CHECK_POLLING			16
 
 /* check cable source (can be used overlapped) */
 #define sec_battery_cable_source_t unsigned int
@@ -319,11 +310,6 @@ enum sec_battery_temp_check {
   * no sudden change of capacity
   */
 #define SEC_FUELGAUGE_CAPACITY_TYPE_ATOMIC	8
-/* SEC_FUELGAUGE_CAPACITY_TYPE_SKIP_ABNORMAL
-  * skip current capacity value
-  * if it is abnormal value
-  */
-#define SEC_FUELGAUGE_CAPACITY_TYPE_SKIP_ABNORMAL	16
 
 /* charger function settings (can be used overlapped) */
 #define sec_charger_functions_t unsigned int
@@ -333,11 +319,6 @@ enum sec_battery_temp_check {
  */
 #define SEC_CHARGER_NO_GRADUAL_CHARGING_CURRENT		1
 
-/* SEC_CHARGER_MINIMUM_SIOP_CHARGING_CURRENT
- * charging current should be over than USB charging current
- */
-#define SEC_CHARGER_MINIMUM_SIOP_CHARGING_CURRENT	2
-
 /**
  * struct sec_bat_adc_table_data - adc to temperature table for sec battery
  * driver
@@ -346,7 +327,7 @@ enum sec_battery_temp_check {
  */
 struct sec_bat_adc_table_data {
 	int adc;
-	int data;
+	int temperature;
 };
 #define sec_bat_adc_table_data_t \
 	struct sec_bat_adc_table_data
@@ -371,15 +352,11 @@ struct sec_battery_platform_data {
 	/* NO NEED TO BE CHANGED */
 	/* callback functions */
 	void (*initial_check)(void);
-	void (*monitor_additional_check)(void);
 	bool (*bat_gpio_init)(void);
 	bool (*fg_gpio_init)(void);
 	bool (*chg_gpio_init)(void);
-	void (*bat_isr_callback)(void);
 	bool (*is_lpm)(void);
-	bool (*check_jig_status) (void);
-	bool (*check_vbus_status) (void);
-	bool (*check_external_charging_status) (void);
+	bool (*check_jig_status)(void);
 	bool (*is_interrupt_cable_check_possible)(int);
 	int (*check_cable_callback)(void);
 	int (*get_cable_from_extended_cable_type)(int);
@@ -427,10 +404,6 @@ struct sec_battery_platform_data {
 	bool use_LED;				/* use charging LED */
 
 	bool event_check;
-	/* event masking : no event check for this senario */
-	int event_mask;
-	/* these events will be clear immediately without any timer */
-	int event_immediate;
 	/* sustaining event after deactivated (second) */
 	unsigned int event_waiting_time;
 
@@ -520,9 +493,9 @@ struct sec_battery_platform_data {
 	/* soc should be soc x 10 (0.1% degree)
 	 * only for scaling
 	 */
-	int capacity_max;
-	int capacity_max_margin;
-	int capacity_min;
+	unsigned int capacity_max;
+	unsigned int capacity_max_margin;
+	unsigned int capacity_min;
 
 	/* charger */
 	char *charger_name;
@@ -558,7 +531,7 @@ static inline struct power_supply *get_power_supply_by_name(char *name)
 }
 
 #define psy_do_property(name, function, property, value) \
-do {	\
+{	\
 	struct power_supply *psy;	\
 	int ret;	\
 	psy = get_power_supply_by_name((name));	\
@@ -574,12 +547,10 @@ do {	\
 			value.intval = 0;	\
 		}	\
 	}	\
-} while(0)
+}
 
 #define adc_init(pdev, pdata, channel)	\
-	(((pdata)->adc_api)[((((pdata)->adc_type[(channel)]) <	\
-	SEC_BATTERY_ADC_TYPE_NUM) ? ((pdata)->adc_type[(channel)]) :	\
-	SEC_BATTERY_ADC_TYPE_NONE)].init((pdev)))
+	(((pdata)->adc_api)[((pdata)->adc_type[(channel)])].init((pdev)))
 
 #define adc_exit(pdata, channel)	\
 	(((pdata)->adc_api)[((pdata)->adc_type[(channel)])].exit())

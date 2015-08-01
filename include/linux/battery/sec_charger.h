@@ -19,18 +19,9 @@
 #ifndef __SEC_CHARGER_H
 #define __SEC_CHARGER_H __FILE__
 
-#if defined(CONFIG_CHARGER_MFD)
-#define charger_variable charger
-#define charger_variable_t struct sec_charger_info
-#else
-#define charger_variable (charger->client)
-#define charger_variable_t struct i2c_client
-#endif
-
 #include <linux/battery/sec_charging_common.h>
 
-#if defined(CONFIG_CHARGER_DUMMY) || \
-	defined(CONFIG_CHARGER_PM8917)
+#if defined(CONFIG_CHARGER_DUMMY)
 #include <linux/battery/charger/dummy_charger.h>
 #elif defined(CONFIG_CHARGER_MAX8903)
 #include <linux/battery/charger/max8903_charger.h>
@@ -38,20 +29,12 @@
 #include <linux/battery/charger/smb328_charger.h>
 #elif defined(CONFIG_CHARGER_SMB347)
 #include <linux/battery/charger/smb347_charger.h>
-#elif defined(CONFIG_CHARGER_SMB358)
-#include <linux/battery/charger/smb358_charger.h>
 #elif defined(CONFIG_CHARGER_BQ24157)
 #include <linux/battery/charger/bq24157_charger.h>
 #elif defined(CONFIG_CHARGER_BQ24190) || \
 		defined(CONFIG_CHARGER_BQ24191)
 #include <linux/battery/charger/bq24190_charger.h>
-#elif defined(CONFIG_CHARGER_BQ24260)
-#include <linux/battery/charger/bq24260_charger.h>
-#elif defined(CONFIG_CHARGER_NCP1851)
-#include <linux/battery/charger/ncp1851_charger.h>
-#elif defined(CONFIG_CHARGER_TSU8111)
-#include <linux/battery/charger/tsu8111_charger.h>
-#elif defined(CONFIG_CHARGER_MAX77XXX)
+#elif defined(CONFIG_CHARGER_MAX77693) || defined(CONFIG_MACH_MELIUS)
 #include <linux/battery/charger/max77693_charger.h>
 #endif
 
@@ -63,19 +46,10 @@ struct sec_charger_info {
 
 	int cable_type;
 	int status;
-	int health;
-	int aicl_on;
 	bool is_charging;
-
-	/* HW-dedicated charger info structure
-	 * used in individual charger file only
-	 * (ex. dummy_charger.c)
-	 */
-	struct sec_chg_info	info;
 
 	/* charging current : + charging, - OTG */
 	int charging_current;
-	unsigned charging_current_max;
 
 	/* register programming */
 	int reg_addr;
@@ -83,13 +57,13 @@ struct sec_charger_info {
 	int irq_base;
 };
 
-bool sec_hal_chg_init(charger_variable_t *);
-bool sec_hal_chg_suspend(charger_variable_t *);
-bool sec_hal_chg_resume(charger_variable_t *);
-bool sec_hal_chg_get_property(charger_variable_t *,
+bool sec_hal_chg_init(struct i2c_client *);
+bool sec_hal_chg_suspend(struct i2c_client *);
+bool sec_hal_chg_resume(struct i2c_client *);
+bool sec_hal_chg_get_property(struct i2c_client *,
 				enum power_supply_property,
 				union power_supply_propval *);
-bool sec_hal_chg_set_property(charger_variable_t *,
+bool sec_hal_chg_set_property(struct i2c_client *,
 				enum power_supply_property,
 				const union power_supply_propval *);
 

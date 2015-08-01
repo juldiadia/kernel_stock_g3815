@@ -293,14 +293,6 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 
 	hdr->dest_svc = svc->id;
 
-#ifdef CONFIG_SEC_DHA_SOL_MAL
-	if (hdr->opcode == 0x0001128A) {
-		pr_debug("Success call%s\n", __func__);
-		hdr->dest_domain = 0x03;
-		hdr->dest_svc = 0x02;
-	}
-#endif /* CONFIG_SEC_DHA_SOL_MAL*/
-
 	w_len = apr_tal_write(clnt->handle, buf, hdr->pkt_size);
 	if (w_len != hdr->pkt_size)
 		pr_err("Unable to write APR pkt successfully: %d\n", w_len);

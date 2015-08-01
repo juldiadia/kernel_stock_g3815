@@ -119,7 +119,7 @@ struct usb_function {
 	struct usb_configuration	*config;
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	int	(*set_intf_num)(struct usb_function *f,
-	int intf_num, int index_num);
+			int intf_num, int index_num);
 	int	(*set_config_desc)(int conf_num);
 #endif
 	/* REVISIT:  bind() functions can be marked __init, which

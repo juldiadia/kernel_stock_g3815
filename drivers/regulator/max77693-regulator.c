@@ -170,7 +170,6 @@ static int max77693_reg_enable(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
-	rdev->use_count = 1;
 	return max77693_update_reg(i2c, reg, pattern, mask);
 }
 
@@ -184,7 +183,6 @@ static int max77693_reg_disable(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
-	rdev->use_count = 0;
 	return max77693_update_reg(i2c, reg, pattern, mask);
 }
 

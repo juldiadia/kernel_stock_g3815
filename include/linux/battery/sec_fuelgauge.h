@@ -21,21 +21,14 @@
 
 #include <linux/battery/sec_charging_common.h>
 
-#if defined(CONFIG_FUELGAUGE_DUMMY) || \
-	defined(CONFIG_FUELGAUGE_PM8917)
+#if defined(CONFIG_FUELGAUGE_DUMMY)
 #include <linux/battery/fuelgauge/dummy_fuelgauge.h>
-#elif defined(CONFIG_FUELGAUGE_ADC)
-#include <linux/battery/fuelgauge/adc_fuelgauge.h>
 #elif defined(CONFIG_FUELGAUGE_MAX17042)
 #include <linux/battery/fuelgauge/max17042_fuelgauge.h>
-#elif defined(CONFIG_FUELGAUGE_MAX17047)
-#include <linux/battery/fuelgauge/max17047_fuelgauge.h>
 #elif defined(CONFIG_FUELGAUGE_MAX17048)
 #include <linux/battery/fuelgauge/max17048_fuelgauge.h>
 #elif defined(CONFIG_FUELGAUGE_MAX17050)
 #include <linux/battery/fuelgauge/max17050_fuelgauge.h>
-#elif defined(CONFIG_FUELGAUGE_STC3115)
-#include <linux/battery/fuelgauge/stc3115_fuelgauge.h>
 #endif
 
 struct sec_fuelgauge_reg_data {
@@ -52,7 +45,8 @@ struct sec_fuelgauge_info {
 
 	int cable_type;
 	bool is_charging;
-
+	/* 0: normal mode, 1: quick start mode */
+	bool is_reset;
 	/* HW-dedicated fuel guage info structure
 	 * used in individual fuel gauge file only
 	 * (ex. dummy_fuelgauge.c)

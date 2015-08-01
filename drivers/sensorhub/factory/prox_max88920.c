@@ -27,8 +27,21 @@
 #define LDI_GRAY	'1'
 #define LDI_WHITE	'2'
 
+#if defined(CONFIG_MACH_JACTIVE_EUR) || defined(CONFIG_MACH_JACTIVE_ATT)
+#define DEFUALT_HIGH_THRESHOLD	45
+#define DEFUALT_LOW_THRESHOLD	30
+#define TBD_HIGH_THRESHOLD		45
+#define TBD_LOW_THRESHOLD		30
+#define WHITE_HIGH_THRESHOLD		45
+#define WHITE_LOW_THRESHOLD		30
+#else
 #define DEFUALT_HIGH_THRESHOLD	60
 #define DEFUALT_LOW_THRESHOLD	45
+#define TBD_HIGH_THRESHOLD		60
+#define TBD_LOW_THRESHOLD		45
+#define WHITE_HIGH_THRESHOLD		60
+#define WHITE_LOW_THRESHOLD		45
+#endif
 /*************************************************************************/
 /* factory Sysfs                                                         */
 /*************************************************************************/
@@ -116,13 +129,13 @@ static ssize_t proximity_raw_data_show(struct device *dev,
 
 static int get_proximity_threshold(struct ssp_data *data)
 {
-	if (data->uProxCanc <= (DEFUALT_LOW_THRESHOLD >> 1))
+	if (data->uProxCanc <= (data->uProxLoThresh_default >> 1))
 		return FAIL;
 
-	data->uProxHiThresh = DEFUALT_HIGH_THRESHOLD
-		+ (data->uProxCanc - (DEFUALT_LOW_THRESHOLD >> 1));
-	data->uProxLoThresh = DEFUALT_LOW_THRESHOLD
-		+ (data->uProxCanc - (DEFUALT_LOW_THRESHOLD >> 1));
+	data->uProxHiThresh = data->uProxHiThresh_default
+		+ (data->uProxCanc - (data->uProxLoThresh_default >> 1));
+	data->uProxLoThresh = data->uProxLoThresh_default
+		+ (data->uProxCanc - (data->uProxLoThresh_default >> 1));
 
 	return SUCCESS;
 }
@@ -131,22 +144,24 @@ static void change_proximity_default_threshold(struct ssp_data *data)
 {
 	switch (data->chLcdLdi[1]) {
 	case LDI_GRAY:
-		data->uProxHiThresh = DEFUALT_HIGH_THRESHOLD;
-		data->uProxLoThresh = DEFUALT_LOW_THRESHOLD;
+		data->uProxHiThresh_default = TBD_HIGH_THRESHOLD;
+		data->uProxLoThresh_default = TBD_LOW_THRESHOLD;
 		break;
 	case LDI_WHITE:
-		data->uProxHiThresh = DEFUALT_HIGH_THRESHOLD;
-		data->uProxLoThresh = DEFUALT_LOW_THRESHOLD;
+		data->uProxHiThresh_default = WHITE_HIGH_THRESHOLD;
+		data->uProxLoThresh_default = WHITE_LOW_THRESHOLD;
 		break;
 	case LDI_OTHERS:
-		data->uProxHiThresh = DEFUALT_HIGH_THRESHOLD;
-		data->uProxLoThresh = DEFUALT_LOW_THRESHOLD;
+		data->uProxHiThresh_default = DEFUALT_HIGH_THRESHOLD;
+		data->uProxLoThresh_default = DEFUALT_LOW_THRESHOLD;
 		break;
 	default:
-		data->uProxHiThresh = DEFUALT_HIGH_THRESHOLD;
-		data->uProxLoThresh = DEFUALT_LOW_THRESHOLD;
+		data->uProxHiThresh_default = DEFUALT_HIGH_THRESHOLD;
+		data->uProxLoThresh_default = DEFUALT_LOW_THRESHOLD;
 		break;
 	}
+	data->uProxHiThresh = data->uProxHiThresh_default;
+	data->uProxLoThresh = data->uProxLoThresh_default;
 }
 
 int proximity_open_lcd_ldi(struct ssp_data *data)
@@ -240,8 +255,8 @@ static int proximity_store_cancelation(struct ssp_data *data, int iCalCMD)
 		data->uProxCanc = get_proximity_rawdata(data);
 		get_proximity_threshold(data);
 	} else {
-		data->uProxHiThresh = DEFUALT_HIGH_THRESHOLD;
-		data->uProxLoThresh = DEFUALT_LOW_THRESHOLD;
+		data->uProxHiThresh = data->uProxHiThresh_default;
+		data->uProxLoThresh = data->uProxLoThresh_default;
 		data->uProxCanc = 0;
 	}
 
@@ -278,8 +293,8 @@ static ssize_t proximity_cancel_show(struct device *dev,
 	struct ssp_data *data = dev_get_drvdata(dev);
 	unsigned char uProxCanc = data->uProxCanc;
 
-	if (uProxCanc > (DEFUALT_LOW_THRESHOLD >> 1))
-		uProxCanc = uProxCanc - (DEFUALT_LOW_THRESHOLD >> 1);
+	if (uProxCanc > (data->uProxLoThresh_default >> 1))
+		uProxCanc = uProxCanc - (data->uProxLoThresh_default >> 1);
 	else
 		uProxCanc = 0;
 
@@ -331,7 +346,7 @@ static ssize_t proximity_thresh_high_show(struct device *dev,
 static ssize_t proximity_thresh_high_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
-	u8 uNewThresh = DEFUALT_HIGH_THRESHOLD;
+	u8 uNewThresh;
 	int iRet = 0;
 	struct ssp_data *data = dev_get_drvdata(dev);
 
@@ -365,7 +380,7 @@ static ssize_t proximity_thresh_low_show(struct device *dev,
 static ssize_t proximity_thresh_low_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
-	u8 uNewThresh = DEFUALT_LOW_THRESHOLD;
+	u8 uNewThresh;
 	int iRet = 0;
 	struct ssp_data *data = dev_get_drvdata(dev);
 

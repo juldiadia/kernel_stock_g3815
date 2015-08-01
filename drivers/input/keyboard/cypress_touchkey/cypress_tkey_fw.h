@@ -10,7 +10,7 @@
  */
 
 #if defined(CONFIG_MACH_SERRANO)
-#if defined(CONFIG_MACH_SERRANO_VZW)  || defined(CONFIG_MACH_SERRANO_USC)
+#if defined(CONFIG_MACH_SERRANO_VZW)  || defined(CONFIG_MACH_SERRANO_USC) || defined(CONFIG_MACH_SERRANO_LRA)
 #define BIN_FW_VERSION		0x01
 #ifdef _CYPRESS_TKEY_FW_H
 #include "serrano_vzw_tkey_fw.h"

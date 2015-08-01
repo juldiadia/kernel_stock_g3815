@@ -10,9 +10,9 @@
  * published by the Free Software Foundation.
  */
 
-#define DEBUG
+//#define DEBUG
 
-#include <linux/battery/sec_fuelgauge.h>
+#include <linux/battery/sec_fuelgauge_8930.h>
 
 #ifdef CONFIG_FUELGAUGE_MAX17050_VOLTAGE_TRACKING
 static int max17050_write_reg(struct i2c_client *client, int reg, u8 *buf)

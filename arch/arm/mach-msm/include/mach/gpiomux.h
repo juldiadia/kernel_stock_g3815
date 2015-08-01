@@ -136,14 +136,8 @@ int msm_gpiomux_put(unsigned gpio);
  * - the function returns 1
  * else function returns 0
  */
-
-
-
 int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
 	struct gpiomux_setting *setting, struct gpiomux_setting *old_setting);
-void msm_gpiomux_read(unsigned gpio, struct gpiomux_setting *val);
-void msm_gpio_print_enabled(void);
-
 
 /* Architecture-internal function for use by the framework only.
  * This function can assume the following:
@@ -154,6 +148,11 @@ void msm_gpio_print_enabled(void);
  * should use msm_gpiomux_write.
  */
 void __msm_gpiomux_write(unsigned gpio, struct gpiomux_setting val);
+
+void msm_gpiomux_read(unsigned gpio, struct gpiomux_setting *val);
+
+void msm_gpio_print_enabled(void);
+
 #else
 static inline int msm_gpiomux_init(size_t ngpio)
 {

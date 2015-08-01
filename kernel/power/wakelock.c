@@ -289,19 +289,10 @@ static long has_wake_lock_locked(int type)
 	return max_timeout;
 }
 
-#ifdef CONFIG_FTM_SLEEP
-extern unsigned char ftm_sleep;
-#endif
-
 long has_wake_lock(int type)
 {
 	long ret;
 	unsigned long irqflags;
-
-#ifdef CONFIG_FTM_SLEEP
-	if(ftm_sleep)
-        	return 0;
-#endif
 	spin_lock_irqsave(&list_lock, irqflags);
 	ret = has_wake_lock_locked(type);
 	if (ret && (debug_mask & DEBUG_WAKEUP) && type == WAKE_LOCK_SUSPEND)
@@ -397,8 +388,6 @@ static void suspend(struct work_struct *work)
 
 	entry_event_num = current_event_num;
 	suspend_sys_sync_queue();
-	if (debug_mask & DEBUG_SUSPEND)
-		pr_info("suspend: enter suspend\n");
 	getnstimeofday(&ts_entry);
 	ret = pm_suspend(requested_suspend_state);
 	getnstimeofday(&ts_exit);
@@ -661,15 +650,6 @@ int wake_lock_active(struct wake_lock *lock)
 	return !!(lock->flags & WAKE_LOCK_ACTIVE);
 }
 EXPORT_SYMBOL(wake_lock_active);
-
-#ifdef CONFIG_FTM_SLEEP
-void wakelock_force_suspend(void)
-{
-	pr_info("%s: suspend!!!!!\n", __func__);
-	queue_work(suspend_work_queue, &suspend_work);
-}
-EXPORT_SYMBOL(wakelock_force_suspend);
-#endif
 
 static int wakelock_stats_open(struct inode *inode, struct file *file)
 {

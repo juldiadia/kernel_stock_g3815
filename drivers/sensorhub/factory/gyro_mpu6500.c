@@ -15,7 +15,20 @@
 #include <linux/kernel.h>
 #include "../ssp.h"
 
-#define K330_REV	3
+#if defined(CONFIG_MACH_JF_ATT) || defined(CONFIG_MACH_JF_TMO) || \
+	defined(CONFIG_MACH_JF_EUR) || defined(CONFIG_MACH_JF_USC) || \
+	defined(CONFIG_MACH_JF_SKT) || defined(CONFIG_MACH_JF_KTT) || \
+	defined(CONFIG_MACH_JF_LGT) || defined(CONFIG_MACH_JACTIVE_ATT) || \
+	defined(CONFIG_MACH_JF_CRI)
+#define K330_REV	10
+#elif defined(CONFIG_MACH_JF_SPR) || defined(CONFIG_MACH_JF_VZW) || \
+	defined(CONFIG_MACH_JF_DCM)
+#define K330_REV	11
+#elif defined(CONFIG_MACH_JACTIVE_EUR)
+#define K330_REV	12
+#elif defined(CONFIG_MACH_JFVE_EUR)
+#define K330_REV	0
+#endif
 
 /*************************************************************************/
 /* factory Sysfs                                                         */
@@ -44,10 +57,19 @@ static ssize_t gyro_vendor_show(struct device *dev,
 {
 #ifdef K330_REV
 	struct ssp_data *data = dev_get_drvdata(dev);
+#if defined(CONFIG_MACH_JF_EUR)
+	if (data->ap_rev == 13)
+		return sprintf(buf, "%s\n", VENDOR);
+	else if (data->ap_rev >= K330_REV)
+		return sprintf(buf, "%s\n", VENDOR_K330);
+	else
+		return sprintf(buf, "%s\n", VENDOR);
+#else
 	if (data->ap_rev >= K330_REV)
 		return sprintf(buf, "%s\n", VENDOR_K330);
 	else
 		return sprintf(buf, "%s\n", VENDOR);
+#endif
 #else
 	return sprintf(buf, "%s\n", VENDOR);
 #endif
@@ -58,10 +80,19 @@ static ssize_t gyro_name_show(struct device *dev,
 {
 #ifdef K330_REV
 	struct ssp_data *data = dev_get_drvdata(dev);
+#if defined(CONFIG_MACH_JF_EUR)
+	if (data->ap_rev == 13)
+		return sprintf(buf, "%s\n", CHIP_ID);
+	else if (data->ap_rev >= K330_REV)
+		return sprintf(buf, "%s\n", CHIP_ID_K330);
+	else
+		return sprintf(buf, "%s\n", CHIP_ID);
+#else
 	if (data->ap_rev >= K330_REV)
 		return sprintf(buf, "%s\n", CHIP_ID_K330);
 	else
 		return sprintf(buf, "%s\n", CHIP_ID);
+#endif
 #else
 	return sprintf(buf, "%s\n", CHIP_ID);
 #endif
@@ -224,10 +255,19 @@ static ssize_t gyro_get_temp(struct device *dev,
 	short temperature = 0;
 	struct ssp_data *data = dev_get_drvdata(dev);
 #ifdef K330_REV
+#if defined(CONFIG_MACH_JF_EUR)
+	if (data->ap_rev == 13)
+		temperature = mpu6500_gyro_get_temp(data);
+	else if (data->ap_rev >= K330_REV)
+		temperature = (short)k330_gyro_get_temp(data);
+	else
+		temperature = mpu6500_gyro_get_temp(data);
+#else
 	if (data->ap_rev >= K330_REV)
 		temperature = (short)k330_gyro_get_temp(data);
 	else
 		temperature = mpu6500_gyro_get_temp(data);
+#endif
 #else
 	temperature = mpu6500_gyro_get_temp(data);
 #endif
@@ -605,10 +645,19 @@ static ssize_t gyro_selftest_show(struct device *dev,
 {
 	struct ssp_data *data = dev_get_drvdata(dev);
 #ifdef K330_REV
+#if defined(CONFIG_MACH_JF_EUR)
+	if (data->ap_rev == 13)
+		return mpu6500_gyro_selftest(buf, data);
+	else if (data->ap_rev >= K330_REV)
+		return k330_gyro_selftest(buf, data);
+	else
+		return mpu6500_gyro_selftest(buf, data);
+#else
 	if (data->ap_rev >= K330_REV)
 		return k330_gyro_selftest(buf, data);
 	else
 		return mpu6500_gyro_selftest(buf, data);
+#endif
 #else
 	return mpu6500_gyro_selftest(buf, data);
 #endif

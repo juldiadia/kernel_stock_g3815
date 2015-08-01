@@ -86,7 +86,6 @@ struct pm8xxx_ccadc_chip {
 
 static struct pm8xxx_ccadc_chip *the_chip;
 
-/*
 #ifdef DEBUG
 static s64 microvolt_to_ccadc_reading(struct pm8xxx_ccadc_chip *chip, s64 cc)
 {
@@ -94,7 +93,6 @@ static s64 microvolt_to_ccadc_reading(struct pm8xxx_ccadc_chip *chip, s64 cc)
 				CCADC_READING_RESOLUTION_N);
 }
 #endif
-*/
 
 static int cc_adjust_for_offset(u16 raw)
 {
@@ -322,24 +320,7 @@ static int calib_ccadc_program_trim(struct pm8xxx_ccadc_chip *chip,
 	return 0;
 }
 
-#if 0
-static int get_batt_temp(struct pm8xxx_ccadc_chip *chip, int *batt_temp)
-{
-	int rc;
-	struct pm8xxx_adc_chan_result result;
-
-	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading batt_temp_channel = %d, rc = %d\n",
-					chip->batt_temp_channel, rc);
-		return rc;
-	}
-	*batt_temp = result.physical;
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	return 0;
-}
-#else
+#if defined(CONFIG_MACH_MELIUS) || defined (CONFIG_MACH_SERRANO_EUR_LTE) || defined (CONFIG_MACH_SERRANO_EUR_3G)
 #define TEMP_GPIO	PM8XXX_AMUX_MPP_3
 #define TEMP_ADC_CHNNEL	ADC_MPP_1_AMUX6
 static int get_batt_temp(struct pm8xxx_ccadc_chip *chip, int *batt_temp)
@@ -358,7 +339,25 @@ static int get_batt_temp(struct pm8xxx_ccadc_chip *chip, int *batt_temp)
 
 	return 0;
 }
+#else
+static int get_batt_temp(struct pm8xxx_ccadc_chip *chip, int *batt_temp)
+{
+	int rc;
+	struct pm8xxx_adc_chan_result result;
+
+	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading batt_temp_channel = %d, rc = %d\n",
+						chip->batt_temp_channel, rc);
+		return rc;
+	}
+	*batt_temp = result.physical;
+	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+							result.measurement);
+	return 0;
+}
 #endif
+
 static int get_current_time(unsigned long *now_tm_sec)
 {
 	struct rtc_time tm;
@@ -812,10 +811,20 @@ static int __devexit pm8xxx_ccadc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int pm8xxx_ccadc_suspend(struct device *dev)
+{
+	struct pm8xxx_ccadc_chip *chip = dev_get_drvdata(dev);
+
+	cancel_delayed_work_sync(&chip->calib_ccadc_work);
+
+	return 0;
+}
+
 #define CCADC_CALIB_TEMP_THRESH 20
 static int pm8xxx_ccadc_resume(struct device *dev)
 {
-	int rc, batt_temp, delta_temp;
+  int rc, delta_temp;
+	int batt_temp = 0;
 	unsigned long current_time_sec;
 	unsigned long time_since_last_calib;
 
@@ -845,8 +854,11 @@ static int pm8xxx_ccadc_resume(struct device *dev)
 				|| delta_temp > CCADC_CALIB_TEMP_THRESH) {
 			the_chip->last_calib_time = current_time_sec;
 			the_chip->last_calib_temp = batt_temp;
-			cancel_delayed_work_sync(&the_chip->calib_ccadc_work);
-			schedule_delayed_work(&the_chip->calib_ccadc_work,0);
+			schedule_delayed_work(&the_chip->calib_ccadc_work, 0);
+		} else {
+			schedule_delayed_work(&the_chip->calib_ccadc_work,
+				msecs_to_jiffies(the_chip->calib_delay_ms -
+					(time_since_last_calib * 1000)));
 		}
 	}
 
@@ -854,6 +866,7 @@ static int pm8xxx_ccadc_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops pm8xxx_ccadc_pm_ops = {
+	.suspend	= pm8xxx_ccadc_suspend,
 	.resume		= pm8xxx_ccadc_resume,
 };
 

@@ -205,10 +205,10 @@ extern struct page *__page_cache_alloc(gfp_t gfp);
 #else
 static inline struct page *__page_cache_alloc(gfp_t gfp)
 {
-#ifndef CONFIG_CMA
-	return alloc_pages(gfp, 0);
-#else
+#if defined(CONFIG_CMA) && defined(CONFIG_SEC_PRODUCT_8930)
 	return alloc_pages(gfp & ~(__GFP_MOVABLE | __GFP_CMA), 0);
+#else
+	return alloc_pages(gfp, 0);
 #endif
 }
 #endif

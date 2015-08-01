@@ -469,14 +469,17 @@ struct input_keymap_entry {
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
-#define KEY_3G	249  /*only use KS02 */
 
-/* Dummy touchkey code for tablet */
+#define KEY_RECENT   254
+#ifdef CONFIG_MACH_LT02
 #define KEY_DUMMY_HOME1	249
 #define KEY_DUMMY_HOME2	250
 #define KEY_DUMMY_MENU	251
 #define KEY_DUMMY_HOME	252
 #define KEY_DUMMY_BACK	253
+#define KEY_DUMMY_HOME	252
+#define KEY_DUMMY_BACK	253
+#endif
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
@@ -533,6 +536,7 @@ struct input_keymap_entry {
 #define BTN_MODE		0x13c
 #define BTN_THUMBL		0x13d
 #define BTN_THUMBR		0x13e
+#define BTN_GAME		0x13f	/* Add game button for samsung bluetooth keypad */
 
 #define BTN_DIGI		0x140
 #define BTN_TOOL_PEN		0x140
@@ -714,11 +718,12 @@ struct input_keymap_entry {
 #define KEY_CAMERA_LEFT		0x219
 #define KEY_CAMERA_RIGHT	0x21a
 
-#define KEY_DMB_ANT_DET_UP	0x21b
-#define KEY_DMB_ANT_DET_DOWN	0x21c
+#define KEY_DMB_ANT_DET_UP		0x21b
+#define KEY_DMB_ANT_DET_DOWN		0x21c
 
-#define KEY_VIRTUAL_EYE	0x21d	/* Cane model only */
-#define KEY_VOICERECORD	0x21e
+#define KEY_VIRTUAL_EYE 0x21d   /* Cane model only */
+#define KEY_VOICERECORD 0x21e
+
 
 #define BTN_TRIGGER_HAPPY		0x2c0
 #define BTN_TRIGGER_HAPPY1		0x2c0
@@ -833,12 +838,12 @@ struct input_keymap_entry {
 #define ABS_MT_ANGLE		0x3c	/* touch angle */
 #define ABS_MT_PALM			0x3d	/* palm touch */
 #define ABS_MT_COMPONENT	0x3e	/* touch component */
-#define ABS_MT_SUMSIZE	0x3f	/* touch sumsize */
+#define ABS_MT_SUMSIZE		0x3f	/* touch sumsize */
 
 #ifdef __KERNEL__
 /* Implementation details, userspace should not care about these */
 #define ABS_MT_FIRST		ABS_MT_TOUCH_MAJOR
-#define ABS_MT_LAST		ABS_MT_SUMSIZE
+#define ABS_MT_LAST         ABS_MT_SUMSIZE
 #endif
 
 #define ABS_MAX			0x3f
@@ -864,19 +869,14 @@ struct input_keymap_entry {
 #define SW_FRONT_PROXIMITY	0x0b  /* set = front proximity sensor active */
 #define SW_ROTATE_LOCK		0x0c  /* set = rotate locked/disabled */
 #define SW_LINEIN_INSERT	0x0d  /* set = inserted */
-#define SW_HPHL_OVERCURRENT    0x0e  /* set = over current on left hph */
-#define SW_HPHR_OVERCURRENT    0x0f  /* set = over current on right hph */
+#define SW_HPHL_OVERCURRENT	0x0e  /* set = over current on left hph */
+#define SW_HPHR_OVERCURRENT	0x0f  /* set = over current on right hph */
 #define SW_UNSUPPORT_INSERT	0x10  /* set = unsupported device inserted */
-#ifdef CONFIG_SENSORS_HALL
-#ifdef CONFIG_MACH_CANE_EUR_3G
-#define SW_FLIP			0x11  /* set = OCR... */
-#else
+#define SW_PEN_INSERT		0x13
+#define SW_STROBE_INSERT	0x14
 #define SW_FLIP			0x15  /* set = flip cover... */
-#endif
-#define SW_MAX			0x17
-#else
+#define SW_GLOVE		0x16	/* set = glove mode */
 #define SW_MAX			0x20
-#endif
 #define SW_CNT			(SW_MAX+1)
 
 /*

@@ -41,10 +41,6 @@
  * Example user-space utilities: http://people.redhat.com/sgrubb/audit/
  */
 
-/**
- * @knox SEAndroid
- */
-
 #include <linux/init.h>
 #include <asm/types.h>
 #include <linux/atomic.h>
@@ -189,7 +185,7 @@ void audit_panic(const char *message)
 	case AUDIT_FAIL_SILENT:
 		break;
 	case AUDIT_FAIL_PRINTK:
-			printk(KERN_ERR "audit: %s\n", message);
+		printk(KERN_ERR "audit: %s\n", message);
 		break;
 	case AUDIT_FAIL_PANIC:
 		/* test audit_pid since printk is always losey, why bother? */
@@ -259,12 +255,12 @@ void audit_log_lost(const char *message)
 	}
 
 	if (print) {
-			printk(KERN_WARNING
-				"audit: audit_lost=%d audit_rate_limit=%d "
-				"audit_backlog_limit=%d\n",
-				atomic_read(&audit_lost),
-				audit_rate_limit,
-				audit_backlog_limit);
+		printk(KERN_WARNING
+			"audit: audit_lost=%d audit_rate_limit=%d "
+			"audit_backlog_limit=%d\n",
+			atomic_read(&audit_lost),
+			audit_rate_limit,
+			audit_backlog_limit);
 		audit_panic(message);
 	}
 }
@@ -427,7 +423,7 @@ static void kauditd_send_skb(struct sk_buff *skb)
 #endif
 		/* drop the extra reference if sent ok */
 		consume_skb(skb);
-}
+	}
 }
 
 static int kauditd_thread(void *dummy)

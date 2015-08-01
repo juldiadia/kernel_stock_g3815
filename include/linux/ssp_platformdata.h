@@ -52,16 +52,6 @@
 #define YAS532_BOTTOM_RIGHT_LOWER	5
 #define YAS532_BOTTOM_LEFT_LOWER		4
 
-/* AK8963C */
-#define AK8963C_TOP_UPPER_LEFT		2
-#define AK8963C_TOP_UPPER_RIGHT		3
-#define AK8963C_TOP_LOWER_RIGHT		0
-#define AK8963C_TOP_LOWER_LEFT		1
-#define AK8963C_BOTTOM_UPPER_LEFT	6
-#define AK8963C_BOTTOM_UPPER_RIGHT	5
-#define AK8963C_BOTTOM_LOWER_RIGHT	4
-#define AK8963C_BOTTOM_LOWER_LEFT	7
-
 #ifdef CONFIG_SENSORS_SSP_SHTC1
 /**
  * struct cp_thm_adc_table - adc to temperature table for PAM thermistor
@@ -84,8 +74,5 @@ struct ssp_platform_data {
 	int (*read_chg)(void);
 	int (*check_changes)(void);
 	void (*get_positions)(int *, int *);
-	void (*set_prox_light_power)(bool);
-        void (*set_prox_led_power)(bool);
-        void (*sensor_power_on_vdd)(int, int);
 };
 #endif

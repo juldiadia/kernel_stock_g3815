@@ -263,11 +263,9 @@ ok:
 bool ptrace_may_access(struct task_struct *task, unsigned int mode)
 {
 	int err;
-	local_bh_disable();
 	task_lock(task);
 	err = __ptrace_may_access(task, mode);
 	task_unlock(task);
-	local_bh_enable();
 	return !err;
 }
 

@@ -20,6 +20,7 @@
 #include <linux/i2c/fsa9485.h>
 #endif
 
+#include <linux/usb/msm_hsusb.h>
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
@@ -188,8 +189,8 @@ int msm_otg_power_cb(int active)
 
 	int otg_power = active;
 
-	if (!motg) {
-		pr_err("%s: motg is null.\n", __func__);
+	if (!motg || !motg->init_state) {
+		pr_err("%s: motg is null. or not resist INIT_WORK\n", __func__);
 		return -1;
 	}
 
@@ -290,6 +291,7 @@ static int msm_host_notify_init(struct device *dev, struct msm_otg *motg)
 					msm_otg_late_power_work);
 	motg->notify_state = ACC_POWER_OFF;
 #endif
+	motg->init_state = true ;
 	return 0;
 }
 
@@ -395,6 +397,6 @@ void sec_otg_set_id_state(bool enable)
 		pr_info("msm_otg_set_id_state : in LPM\n");
 		pm_runtime_resume(phy->dev);
 	}
-	msm_otg_set_id_state(enable ? 0 : 1);
+
 }
 EXPORT_SYMBOL_GPL(sec_otg_set_id_state);

@@ -82,7 +82,7 @@
 
 #define	MAX_NUM_LEDS	3
 
-u8 LED_DYNAMIC_CURRENT = 0x8;
+u8 LED_DYNAMIC_CURRENT = 0x28;
 u8 LED_LOWPOWER_MODE = 0x0;
 
 static struct an30259_led_conf led_conf[] = {
@@ -331,9 +331,9 @@ static void an30259a_start_led_pattern(int mode)
 
 	/* Set to low power consumption mode */
 	if (LED_LOWPOWER_MODE == 1)
-		LED_DYNAMIC_CURRENT = 0x8;
+		LED_DYNAMIC_CURRENT = 0x9;
 	else
-		LED_DYNAMIC_CURRENT = 0x1;
+		LED_DYNAMIC_CURRENT = 0x48;
 
 	switch (mode) {
 	/* leds_set_slope_mode(client, LED_SEL, DELAY,  MAX, MID, MIN,
@@ -341,13 +341,13 @@ static void an30259a_start_led_pattern(int mode)
 	case CHARGING:
 		pr_info("LED Battery Charging Pattern on\n");
 		leds_on(LED_R, true, false,
-					LED_R_CURRENT / LED_DYNAMIC_CURRENT);
+					LED_DYNAMIC_CURRENT);
 		break;
 
 	case CHARGING_ERR:
 		pr_info("LED Battery Charging error Pattern on\n");
 		leds_on(LED_R, true, true,
-					LED_R_CURRENT / LED_DYNAMIC_CURRENT);
+					LED_DYNAMIC_CURRENT);
 		leds_set_slope_mode(client, LED_R,
 				1, 15, 15, 0, 1, 1, 0, 0, 0, 0);
 		break;
@@ -355,7 +355,7 @@ static void an30259a_start_led_pattern(int mode)
 	case MISSED_NOTI:
 		pr_info("LED Missed Notifications Pattern on\n");
 		leds_on(LED_B, true, true,
-					LED_B_CURRENT / LED_DYNAMIC_CURRENT);
+					LED_DYNAMIC_CURRENT);
 		leds_set_slope_mode(client, LED_B,
 					10, 15, 15, 0, 1, 10, 0, 0, 0, 0);
 		break;
@@ -363,7 +363,7 @@ static void an30259a_start_led_pattern(int mode)
 	case LOW_BATTERY:
 		pr_info("LED Low Battery Pattern on\n");
 		leds_on(LED_R, true, true,
-					LED_R_CURRENT / LED_DYNAMIC_CURRENT);
+					LED_DYNAMIC_CURRENT);
 		leds_set_slope_mode(client, LED_R,
 					10, 15, 15, 0, 1, 10, 0, 0, 0, 0);
 		break;
@@ -371,13 +371,13 @@ static void an30259a_start_led_pattern(int mode)
 	case FULLY_CHARGED:
 		pr_info("LED full Charged battery Pattern on\n");
 		leds_on(LED_G, true, false,
-					LED_G_CURRENT / LED_DYNAMIC_CURRENT);
+					LED_DYNAMIC_CURRENT);
 		break;
 
 	case POWERING:
 		pr_info("LED Powering Pattern on\n");
-		leds_on(LED_G, true, true, LED_G_CURRENT);
-		leds_on(LED_B, true, true, LED_B_CURRENT);
+		leds_on(LED_G, true, true, LED_DYNAMIC_CURRENT);
+		leds_on(LED_B, true, true, LED_DYNAMIC_CURRENT);
 		leds_set_slope_mode(client, LED_G,
 				0, 8, 4, 1, 2, 2, 3, 3, 3, 3);
 		leds_set_slope_mode(client, LED_B,
@@ -809,7 +809,8 @@ static int __devinit an30259a_initialize(struct i2c_client *client,
 			&common_led_attr_group);
 
 	if (ret < 0) {
-		dev_err(dev, "can not register sysfs attribute\n");
+		dev_err(dev, "can not register sysfs attribute for led channel : %d\n", channel);
+		led_classdev_unregister(&led->cdev);
 		return ret;
 	}
 
@@ -818,6 +819,13 @@ static int __devinit an30259a_initialize(struct i2c_client *client,
 	return 0;
 }
 
+//if one led will fail to register than all led registration will fail
+static void an30259a_deinitialize(struct an30259a_led *led, int channel)
+{
+	sysfs_remove_group(&led->cdev.dev->kobj,&common_led_attr_group);
+	led_classdev_unregister(&led->cdev);
+	cancel_work_sync(&led->brightness_work);
+}
 
 static int __devinit an30259a_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
@@ -849,7 +857,11 @@ static int __devinit an30259a_probe(struct i2c_client *client,
 		ret = an30259a_initialize(client, &data->leds[i], i);
 
 		if (ret < 0) {
-			dev_err(&client->adapter->dev, "failure on initialization\n");
+			dev_err(&client->adapter->dev, "failure on initialization at led channel:%d\n", i);
+			while(i>0) { 
+					i--;
+					an30259a_deinitialize(&data->leds[i], i);
+			}
 			goto exit;
 		}
 		INIT_WORK(&(data->leds[i].brightness_work),
@@ -868,15 +880,10 @@ static int __devinit an30259a_probe(struct i2c_client *client,
 	if (ret) {
 		dev_err(&client->dev,
 			"Failed to create sysfs group for samsung specific led\n");
-		goto err_destroy;
+		goto exit;
 	}
 #endif
 	return ret;
-
-#ifdef SEC_LED_SPECIFIC
-err_destroy:
-	device_destroy(sec_class, 0);
-#endif
 exit:
 	mutex_destroy(&data->mutex);
 	kfree(data);

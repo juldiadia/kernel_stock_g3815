@@ -95,10 +95,7 @@ enum pm8xxx_adc_channels {
 	ADC_MPP_2_ATEST_5,
 	ADC_MPP_2_ATEST_6,
 	ADC_MPP_2_ATEST_7,
-#ifdef CONFIG_SAMSUNG_JACK
 	ADC_MPP_1_AMUX6_SCALE_DEFAULT,
-#endif
-
 	ADC_CHANNEL_MAX_NUM,
 };
 
@@ -108,6 +105,7 @@ enum pm8xxx_adc_channels {
 #define PM8XXX_CHANNEL_MPP_SCALE1_IDX	20
 #define PM8XXX_CHANNEL_MPP_SCALE3_IDX	40
 
+#define PM8XXX_AMUX_MPP_1	0x1
 #define PM8XXX_AMUX_MPP_2	0x2
 #define PM8XXX_AMUX_MPP_3	0x3
 #define PM8XXX_AMUX_MPP_4	0x4
@@ -115,6 +113,7 @@ enum pm8xxx_adc_channels {
 #define PM8XXX_AMUX_MPP_6	0x6
 #define PM8XXX_AMUX_MPP_7	0x7
 #define PM8XXX_AMUX_MPP_8	0x8
+#define PM8XXX_AMUX_MPP_10	0xA
 
 #define PM8XXX_ADC_DEV_NAME	"pm8xxx-adc"
 
@@ -627,6 +626,8 @@ static inline uint32_t pm8xxx_adc_btm_configure(
 { return -ENXIO; }
 #endif
 
+
 int pm8921_enable_batt_therm(u8 en);
+
 
 #endif /* PM8XXX_ADC_H */

@@ -299,7 +299,7 @@ static struct msm_gpiomux_config msm8x30_golden_gpio_nc_cfg[] __initdata = {
 	{
 		.gpio = 89,
 		.settings = {
-			[GPIOMUX_ACTIVE] = 	&gpio_input_pull_down_active_cfg,
+			[GPIOMUX_ACTIVE] = &gpio_input_pull_down_active_cfg,
 			[GPIOMUX_SUSPENDED] = &gpio_input_pull_down_suspend_cfg,
 		},
 	},
@@ -353,11 +353,11 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &spi_suspended_config,
 			[GPIOMUX_ACTIVE] = &spi_active,
 		},
-		
+
 	},
 	#endif
 #endif
-#ifndef CONFIG_SLIMBUS_MSM_CTRL	
+#ifndef CONFIG_SLIMBUS_MSM_CTRL
 	{
 		.gpio      = 36,		/* GSBI1 QUP SPI_CS_N */
 		.settings = {
@@ -372,7 +372,7 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &gsbi1,
 		},
 	},
-#endif /* CONFIG_SLIMBUS_MSM_CTRL*/	
+#endif /* CONFIG_SLIMBUS_MSM_CTRL*/
 
 
 #ifdef CONFIG_2MIC_QUP_I2C
@@ -425,7 +425,7 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi11,
 		},
 	},
-			
+
 	{
 		.gpio      = 44,	/* GSBI12 I2C QUP SDA */
 		.settings = {
@@ -449,7 +449,7 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi11,
 		},
-	},		
+	},
 	{
 		.gpio      = 45,	/* GSBI12 I2C QUP SCL */
 		.settings = {

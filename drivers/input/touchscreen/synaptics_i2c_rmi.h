@@ -22,16 +22,12 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#ifdef CONFIG_LEDS_CLASS
-#include <linux/leds.h>
-#define TOUCHKEY_BACKLIGHT	"button-backlight"
-#endif
 /*#define dev_dbg(dev, fmt, arg...) dev_info(dev, fmt, ##arg)*/
 
-#define PROXIMITY
 /* DVFS feature : TOUCH BOOSTER */
 #define TSP_BOOSTER
 #ifdef TSP_BOOSTER
+#define DVFS_STAGE_NINTH		9
 #define DVFS_STAGE_DUAL		2
 #define DVFS_STAGE_SINGLE	1
 #define DVFS_STAGE_NONE		0
@@ -39,72 +35,51 @@
 
 #define TOUCH_BOOSTER_OFF_TIME	300
 #define TOUCH_BOOSTER_CHG_TIME	200
+#define TOUCH_BOOSTER_HIGH_OFF_TIME	1000
+#define TOUCH_BOOSTER_HIGH_CHG_TIME	500
 #endif
-#define SYNAPTICS_HW_RESET_TIME_B0	100
 
+/* To support suface touch, firmware should support data
+ * which is required related app ex) MT_ANGLE, MT_PALM ...
+ * Synpatics IC report those data through F51's edge swipe
+ * fucntionality.
+ */
 #define SYNAPTICS_PRODUCT_ID_B0	"SY 01"
 #define SYNAPTICS_PRODUCT_ID_B0_SPAIR	"S5000B"
-#define SYNAPTICS_PRODUCT_ID_MANUFACTURE_2	"S5000BSY2"
-#define SYNAPTICS_PRODUCT_ID_MANUFACTURE_3	"S5000BSY3"
-#define SYNAPTICS_PRODUCT_ID_MANUFACTURE_SY2	"S5000BSY2"
-#define SYNAPTICS_PRODUCT_ID_MANUFACTURE_SY4	"S5000BSY4"
-#define SYNAPTICS_PRODUCT_ID_MANUFACTURE_YFO	"S5000BYFO"
-#define SYNAPTICS_PRODUCT_ID_MANUFACTURE_NEP	"S5000BNEP"
-#define SYNAPTICS_PRODUCT_ID_MANUFACTURE_NEW	"S5000BNEW"
 
-#define manufacturers_default	0x01
-#define manufacturers_nepes		0x02
-#define manufacturers_youngfest	0x03
+#if defined(CONFIG_MACH_JACTIVE_EUR) || defined(CONFIG_MACH_JACTIVE_ATT)
+#define FW_IMAGE_NAME_B0_HSYNC		"tsp_synaptics/jactive/synaptics_b0_hsync.fw"
+#define FW_IMAGE_NAME_B0_HSYNC_FAC	"tsp_synaptics/jactive/synaptics_b0_hsync_fac.fw"
+#define FW_IMAGE_NAME_B0_HSYNC04	"tsp_synaptics/jactive/synaptics_b0_hsync04.fw"
+#define FW_IMAGE_NAME_B0_HSYNC04_FAC	"tsp_synaptics/jactive/synaptics_b0_hsync04_fac.fw"
 
-#if defined(CONFIG_MACH_MELIUS_EUR_LTE) \
-	|| defined(CONFIG_MACH_MELIUS_EUR_OPEN) \
-    || defined(CONFIG_MACH_MELIUS_SKT) \
-    || defined(CONFIG_MACH_MELIUS_KTT) \
-    || defined(CONFIG_MACH_MELIUS_LGT) \
-   	|| defined(CONFIG_MACH_MELIUS_ATT) \
-	|| defined(CONFIG_MACH_MELIUS_VZW) \
-	|| defined(CONFIG_MACH_MELIUS_TMO) \
-	|| defined(CONFIG_MACH_MELIUS_SPR) \
-	|| defined(CONFIG_MACH_MELIUS_USC) \
-	|| defined(CONFIG_MACH_MELIUS_MTR)
+/* NON HYNC F/W will be removed */
+/* PRODUCT ID : SY 01, SY 02, S5000B */
+#define FW_IMAGE_NAME_B0_NON_HSYNC	"tsp_synaptics/jactive/synaptics_b0_non_hsync.fw"
+#define FW_IMAGE_NAME_B0_NON_HSYNC_FAC	"tsp_synaptics/jactive/synaptics_b0_non_hsync_fac.fw"
 
-#define MANUFACTURERS_NEP 		0x01
-#define MANUFACTURERS_YFO 		0x02
-#define MANUFACTURERS_NEPES_2 	0x03
 #else
-#define MANUFACTURERS_DEFAULT 0x01
-#define MANUFACTURERS_NEPES_1 0x02
-#define MANUFACTURERS_NEPES_2 0x03
-#define MANUFACTURERS_YFO 0x04
+#define FW_IMAGE_NAME_A1			"tsp_synaptics/synaptics_a1.fw"
+#define FW_IMAGE_NAME_B0_34			"tsp_synaptics/synaptics_b0_3_4.fw"
 #endif
+#define FW_IMAGE_NAME_B0_40			"tsp_synaptics/synaptics_b0_4_0.fw"
+#define FW_IMAGE_NAME_B0_43			"tsp_synaptics/synaptics_b0_4_3.fw"
+#define FW_IMAGE_NAME_B0_51			"tsp_synaptics/synaptics_b0_5_1.fw"
+#define FW_IMAGE_NAME_B0_FAC		"tsp_synaptics/synaptics_b0_fac.fw"
+#define FW_IMAGE_NAME_B0_5_1_FAC	"tsp_synaptics/synaptics_b0_5_1_fac.fw"
+#define SYNAPTICS_FW_UMS			"/sdcard/synaptics.fw"
 
-#define FW_IMAGE_NAME_A1		"tsp_synaptics/synaptics_a1.fw"
-#define FW_IMAGE_NAME_B0		"tsp_synaptics/synaptics_b0.fw"
-#define FW_IMAGE_NAME_B0_Nepes	"tsp_synaptics/synaptics_b0_ne.fw"
-#define FW_IMAGE_NAME_B0_young	"tsp_synaptics/synaptics_b0_yo.fw"
-#define FW_IMAGE_NAME_B0_34		"tsp_synaptics/synaptics_b0_3_4.fw"
-#define FW_IMAGE_NAME_B0_40		"tsp_synaptics/synaptics_b0_4_0.fw"
-#define FW_IMAGE_NAME_B0_43		"tsp_synaptics/synaptics_b0_4_3.fw"
-#define FW_IMAGE_NAME_B0_FAC	"tsp_synaptics/synaptics_b0_fac.fw"
-#define FW_IMAGE_NAME_B0_NEP_1	"tsp_synaptics/synaptics_b0_ne_1.fw"
-#define FW_IMAGE_NAME_B0_NEP_2	"tsp_synaptics/synaptics_b0_ne_2.fw"
-#define FW_IMAGE_NAME_B0_YFO		"tsp_synaptics/synaptics_b0_yfo.fw"
-#define FW_IMAGE_NAME_B0_NEP		"tsp_synaptics/synaptics_b0_nep.fw"
-#define FW_IMAGE_NAME_B0_NEP_13	"tsp_synaptics/synaptics_b0_nep_13.fw"
-#define FW_IMAGE_NAME_B0_NEP_14	"tsp_synaptics/synaptics_b0_nep_14.fw"
-#define FW_IMAGE_NAME_B0_NEP_19	"tsp_synaptics/synaptics_b0_nep_19.fw"
-
-
-#define SYNAPTICS_FW_UMS "/sdcard/synaptics.fw"
-
-
+#if defined(CONFIG_MACH_JACTIVE_EUR) || defined(CONFIG_MACH_JACTIVE_ATT)
+#define FW_IMAGE_TEST	"tsp_synaptics/synaptics_d0.fw"
+#define SYNAPTICS_DEVICE_NAME		"GT-I9295"
+#else
 #define SYNAPTICS_DEVICE_NAME		"SGH-I337"
+#endif
 #define SYNAPTICS_MAX_FW_PATH	64
 
 #define DATE_OF_FIRMWARE_BIN_OFFSET	0xEF00
 #define IC_REVISION_BIN_OFFSET	0xEF02
-#define IC_VERSION_BIN_OFFSET		0xEF02
-#define FW_VERSION_BIN_OFFSET		0xEF03
+#define FW_VERSION_BIN_OFFSET	0xEF03
 
 #define PDT_PROPS (0X00EF)
 #define PDT_START (0x00E9)
@@ -140,9 +115,6 @@
 #define MASK_3BIT 0x07
 #define MASK_2BIT 0x03
 #define MASK_1BIT 0x01
-
-#define BLACK	0x40
-#define WHITE	0x42
 
 /*
  * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT
@@ -241,6 +213,18 @@ struct synaptics_finger {
 	unsigned short mcount;
 };
 
+#if defined(CONFIG_TOUCHSCREEN_FACTORY_PLATFORM)
+/*
+ * struct synaptics_hover - Represents Hovering.
+ * @ state: Hover status.
+ * @ mcount: moving counter for debug.
+ */
+struct synaptics_hover {
+	unsigned char state;
+	unsigned short mcount;
+};
+#endif
+
 /*
  * struct synaptics_rmi4_data - rmi4 device instance data
  * @i2c_client: pointer to associated i2c client
@@ -288,6 +272,9 @@ struct synaptics_rmi4_data {
 
 	struct completion init_done;
 	struct synaptics_finger finger[MAX_NUMBER_OF_FINGERS];
+#if defined (CONFIG_TOUCHSCREEN_FACTORY_PLATFORM)
+	struct synaptics_hover hover;
+#endif
 
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
@@ -303,43 +290,38 @@ struct synaptics_rmi4_data {
 	unsigned short f01_cmd_base_addr;
 	unsigned short f01_ctrl_base_addr;
 	unsigned short f01_data_base_addr;
-	int fw_ver_ic; /* firmware version in IC. ex)0x65, 0x66*/
-	int fw_ver_bin; /* firmware version in Binary. ex)0x65, 0x66*/
-	int ic_revision; /* ic version ex)B0 or A1 */
-	int fw_release_date; /* firmware release date. ex)0x0c05 (12/5) */
-	int ic_revision_fw; /* ic version at FW in binary ex)firmware/tsp_synaptics/synaptics_b0.fw*/
-	int touch_threshold;
 	int irq;
 	int sensor_max_x;
 	int sensor_max_y;
+	int touch_threshold;
+	int gloved_sensitivity;
 	int ta_status;
-	int hallsensor_status;
-	int lcd_status;
 	bool flash_prog_mode; /* prog_mod == TRUE ?  boot mode : normal mode */
 	bool irq_enabled;
 	bool touch_stopped;
-	bool touchkey_lcd_on;
 	bool fingers_on_2d;
 	bool f51_finger;
 	bool sensor_sleep;
 	bool stay_awake;
 	bool staying_awake;
+	bool fast_glove_state;
 
 	int ic_revision_of_ic;		/* revision of reading from IC */
 	int fw_version_of_ic;		/* firmware version of IC */
-	int fw_order_of_ic;		/* firmware version of IC */
 	int ic_revision_of_bin;		/* revision of reading from binary */
 	int fw_version_of_bin;		/* firmware version of binary */
 	int fw_release_date_of_ic;	/* Config release data from IC */
 	int panel_revision;		/* Octa panel revision */
-	int sleep_time;			/* delay time between re-init and re-zero */
+	int factory_read_panel_wakeup;
 	bool doing_reflash;
-	int manufactures_num_of_ic; /*manufacture number of IC (nefes/youngfast)*/
-	int window_type;
-	int touchkey_menu;
-	int touchkey_back;
-	bool force_update;
-	bool esd_reset;
+
+#ifdef CONFIG_GLOVE_TOUCH
+	int glove_touch_addr;
+	bool touchkey_glove_mode_status;
+	unsigned char glove_mode_feature;
+	unsigned char glove_mode_enables;
+	unsigned short glove_mode_enables_addr;
+#endif
 
 #ifdef TSP_BOOSTER
 	struct delayed_work	work_dvfs_off;
@@ -352,11 +334,8 @@ struct synaptics_rmi4_data {
 #endif
 
 	struct delayed_work work_init_power_on;
-#ifdef CONFIG_LEDS_CLASS
-	struct led_classdev	leds;
-	bool	tkey_led_reserved;
-#endif
 	struct delayed_work	work_rezero;
+
 	void (*register_cb)(struct synaptics_rmi_callbacks *);
 	struct synaptics_rmi_callbacks callbacks;
 
@@ -392,8 +371,12 @@ int synaptics_rmi4_new_function(enum exp_fn fn_type,
 int rmidev_module_register(void);
 int rmi4_f54_module_register(void);
 int synaptics_rmi4_f54_set_control(struct synaptics_rmi4_data *rmi4_data);
+
 int rmi4_fw_update_module_register(void);
+
 int synaptics_fw_updater(unsigned char *fw_data, bool mode, bool factory_fw);
+int synaptics_rmi4_glove_mode_enables(struct synaptics_rmi4_data *rmi4_data);
+
 int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data);
 int synaptics_proximity_no_sleep_set(bool enables);
 void synaptics_rmi4_f51_set_custom_rezero(struct synaptics_rmi4_data *rmi4_data);
@@ -401,7 +384,6 @@ void synaptics_rmi4_f51_set_custom_rezero(struct synaptics_rmi4_data *rmi4_data)
 extern int synaptics_rmi4_proximity_enables(unsigned char enables);
 
 extern struct class *sec_class;
-
 static inline ssize_t synaptics_rmi4_show_error(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -428,4 +410,7 @@ static inline void hstoba(unsigned char *dest, unsigned short src)
 	dest[0] = src % 0x100;
 	dest[1] = src / 0x100;
 }
+#ifdef CONFIG_FB_MSM_MIPI_SAMSUNG_OCTA_VIDEO_FULL_HD_PT_PANEL
+extern int touch_display_status;
+#endif
 #endif

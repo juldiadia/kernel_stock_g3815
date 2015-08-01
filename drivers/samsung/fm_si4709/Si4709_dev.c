@@ -844,7 +844,7 @@ int Si4709_dev_seek_SNR_th_set(u8 seek_SNR)
 int Si4709_dev_seek_FM_ID_th_set(u8 seek_FM_ID_th)
 {
 	int ret = 0;
-	u16 sysconfig3 = 0;
+	u16 sysconfig3; // = 0;
 
 	debug("Si4709_dev_seek_FM_ID_th_set called");
 
@@ -1844,7 +1844,7 @@ void Si4709_work_func(struct work_struct *work)
 int Si4709_dev_RDS_data_get(struct radio_data_t *data)
 {
 	int i, ret = 0;
-	u16 sysconfig1 = 0;
+	u16 sysconfig1 ;
 
 	debug_rds("Si4709_dev_RDS_data_get called");
 

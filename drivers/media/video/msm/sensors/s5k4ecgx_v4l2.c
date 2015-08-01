@@ -525,6 +525,10 @@ static int s5k4ecgx_get_exif(int exif_cmd)
 	unsigned short val=0;
 	CAM_DEBUG(": E");
 
+	/*Exif data*/
+	s5k4ecgx_exif_shutter_speed();
+	s5k4ecgx_exif_iso();
+
 	switch (exif_cmd) {
 	case EXIF_SHUTTERSPEED:
 		val = s5k4ecgx_exif->shutterspeed;
@@ -621,6 +625,8 @@ static void s5k4ecgx_exif_iso()
 void s5k4ecgx_set_preview_size(int32_t index)
 {
 	cam_info("preview size index %d", index);
+	if ((s5k4ecgx_ctrl->settings.preview_size_idx == PREVIEW_SIZE_HD) && (index != PREVIEW_SIZE_HD))
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_1280_Preview_Disable);
 
 	switch (index) {
 	case PREVIEW_SIZE_VGA:
@@ -636,7 +642,14 @@ void s5k4ecgx_set_preview_size(int32_t index)
 		break;
 
 	case PREVIEW_SIZE_HD:
+#if defined(CONFIG_MACH_WILCOX_EUR_LTE)
+		if(s5k4ecgx_ctrl->settings.scene == CAMERA_SCENE_NIGHT)
+			S5K4ECGX_WRITE_LIST(s5k4ecgx_1280_Preview_size);
+		else
+			S5K4ECGX_WRITE_LIST(s5k4ecgx_1280_Preview);
+#else
 		S5K4ECGX_WRITE_LIST(s5k4ecgx_1280_Preview);
+#endif
 		break;
 
 	default:
@@ -688,6 +701,10 @@ void s5k4ecgx_set_preview(void)
 			if (s5k4ecgx_ctrl->pre_cam_mode == MOVIE_MODE ) {
 				CAM_DEBUG("Return_preview_Mode from Camcorder mode");
 				S5K4ECGX_WRITE_LIST(s5k4ecgx_Camcorder_Disable);
+				if (s5k4ecgx_ctrl->settings.scene == CAMERA_SCENE_NIGHT) {
+				/* Scene night mode was disable by Camcorder_Disable setting */
+					s5k4ecgx_set_scene_mode(CAMERA_SCENE_NIGHT);
+				}
 				s5k4ecgx_set_preview_size\
 						(s5k4ecgx_ctrl->settings.preview_size_idx);
 				if (s5k4ecgx_ctrl->settings.scene == CAMERA_SCENE_AUTO) {
@@ -710,7 +727,7 @@ void s5k4ecgx_set_preview(void)
 			CAM_DEBUG("800ms (FIREWORK)");
 			msleep(800);
 		} else {
-			msleep(100);
+			msleep(300);
 		}
 		s5k4ecgx_ctrl->op_mode = CAMERA_MODE_PREVIEW;
 	}
@@ -735,9 +752,6 @@ void s5k4ecgx_set_capture(void)
 		msleep(100);
 	}
 
-	/*Exif data*/
-	s5k4ecgx_exif_shutter_speed();
-	s5k4ecgx_exif_iso();
 }
 
 static int32_t s5k4ecgx_sensor_setting(int update_type, int rt)
@@ -838,7 +852,7 @@ static int s5k4ecgx_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
-#if defined(CONFIG_S5K4ECGX) && defined(CONFIG_SR030PC50) /* CANE */
+#if defined(CONFIG_S5K4ECGX) && (defined(CONFIG_SR030PC50) || defined(CONFIG_SR030PC50_V2)) /* CANE */
 static struct regulator *l11, *l29, *l32, *l34;
 static int s5k4ecgx_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -996,7 +1010,7 @@ static int s5k4ecgx_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 }
 #endif
 
-#if defined(CONFIG_S5K4ECGX) && defined(CONFIG_SR030PC50) /* CANE */
+#if defined(CONFIG_S5K4ECGX) && (defined(CONFIG_SR030PC50) || defined(CONFIG_SR030PC50_V2)) /* CANE */
 static int s5k4ecgx_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
@@ -1014,13 +1028,18 @@ static int s5k4ecgx_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 #ifdef CONFIG_LOAD_FILE
 	s5k4ecgx_regs_table_exit();
 #endif
-
+	if (s5k4ecgx_ctrl->settings.focus_status == IN_OCR_MODE) {
+		CAM_DEBUG("Return_preview_Mode from Capture mode");
+		s5k4ecgx_set_ae_awb(0);
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_Preview_Return);
+	}
 	CAM_DEBUG("set AF default mode at power-off");
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Normal_mode_1);
 	msleep(100);
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Normal_mode_2);
 	msleep(100);
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Normal_mode_3);
+	msleep(100);
 
 	gpio_set_value_cansleep(data->sensor_platform_info->vt_sensor_stby, 0);
 	temp = gpio_get_value(data->sensor_platform_info->vt_sensor_stby);
@@ -1166,6 +1185,16 @@ static int s5k4ecgx_set_af_mode(int mode)
 	cam_info("set_af_mode : %d", mode);
 
 	switch (mode) {
+	case CAMERA_AF_OCR: /*3*/
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Macro_mode_1);
+		msleep(100);
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Macro_mode_2);
+		msleep(100);
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Macro_mode_3);
+		msleep(100);
+		s5k4ecgx_ctrl->settings.focus_status = IN_OCR_MODE;
+		break;
+
 	case CAMERA_AF_AUTO: /*2*/
 		S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Normal_mode_1);
 		msleep(100);
@@ -1264,8 +1293,9 @@ int s5k4ecgx_set_af_status(int status, int initial_pos)
 
 		/*AE/AWB lock*/
 		s5k4ecgx_set_ae_awb(1);
-//	}else if (status == 2) {
+
 		S5K4ECGX_WRITE_LIST(s5k4ecgx_Single_AF_Start);
+
 		if (af_low_lux) {
 			CAM_DEBUG("200ms delay for Low Lux AF");
 			if (s5k4ecgx_ctrl->settings.scene == CAMERA_SCENE_NIGHT
@@ -1276,21 +1306,9 @@ int s5k4ecgx_set_af_status(int status, int initial_pos)
 		} else {
 			msleep(200);
 		}
-
 	} else {
 		CAM_DEBUG("S5K4ECGX_AF_ABORT\n");
-/*
-		if (initial_pos == 2) {
-			S5K4ECGX_WRITE_LIST(s5k4ecgx_af_abort);
-		} else if (initial_pos == 1) {
-			s5k4ecgx_set_af_mode\
-				(s5k4ecgx_ctrl->settings.focus_mode);
-		} else {
-			S5K4ECGX_WRITE_LIST(s5k4ecgx_af_abort);
-			s5k4ecgx_set_af_mode\
-				(s5k4ecgx_ctrl->settings.focus_mode);
-		}
-*/
+
 		if (s5k4ecgx_get_flash_status()) {
 			S5K4ECGX_WRITE_LIST(s5k4ecgx_FAST_AE_Off);
 			S5K4ECGX_WRITE_LIST(s5k4ecgx_Pre_Flash_Off);
@@ -1305,8 +1323,6 @@ int s5k4ecgx_set_af_status(int status, int initial_pos)
 
 		s5k4ecgx_ctrl->touchaf_enable = false;
 	}
-
-	s5k4ecgx_ctrl->settings.focus_status = status;
 
 	return rc;
 }
@@ -1399,7 +1415,7 @@ static int s5k4ecgx_set_touchaf_pos(int x, int y)
 	if ((x != previewWidth/2) && (y != previewHeight/2))
 		s5k4ecgx_ctrl->touchaf_enable = true;
 
-#if !defined(CONFIG_MACH_LOGANRE) // fix af converter issue for loganrelte
+#if !defined(CONFIG_MACH_LOGANRE) && !defined(CONFIG_MACH_WILCOX_EUR_LTE)  // fix af converter issue for loganrelte and wilcoxlte
 	x = previewWidth - x;
 	y = previewHeight - y;
 #endif
@@ -1499,9 +1515,11 @@ int s5k4ecgx_get_af_status(int is_search_status)
 		cam_info("unexpected mode is comming from hal");
 		break;
 	}
-	
-	if ((s5k4ecgx_ctrl->touchaf_enable == 1) ||(s5k4ecgx_ctrl->samsungapp == 0))
+
+	if ((s5k4ecgx_ctrl->touchaf_enable == 1) ||(s5k4ecgx_ctrl->samsungapp == 0)
+		|| (s5k4ecgx_ctrl->settings.focus_status == IN_OCR_MODE))
 		s5k4ecgx_set_ae_awb(0);
+
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_FAST_AE_Off);
 	if (s5k4ecgx_get_flash_status()) {
 		S5K4ECGX_WRITE_LIST(s5k4ecgx_Pre_Flash_Off);
@@ -1512,7 +1530,7 @@ int s5k4ecgx_get_af_status(int is_search_status)
 	s5k4ecgx_ctrl->touchaf_enable = false;
 
 	if (s5k4ecgx_ctrl->settings.scene == CAMERA_SCENE_NIGHT)
-		msleep(20);
+		msleep(70);
 
 	return  return_af_status;
 }

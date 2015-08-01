@@ -29,11 +29,7 @@
 
 /* MSM8930 GPIO */
 #define GPIO_IRDA_EN			0
-#if defined (CONFIG_MACH_CRATER_CHN_CTC)
-#define GPIO_CAM_SENSOR_EN	1
-#else
 #define GPIO_MHL_RST			1
-#endif
 #define GPIO_LCD_EN			2
 #define GPIO_FLASH_NOW_SW			3
 #define GPIO_VT_CAM_MCLK			4
@@ -181,12 +177,8 @@
 #define GPIO_FLASH_CNTL_EN_SW		77 // system_rev < 0x07
 #define GPIO_CAM_SENSOR_EN			1 // system_rev >= 0x07
 #else
-#if !defined (CONFIG_MACH_CRATER_CHN_CTC)
 #define GPIO_FLASH_CNTL_EN_SW		64 // system_rev < 0x07
 #define GPIO_CAM_SENSOR_EN			64 // system_rev >= 0x07
-#else
-#define GPIO_FLASH_CNTL_EN_SW		77 // system_rev < 0x07
-#endif
 #endif
 #if defined(CONFIG_MACH_CRATER_CHN_CTC) || defined(CONFIG_MACH_MELIUS_CHN_CTC)
 #define GPIO_T_FLASH_DETECT			92
@@ -220,9 +212,7 @@
 
 #define GPIO_HW_GPIO75			75
 #define GPIO_CAM_VT_nRST			76
-#if !defined(CONFIG_MACH_CRATER_CHN_CTC)
 #define GPIO_MHL_WAKE_UP			77
-#endif
 #define GPIO_MHL_INT			78
 #define GPIO_2MIC_PW_DN			79
 #define GPIO_NFC_EN			80
@@ -246,7 +236,11 @@
 #define GPIO_NFC_SCL_1_8V			96
 #define GPIO_HW_GPIO97			97
 #define GPIO_BATT_ALARM			98
+#if defined(CONFIG_MACH_MELIUS_CHN_CTC) || defined(CONFIG_MACH_CRATER_CHN_CTC)
+#define GPIO_GG_SEL			99
+#else
 #define GPIO_NC_99			99
+#endif
 #define GPIO_MHL_DSCL_1_8V			100
 #define GPIO_MHL_DSDA_1_8V			101
 #define GPIO_HDMI_HPD			102
@@ -269,10 +263,11 @@
 #else
 #define GPIO_DRX_SW_SEL0			113
 #endif
-#define GPIO_MDM_SUB_SEL2			114
 #if defined(CONFIG_GSM_MODEM_SPRD6500)
+#define GPIO_AP_CP_INT1			114
 #define GPIO_AP_CP_INT2			115
 #else
+#define GPIO_MDM_SUB_SEL2			114
 #define GPIO_DRX_SW_SEL1			115
 #endif
 #if defined(CONFIG_GSM_MODEM_SPRD6500)
@@ -315,11 +310,7 @@
 #define GPIO_NC_145			145
 #define GPIO_WTR_GPDATA2			146
 #define GPIO_WTR_GPDATA1			147
-#if defined(CONFIG_MACH_CRATER_CHN_CTC)
-#define GPIO_VT_STBY            148
-#else
 #define GPIO_WTR_GPDATA0			148
-#endif
 #define GPIO_RF_GRIP_EN			149
 #define GPIO_OTG_TEST			150
 #define GPIO_EAR_MICBIAS_EN			151
@@ -479,7 +470,6 @@
 #elif defined (CONFIG_MACH_MELIUS_EUR_OPEN) || defined(CONFIG_MACH_MELIUS_EUR_LTE) \
 	|| defined(CONFIG_MACH_MELIUS_SKT) || defined(CONFIG_MACH_MELIUS_KTT) \
 	|| defined(CONFIG_MACH_MELIUS_LGT) \
-	|| defined(CONFIG_MACH_MELIUS_MTR) \
 	|| defined(CONFIG_MACH_MELIUS_ATT) || defined(CONFIG_MACH_MELIUS_TMO)
 #define CLK_REVISION 7
 #elif defined(CONFIG_MACH_MELIUS_VZW) || defined(CONFIG_MACH_MELIUS_SPR) \

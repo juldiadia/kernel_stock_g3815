@@ -306,11 +306,8 @@ static const struct cmc624RegisterSet auto_browser_cabcoff[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -337,11 +334,8 @@ static const struct cmc624RegisterSet auto_browser_cabcon[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -377,11 +371,8 @@ static const struct cmc624RegisterSet auto_gallery_cabcoff[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -398,7 +389,6 @@ static const struct cmc624RegisterSet auto_gallery_cabcoff[] = {
 	{0x007c,0x00ff},	//SCR KbWb
 	{0x00ff,0x0000},	//Mask Release
 	//end
-
 };
 
 static const struct cmc624RegisterSet auto_gallery_cabcon[] = {
@@ -418,11 +408,8 @@ static const struct cmc624RegisterSet auto_gallery_cabcon[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -449,11 +436,8 @@ static const struct cmc624RegisterSet auto_ui_cabcoff[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -480,11 +464,8 @@ static const struct cmc624RegisterSet auto_ui_cabcon[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -520,11 +501,8 @@ static const struct cmc624RegisterSet auto_video_cabcoff[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -560,11 +538,8 @@ static const struct cmc624RegisterSet auto_video_cabcon[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -603,11 +578,8 @@ static const struct cmc624RegisterSet auto_vtcall_cabcoff[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -646,11 +618,8 @@ static const struct cmc624RegisterSet auto_vtcall_cabcon[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -767,11 +736,8 @@ static const struct cmc624RegisterSet camera_cabcoff[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -803,13 +769,13 @@ static const struct cmc624RegisterSet dynamic_browser_cabcoff[] = {
 	{0x00c3,0x2204},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x003f,0x0080},	//CC chsel strength
-	{0x0040,0x0000},	//CC lut r	 0
-	{0x0041,0x0b94},	//CC lut r	16 144
-	{0x0042,0x18a6},	//CC lut r	32 160
-	{0x0043,0x28b8},	//CC lut r	48 176
-	{0x0044,0x3ac9},	//CC lut r	64 192
-	{0x0045,0x4cd9},	//CC lut r	80 208
-	{0x0046,0x5ee7},	//CC lut r	96 224
+	{0x0040,0x0000},	//CC lut r   0
+	{0x0041,0x0b94},	//CC lut r  16 144
+	{0x0042,0x18a6},	//CC lut r  32 160
+	{0x0043,0x28b8},	//CC lut r  48 176
+	{0x0044,0x3ac9},	//CC lut r  64 192
+	{0x0045,0x4cd9},	//CC lut r  80 208
+	{0x0046,0x5ee7},	//CC lut r  96 224
 	{0x0047,0x70f4},	//CC lut r 112 240
 	{0x0048,0x82ff},	//CC lut r 128 255
 	{0x0071,0xff00},	//SCR RrCr
@@ -841,13 +807,13 @@ static const struct cmc624RegisterSet dynamic_browser_cabcon[] = {
 	{0x00c3,0x2204},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x003f,0x0080},	//CC chsel strength
-	{0x0040,0x0000},	//CC lut r	 0
-	{0x0041,0x0b94},	//CC lut r	16 144
-	{0x0042,0x18a6},	//CC lut r	32 160
-	{0x0043,0x28b8},	//CC lut r	48 176
-	{0x0044,0x3ac9},	//CC lut r	64 192
-	{0x0045,0x4cd9},	//CC lut r	80 208
-	{0x0046,0x5ee7},	//CC lut r	96 224
+	{0x0040,0x0000},	//CC lut r   0
+	{0x0041,0x0b94},	//CC lut r  16 144
+	{0x0042,0x18a6},	//CC lut r  32 160
+	{0x0043,0x28b8},	//CC lut r  48 176
+	{0x0044,0x3ac9},	//CC lut r  64 192
+	{0x0045,0x4cd9},	//CC lut r  80 208
+	{0x0046,0x5ee7},	//CC lut r  96 224
 	{0x0047,0x70f4},	//CC lut r 112 240
 	{0x0048,0x82ff},	//CC lut r 128 255
 	{0x0071,0xff00},	//SCR RrCr
@@ -864,7 +830,6 @@ static const struct cmc624RegisterSet dynamic_browser_cabcon[] = {
 	{0x007c,0x00ff},	//SCR KbWb
 	{0x00ff,0x0000},	//Mask Release
 	//end
-
 };
 
 static const struct cmc624RegisterSet dynamic_gallery_cabcoff[] = {
@@ -889,13 +854,13 @@ static const struct cmc624RegisterSet dynamic_gallery_cabcoff[] = {
 	{0x00c3,0x2204},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x003f,0x0080},	//CC chsel strength
-	{0x0040,0x0000},	//CC lut r	 0
-	{0x0041,0x0b94},	//CC lut r	16 144
-	{0x0042,0x18a6},	//CC lut r	32 160
-	{0x0043,0x28b8},	//CC lut r	48 176
-	{0x0044,0x3ac9},	//CC lut r	64 192
-	{0x0045,0x4cd9},	//CC lut r	80 208
-	{0x0046,0x5ee7},	//CC lut r	96 224
+	{0x0040,0x0000},	//CC lut r   0
+	{0x0041,0x0b94},	//CC lut r  16 144
+	{0x0042,0x18a6},	//CC lut r  32 160
+	{0x0043,0x28b8},	//CC lut r  48 176
+	{0x0044,0x3ac9},	//CC lut r  64 192
+	{0x0045,0x4cd9},	//CC lut r  80 208
+	{0x0046,0x5ee7},	//CC lut r  96 224
 	{0x0047,0x70f4},	//CC lut r 112 240
 	{0x0048,0x82ff},	//CC lut r 128 255
 	{0x0071,0xff00},	//SCR RrCr
@@ -912,7 +877,6 @@ static const struct cmc624RegisterSet dynamic_gallery_cabcoff[] = {
 	{0x007c,0x00ff},	//SCR KbWb
 	{0x00ff,0x0000},	//Mask Release
 	//end
-
 };
 
 static const struct cmc624RegisterSet dynamic_gallery_cabcon[] = {
@@ -1107,13 +1071,13 @@ static const struct cmc624RegisterSet dynamic_video_cabcon[] = {
 	{0x00c3,0x2204},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x003f,0x0080},	//CC chsel strength
-	{0x0040,0x0000},	//CC lut r	 0
-	{0x0041,0x0b94},	//CC lut r	16 144
-	{0x0042,0x18a6},	//CC lut r	32 160
-	{0x0043,0x28b8},	//CC lut r	48 176
-	{0x0044,0x3ac9},	//CC lut r	64 192
-	{0x0045,0x4cd9},	//CC lut r	80 208
-	{0x0046,0x5ee7},	//CC lut r	96 224
+	{0x0040,0x0000},	//CC lut r   0
+	{0x0041,0x0b94},	//CC lut r  16 144
+	{0x0042,0x18a6},	//CC lut r  32 160
+	{0x0043,0x28b8},	//CC lut r  48 176
+	{0x0044,0x3ac9},	//CC lut r  64 192
+	{0x0045,0x4cd9},	//CC lut r  80 208
+	{0x0046,0x5ee7},	//CC lut r  96 224
 	{0x0047,0x70f4},	//CC lut r 112 240
 	{0x0048,0x82ff},	//CC lut r 128 255
 	{0x0071,0xff00},	//SCR RrCr
@@ -1157,13 +1121,13 @@ static const struct cmc624RegisterSet dynamic_vtcall_cabcoff[] = {
 	{0x00c3,0x2204},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x003f,0x0080},	//CC chsel strength
-	{0x0040,0x0000},	//CC lut r	 0
-	{0x0041,0x0b94},	//CC lut r	16 144
-	{0x0042,0x18a6},	//CC lut r	32 160
-	{0x0043,0x28b8},	//CC lut r	48 176
-	{0x0044,0x3ac9},	//CC lut r	64 192
-	{0x0045,0x4cd9},	//CC lut r	80 208
-	{0x0046,0x5ee7},	//CC lut r	96 224
+	{0x0040,0x0000},	//CC lut r   0
+	{0x0041,0x0b94},	//CC lut r  16 144
+	{0x0042,0x18a6},	//CC lut r  32 160
+	{0x0043,0x28b8},	//CC lut r  48 176
+	{0x0044,0x3ac9},	//CC lut r  64 192
+	{0x0045,0x4cd9},	//CC lut r  80 208
+	{0x0046,0x5ee7},	//CC lut r  96 224
 	{0x0047,0x70f4},	//CC lut r 112 240
 	{0x0048,0x82ff},	//CC lut r 128 255
 	{0x0071,0xff00},	//SCR RrCr
@@ -1207,13 +1171,13 @@ static const struct cmc624RegisterSet dynamic_vtcall_cabcon[] = {
 	{0x00c3,0x2204},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x003f,0x0080},	//CC chsel strength
-	{0x0040,0x0000},	//CC lut r	 0
-	{0x0041,0x0b94},	//CC lut r	16 144
-	{0x0042,0x18a6},	//CC lut r	32 160
-	{0x0043,0x28b8},	//CC lut r	48 176
-	{0x0044,0x3ac9},	//CC lut r	64 192
-	{0x0045,0x4cd9},	//CC lut r	80 208
-	{0x0046,0x5ee7},	//CC lut r	96 224
+	{0x0040,0x0000},	//CC lut r   0
+	{0x0041,0x0b94},	//CC lut r  16 144
+	{0x0042,0x18a6},	//CC lut r  32 160
+	{0x0043,0x28b8},	//CC lut r  48 176
+	{0x0044,0x3ac9},	//CC lut r  64 192
+	{0x0045,0x4cd9},	//CC lut r  80 208
+	{0x0046,0x5ee7},	//CC lut r  96 224
 	{0x0047,0x70f4},	//CC lut r 112 240
 	{0x0048,0x82ff},	//CC lut r 128 255
 	{0x0071,0xff00},	//SCR RrCr
@@ -1230,7 +1194,6 @@ static const struct cmc624RegisterSet dynamic_vtcall_cabcon[] = {
 	{0x007c,0x00ff},	//SCR KbWb
 	{0x00ff,0x0000},	//Mask Release
 	//end
-
 };
 
 static const struct cmc624RegisterSet ebook_cabcoff[] = {
@@ -1241,11 +1204,8 @@ static const struct cmc624RegisterSet ebook_cabcoff[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -1272,11 +1232,8 @@ static const struct cmc624RegisterSet ebook_cabcon[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -1303,11 +1260,8 @@ static const struct cmc624RegisterSet email_cabcoff[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -1334,11 +1288,8 @@ static const struct cmc624RegisterSet email_cabcon[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -1354,7 +1305,7 @@ static const struct cmc624RegisterSet email_cabcon[] = {
 	{0x007b,0x00f7},	//SCR KgWg
 	{0x007c,0x00ea},	//SCR KbWb
 	{0x00ff,0x0000},	//Mask Release
-	//end};
+	//end
 };
 
 static const struct cmc624RegisterSet dynamic_dmb_cabcoff[] = {
@@ -1916,11 +1867,8 @@ static const struct cmc624RegisterSet standard_browser_cabcoff[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -1947,11 +1895,8 @@ static const struct cmc624RegisterSet standard_browser_cabcon[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -1987,11 +1932,8 @@ static const struct cmc624RegisterSet standard_gallery_cabcoff[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -2008,7 +1950,6 @@ static const struct cmc624RegisterSet standard_gallery_cabcoff[] = {
 	{0x007c,0x00ff},	//SCR KbWb
 	{0x00ff,0x0000},	//Mask Release
 	//end
-
 };
 
 static const struct cmc624RegisterSet standard_gallery_cabcon[] = {
@@ -2028,11 +1969,8 @@ static const struct cmc624RegisterSet standard_gallery_cabcon[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -2059,11 +1997,8 @@ static const struct cmc624RegisterSet standard_ui_cabcoff[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -2090,11 +2025,8 @@ static const struct cmc624RegisterSet standard_ui_cabcon[] = {
 	{0x000a,0x0000},	//UC off
 	{0x0030,0x0000},	//FA cs1 de8 hdr2 fa1
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -2130,11 +2062,8 @@ static const struct cmc624RegisterSet standard_video_cabcoff[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -2170,11 +2099,8 @@ static const struct cmc624RegisterSet standard_video_cabcon[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -2213,11 +2139,8 @@ static const struct cmc624RegisterSet standard_vtcall_cabcoff[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr
@@ -2256,11 +2179,8 @@ static const struct cmc624RegisterSet standard_vtcall_cabcon[] = {
 	{0x00b8,0x1000},	//DE max ratio
 	{0x00b9,0x0100},	//DE min ratio
 	{0x00c0,0x0b0a},	//CS hg ry
-
 	{0x00c1,0x0a12},	//CS hg gc
-
 	{0x00c2,0x0b12},	//CS hg bm
-
 	{0x00c3,0x2004},	//CS weight grayTH
 	{0x0000,0x0001},	//BANK 1
 	{0x0071,0xff00},	//SCR RrCr

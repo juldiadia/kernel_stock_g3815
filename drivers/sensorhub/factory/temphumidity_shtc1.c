@@ -21,7 +21,7 @@
 
 #define VENDOR		"SENSIRION"
 #define CHIP_ID		"SHTC1"
-
+#define DONE_CAL	3
 /*
 * this defined value was requested from HW QA
 * if you want to using this driver,
@@ -36,10 +36,16 @@
 #define MODEL_NAME	"SGH-M919"
 #elif defined(CONFIG_MACH_JF_USC)
 #define MODEL_NAME	"SCH-R970"
+#elif defined(CONFIG_MACH_JF_CRI)
+#define MODEL_NAME	"SCH-R970C"
 #elif defined(CONFIG_MACH_JF_VZW)
 #define MODEL_NAME	"SCH-I545"
+#elif defined(CONFIG_MACH_JFTDD_EUR)
+#define MODEL_NAME	"GT-I9507"
 #elif defined(CONFIG_MACH_JF_EUR)
 #define MODEL_NAME	"GT-I9505"
+#elif defined(CONFIG_MACH_JFVE_EUR)
+#define MODEL_NAME	"GT-I9515"
 #elif defined(CONFIG_MACH_JACTIVE_EUR)
 #define MODEL_NAME	"GT-I9295"
 #elif defined(CONFIG_MACH_JF_SKT)
@@ -59,7 +65,8 @@
 	defined(CONFIG_MACH_JF_EUR) || defined(CONFIG_MACH_JF_SPR) || \
 	defined(CONFIG_MACH_JF_USC) || defined(CONFIG_MACH_JF_VZW) || \
 	defined(CONFIG_MACH_JF_LGT) || defined(CONFIG_MACH_JF_SKT) || \
-	defined(CONFIG_MACH_JF_KTT) || defined(CONFIG_MACH_JF_DCM)
+	defined(CONFIG_MACH_JF_KTT) || defined(CONFIG_MACH_JF_DCM) || \
+	defined(CONFIG_MACH_JF_CRI) || defined(CONFIG_MACH_JFVE_EUR)
 /* {adc, temp*10}, -20 to +70 */
 static struct cp_thm_adc_table temp_table_cp[] = {
 	{200, 700}, {207, 690}, {214, 680}, {221, 670}, {248, 660},
@@ -126,7 +133,8 @@ static int convert_adc_to_temp(struct ssp_data *data, unsigned int adc)
 	defined(CONFIG_MACH_JF_EUR) || defined(CONFIG_MACH_JF_SPR) || \
 	defined(CONFIG_MACH_JF_USC) || defined(CONFIG_MACH_JF_VZW) || \
 	defined(CONFIG_MACH_JF_LGT) || defined(CONFIG_MACH_JF_SKT) || \
-	defined(CONFIG_MACH_JF_KTT) || defined(CONFIG_MACH_JF_DCM)
+	defined(CONFIG_MACH_JF_KTT) || defined(CONFIG_MACH_JF_DCM) || \
+	defined(CONFIG_MACH_JF_CRI) || defined(CONFIG_MACH_JFVE_EUR)
 
 	int low = 0;
 	int high = 0;
@@ -191,6 +199,33 @@ static ssize_t engine_version_store(struct device *dev,
 	strncpy(data->comp_engine_ver, buf, strlen(buf)+1);
 	pr_info("[SSP] %s - engine_ver = %s, %s\n",
 		__func__, data->comp_engine_ver, buf);
+
+	return size;
+}
+
+static ssize_t engine_version2_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct ssp_data *data = dev_get_drvdata(dev);
+
+	pr_info("[SSP] %s - engine_ver2 = %s_%s\n",
+		__func__, MODEL_NAME, data->comp_engine_ver2);
+
+	return sprintf(buf, "%s_%s\n",
+		MODEL_NAME, data->comp_engine_ver2);
+}
+
+static ssize_t engine_version2_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct ssp_data *data = dev_get_drvdata(dev);
+
+	kfree(data->comp_engine_ver2);
+	data->comp_engine_ver2 =
+		    kzalloc(((strlen(buf)+1) * sizeof(char)), GFP_KERNEL);
+	strncpy(data->comp_engine_ver2, buf, strlen(buf)+1);
+	pr_info("[SSP] %s - engine_ver2 = %s, %s\n",
+		__func__, data->comp_engine_ver2, buf);
 
 	return size;
 }
@@ -270,22 +305,46 @@ exit:
 		return sprintf(buf, "%s\n","NG");
 }
 
+ssize_t temphumidity_send_accuracy(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct ssp_data *data = dev_get_drvdata(dev);
+	u8 accuracy;
+
+	if (kstrtou8(buf, 10, &accuracy) < 0) {
+		pr_err("[SSP] %s - read buf is fail(%s)\n", __func__, buf);
+		return size;
+	}
+
+	if (accuracy == DONE_CAL)
+		ssp_send_cmd(data, MSG2SSP_AP_TEMPHUMIDITY_CAL_DONE);
+	pr_info("[SSP] %s - accuracy = %d\n", __func__, accuracy);
+
+	return size;
+}
+
 static DEVICE_ATTR(name, S_IRUGO, temphumidity_name_show, NULL);
 static DEVICE_ATTR(vendor, S_IRUGO, temphumidity_vendor_show, NULL);
 static DEVICE_ATTR(engine_ver, S_IRUGO | S_IWUSR | S_IWGRP,
 	engine_version_show, engine_version_store);
+static DEVICE_ATTR(engine_ver2, S_IRUGO | S_IWUSR | S_IWGRP,
+	engine_version2_show, engine_version2_store);
 static DEVICE_ATTR(cp_thm, S_IRUGO, pam_adc_show, NULL);
 static DEVICE_ATTR(cp_temperature, S_IRUGO, pam_temp_show, NULL);
 static DEVICE_ATTR(crc_check, S_IRUGO,
 	temphumidity_crc_check, NULL);
+static DEVICE_ATTR(send_accuracy,  S_IWUSR | S_IWGRP,
+	NULL, temphumidity_send_accuracy);
 
 static struct device_attribute *temphumidity_attrs[] = {
 	&dev_attr_name,
 	&dev_attr_vendor,
 	&dev_attr_engine_ver,
+	&dev_attr_engine_ver2,
 	&dev_attr_cp_thm,
 	&dev_attr_cp_temperature,
 	&dev_attr_crc_check,
+	&dev_attr_send_accuracy,
 	NULL,
 };
 
@@ -299,5 +358,7 @@ void remove_temphumidity_factorytest(struct ssp_data *data)
 {
 	if (data->comp_engine_ver != NULL)
 		kfree(data->comp_engine_ver);
+	if (data->comp_engine_ver2 != NULL)
+		kfree(data->comp_engine_ver2);
 	sensors_unregister(data->temphumidity_device, temphumidity_attrs);
 }

@@ -232,4 +232,5 @@ config USB_STORAGE_DETECT
 	bool "Detect inserting sdcard"
 	depends on USB
 	help
-	  This is samsung patch
+ 	  This is samsung patch
+

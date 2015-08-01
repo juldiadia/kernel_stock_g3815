@@ -59,7 +59,7 @@ static DEFINE_MUTEX(misc_mtx);
 /*
  * Assigned numbers, used for dynamic minors
  */
-#if defined(CONFIG_MACH_MELIUS_CHN_CTC) || defined(CONFIG_MACH_CRATER_CHN_CTC)
+#if defined(CONFIG_MACH_M2_ATT)
 #define DYNAMIC_MINORS 96 /* like dynamic majors */
 #else
 #define DYNAMIC_MINORS 64 /* like dynamic majors */

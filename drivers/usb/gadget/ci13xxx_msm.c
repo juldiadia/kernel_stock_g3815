@@ -40,7 +40,7 @@ static irqreturn_t msm_udc_irq(int irq, void *data)
 static void ci13xxx_msm_suspend(void)
 {
 	struct device *dev = _udc->gadget.dev.parent;
-	dev_info(dev, "ci13xxx_msm_suspend\n");
+	dev_dbg(dev, "ci13xxx_msm_suspend\n");
 
 	if (_udc_ctxt.wake_irq && !_udc_ctxt.wake_irq_state) {
 		enable_irq_wake(_udc_ctxt.wake_irq);
@@ -52,7 +52,7 @@ static void ci13xxx_msm_suspend(void)
 static void ci13xxx_msm_resume(void)
 {
 	struct device *dev = _udc->gadget.dev.parent;
-	dev_info(dev, "ci13xxx_msm_resume\n");
+	dev_dbg(dev, "ci13xxx_msm_resume\n");
 
 	if (_udc_ctxt.wake_irq && _udc_ctxt.wake_irq_state) {
 		disable_irq_wake(_udc_ctxt.wake_irq);
@@ -85,7 +85,7 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 		break;
 
 	default:
-		dev_info(dev, "unknown ci13xxx_udc event\n");
+		dev_dbg(dev, "unknown ci13xxx_udc event\n");
 		break;
 	}
 }
@@ -120,7 +120,7 @@ static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
 	int wake_irq;
 	int ret;
 
-	dev_info(&pdev->dev, "ci13xxx_msm_install_wake_gpio\n");
+	dev_dbg(&pdev->dev, "ci13xxx_msm_install_wake_gpio\n");
 
 	_udc_ctxt.wake_gpio = res->start;
 	gpio_request(_udc_ctxt.wake_gpio, "USB_RESUME");
@@ -131,7 +131,7 @@ static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
 		return -ENXIO;
 	}
 
-	dev_info(&pdev->dev, "_udc_ctxt.gpio_irq = %d and irq = %d\n",
+	dev_dbg(&pdev->dev, "_udc_ctxt.gpio_irq = %d and irq = %d\n",
 			_udc_ctxt.wake_gpio, wake_irq);
 	ret = request_irq(wake_irq, ci13xxx_msm_resume_irq,
 		IRQF_TRIGGER_RISING | IRQF_ONESHOT, "usb resume", NULL);
@@ -152,7 +152,7 @@ gpio_free:
 
 static void ci13xxx_msm_uninstall_wake_gpio(struct platform_device *pdev)
 {
-	dev_info(&pdev->dev, "ci13xxx_msm_uninstall_wake_gpio\n");
+	dev_dbg(&pdev->dev, "ci13xxx_msm_uninstall_wake_gpio\n");
 
 	if (_udc_ctxt.wake_gpio) {
 		gpio_free(_udc_ctxt.wake_gpio);
@@ -165,7 +165,7 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 
-	dev_info(&pdev->dev, "ci13xxx_msm_probe\n");
+	dev_dbg(&pdev->dev, "ci13xxx_msm_probe\n");
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {

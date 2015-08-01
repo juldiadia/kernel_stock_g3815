@@ -35,8 +35,7 @@ void fsm_restart(char mode, const char *cmd);
 #endif
 
 extern int pmic_reset_irq;
-#ifdef CONFIG_SEC_DEBUG
-extern void *restart_reason;
-#endif
+int resout_irq_control (int enable);
+
 #endif
 

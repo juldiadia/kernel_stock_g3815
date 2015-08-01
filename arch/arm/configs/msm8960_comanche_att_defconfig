@@ -1,0 +1,3 @@
+#variant defconfig
+
+CONFIG_MACH_COMANCHE_ATT=y

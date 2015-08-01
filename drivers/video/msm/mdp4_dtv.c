@@ -83,12 +83,15 @@ static struct platform_driver dtv_driver = {
 static struct lcdc_platform_data *dtv_pdata;
 #ifdef CONFIG_MSM_BUS_SCALING
 static uint32_t dtv_bus_scale_handle;
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
 static uint32_t dtv_bus_scale_override;
 static uint32_t dtv_current_bus_vector_index;
+#endif
 #else
 static struct clk *ebi1_clk;
 #endif
 
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
 void dtv_update_camera_vector_override(uint8_t enable)
 {
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -106,6 +109,7 @@ void dtv_update_camera_vector_override(uint8_t enable)
 	}
 #endif
 }
+#endif
 
 static int dtv_off(struct platform_device *pdev)
 {
@@ -165,11 +169,17 @@ static int dtv_off_sub(void)
 	if (dtv_pdata && dtv_pdata->lcdc_gpio_config)
 		ret = dtv_pdata->lcdc_gpio_config(0);
 #ifdef CONFIG_MSM_BUS_SCALING
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
 	if (dtv_bus_scale_handle > 0) {
 		dtv_current_bus_vector_index = 0;
 		msm_bus_scale_client_update_request(dtv_bus_scale_handle,
 							0);
 	}
+#else
+	if (dtv_bus_scale_handle > 0)
+		msm_bus_scale_client_update_request(dtv_bus_scale_handle,
+							0);
+#endif
 #else
 	if (ebi1_clk)
 		clk_disable_unprepare(ebi1_clk);
@@ -202,6 +212,7 @@ static int dtv_on(struct platform_device *pdev)
 		pm_qos_rate = 58000;
 	mdp4_extn_disp = 1;
 #ifdef CONFIG_MSM_BUS_SCALING
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
 	if (dtv_bus_scale_handle > 0) {
 		if (dtv_bus_scale_override)
 			msm_bus_scale_client_update_request(dtv_bus_scale_handle,
@@ -211,6 +222,11 @@ static int dtv_on(struct platform_device *pdev)
 							1);
 		dtv_current_bus_vector_index = 1;
 	}
+#else
+	if (dtv_bus_scale_handle > 0)
+		msm_bus_scale_client_update_request(dtv_bus_scale_handle,
+							1);
+#endif
 #else
 	if (ebi1_clk) {
 		clk_set_rate(ebi1_clk, pm_qos_rate * 1000);

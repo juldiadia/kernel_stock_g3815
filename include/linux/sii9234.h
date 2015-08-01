@@ -25,7 +25,7 @@ struct sii9234_platform_data {
 	int gpio;
 	void (*mhl_sel)(bool);
 	void (*gpio_cfg)(void);
-#if defined(CONFIG_VIDEO_MHL_V2)
+#if defined(CONFIG_VIDEO_MHL_V2) || defined(CONFIG_VIDEO_MHL_TAB_V2)
 	int prio;
 	void (*enable)(bool enable);
 	void (*power)(int on);
@@ -45,10 +45,6 @@ struct sii9234_platform_data {
 };
 
 extern u8 mhl_onoff_ex(bool on);
-#ifdef CONFIG_MHL_NEW_CBUS_MSC_CMD
-extern void sii9234_wake_lock(void);
-extern void sii9234_wake_unlock(void);
-#endif
 
 #endif
 

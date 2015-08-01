@@ -11,8 +11,6 @@
  */
 
 #include <linux/lcd.h>
-#include <mach/msm8930-gpio.h>
-#include <linux/gpio.h>
 
 #include "msm_fb.h"
 #include "msm_fb_panel.h"
@@ -20,7 +18,10 @@
 #include "mipi_samsung_tft.h"
 #include "mdp4.h"
 
-#define _USE_BACKLIGHT_IC_KTD3102
+#include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/mfd/pm8xxx/pm8821.h>
+#include "../../../arch/arm/mach-msm/board-8064.h"
+#include <linux/gpio.h>
 
 #if defined(CONFIG_FB_MDP4_ENHANCE)
 #include "mdp4_video_enhance.h"
@@ -37,6 +38,11 @@ static struct mipi_samsung_driver_data msd;
 static int lcd_attached = 1;
 struct mutex dsi_tx_mutex;
 
+#if defined(AUTO_BRIGHTNESS_CABC_FUNCTION)
+static int is_disp_on = 0;
+static int is_cabc_delayed = 0;
+#endif
+
 #if defined(CONFIG_ESD_ERR_FG_RECOVERY)
 struct work_struct  err_fg_work;
 #define PMIC_GPIO_ERR_FG 8
@@ -49,6 +55,10 @@ struct pm_gpio gpio_get_param = {
 	.inv_int_pol	= 0,
 };
 static int err_fg_working;
+#endif
+
+#if defined(RUMTIME_MIPI_CLK_CHANGE)
+static int current_fps = 0;
 #endif
 
 static int atoi(const char *name)
@@ -80,7 +90,7 @@ static int mipi_samsung_disp_send_cmd(struct msm_fb_data_type *mfd,
 			mutex_lock(&mfd->dma->ov_mutex);
 	}
 
-	switch (cmd) {
+		switch (cmd) {
 		case PANEL_ON:
 			cmd_desc = msd.mpd->on.cmd;
 			cmd_size = msd.mpd->on.size;
@@ -89,18 +99,50 @@ static int mipi_samsung_disp_send_cmd(struct msm_fb_data_type *mfd,
 			cmd_desc = msd.mpd->off.cmd;
 			cmd_size = msd.mpd->off.size;
 			break;
-		case PANEL_INIT:
-			cmd_desc = msd.mpd->init.cmd;
-			cmd_size = msd.mpd->init.size;
+		case PANEL_LATE_ON:
+			cmd_desc = msd.mpd->late_on.cmd;
+			cmd_size = msd.mpd->late_on.size;
 			break;
-		case PANEL_ENABLE_REG_ACCESS:
-			cmd_desc = msd.mpd->en_access.cmd;
-			cmd_size = msd.mpd->en_access.size;
+		case PANEL_EARLY_OFF:
+			cmd_desc = msd.mpd->early_off.cmd;
+			cmd_size = msd.mpd->early_off.size;
 			break;
-		case PANEL_DISABLE_REG_ACCESS:
-			cmd_desc = msd.mpd->dis_access.cmd;
-			cmd_size = msd.mpd->dis_access.size;
+		case PANEL_BRIGHT_CTRL:
+			cmd_desc = msd.mpd->brightness.cmd;
+			cmd_size = msd.mpd->brightness.size;
 			break;
+		case PANEL_MTP_ENABLE:
+			cmd_desc = msd.mpd->mtp_enable.cmd;
+			cmd_size = msd.mpd->mtp_enable.size;
+			break;
+		case PANEL_MTP_DISABLE:
+			cmd_desc = msd.mpd->mtp_disable.cmd;
+			cmd_size = msd.mpd->mtp_disable.size;
+			break;
+		case PANEL_NEED_FLIP:
+			cmd_desc = msd.mpd->need_flip.cmd;
+			cmd_size = msd.mpd->need_flip.size;
+			break;
+#if defined(AUTO_BRIGHTNESS_CABC_FUNCTION)
+		case PANEL_CABC_ENABLE:
+			cmd_desc = msd.mpd->cabc_enable.cmd;
+			cmd_size = msd.mpd->cabc_enable.size;
+			break;
+		case PANEL_CABC_DISABLE:
+			cmd_desc = msd.mpd->cabc_disable.cmd;
+			cmd_size = msd.mpd->cabc_disable.size;
+			break;
+#endif
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_PREVENT_HSYNC_LEAKAGE)
+		case PANEL_HSYNC_ON:
+			cmd_desc = msd.mpd->hsync_on.cmd;
+			cmd_size = msd.mpd->hsync_on.size;
+			break;
+		case PANEL_HSYNC_OFF:
+			cmd_desc = msd.mpd->hsync_off.cmd;
+			cmd_size = msd.mpd->hsync_off.size;
+			break;
+#endif
 		default:
 			goto unknown_command;
 			;
@@ -115,6 +157,7 @@ static int mipi_samsung_disp_send_cmd(struct msm_fb_data_type *mfd,
 
 	mipi_dsi_cmds_tx(&msd.samsung_tx_buf, cmd_desc, cmd_size);
 
+	
 	if (mfd->panel.type == MIPI_VIDEO_PANEL)
 		mutex_unlock(&dsi_tx_mutex);
 	else {
@@ -135,9 +178,47 @@ unknown_command:
 	return 0;
 }
 
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_PREVENT_HSYNC_LEAKAGE)
+void lcd_hsync_onoff(bool onoff)
+{
+	struct msm_fb_data_type *mfd;
+	mfd = platform_get_drvdata(msd.msm_pdev);
+
+	if (unlikely(!mfd)) { pr_err("%s : panel no mfd",__func__); return;}
+//		return -ENODEV;
+	if (unlikely(mfd->key != MFD_KEY)) { pr_err("%s : panel mfd invlaid",__func__); return;}
+//		return -EINVAL;
+
+#if defined(CONFIG_MACH_JACTIVE_EUR) /* HW DEFECT under REV 0.6 */
+	if( system_rev > 16 )
+		return;
+#endif
+
+	if (mfd->panel_power_on == TRUE)
+		{ 
+			if( onoff )
+				{
+				msleep(30);
+				mipi_samsung_disp_send_cmd(mfd, PANEL_HSYNC_ON, true);
+				pr_info("%s : HSYNC On\n",__func__);
+				}
+			else
+				{
+				mipi_samsung_disp_send_cmd(mfd, PANEL_HSYNC_OFF, true);
+				msleep(10); /* Need time to discharging by capacitance*/
+				pr_info("%s : HSYNC Off\n",__func__);
+				}
+		}
+	else
+		pr_err("%s : panel power off\n",__func__);
+	
+return;
+}
+#endif
 static char manufacture_id1[2] = {0xDA, 0x00}; /* DTYPE_DCS_READ */
 static char manufacture_id2[2] = {0xDB, 0x00}; /* DTYPE_DCS_READ */
 static char manufacture_id3[2] = {0xDC, 0x00}; /* DTYPE_DCS_READ */
+static char manufacture_id4[2] = {0xC1, 0x00}; /* DTYPE_DCS_READ */
 
 static struct dsi_cmd_desc samsung_manufacture_id1_cmd = {
 	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id1), manufacture_id1};
@@ -145,6 +226,8 @@ static struct dsi_cmd_desc samsung_manufacture_id2_cmd = {
 	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id2), manufacture_id2};
 static struct dsi_cmd_desc samsung_manufacture_id3_cmd = {
 	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id3), manufacture_id3};
+static struct dsi_cmd_desc samsung_manufacture_id4_cmd = {
+	DTYPE_GEN_READ, 1, 0, 1, 5, sizeof(manufacture_id4), manufacture_id4};
 
 static uint32 mipi_samsung_manufacture_id(struct msm_fb_data_type *mfd)
 {
@@ -182,16 +265,80 @@ static uint32 mipi_samsung_manufacture_id(struct msm_fb_data_type *mfd)
 	mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 1);
 	pr_info("%s: manufacture_id3=%x\n", __func__, *rp->data);
 	id |= *rp->data & 0xFF;
+	id <<= 8;
+
+	mipi_dsi_buf_init(rp);
+	mipi_dsi_buf_init(tp);
+	cmd = &samsung_manufacture_id4_cmd;
+	mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 1);
+	pr_info("%s: manufacture_id4=%x\n", __func__, *rp->data);
+	id |= *rp->data & 0xFF;
 
 	pr_info("%s: manufacture_id=%x\n", __func__, id);
 
 	return id;
 }
 
+static void execute_panel_init(struct msm_fb_data_type *mfd)
+{
+	/* read LID ID */
+	mipi_samsung_disp_send_cmd(mfd, PANEL_MTP_ENABLE, false);
+
+	msd.mpd->manufacture_id = mipi_samsung_manufacture_id(mfd);
+
+	mipi_samsung_disp_send_cmd(mfd, PANEL_MTP_DISABLE, false);
+}
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
+static int mipi_samsung_disp_on_in_video_engine(struct platform_device *pdev)
+{
+	struct msm_fb_data_type *mfd;
+
+	printk(KERN_INFO "[lcd] mipi_samsung_disp_on_in_video_engine start\n" );
+
+	mfd = platform_get_drvdata(pdev);
+	if (unlikely(!mfd))
+		return -ENODEV;
+	if (unlikely(mfd->key != MFD_KEY))
+		return -EINVAL;
+
+	mipi_samsung_disp_send_cmd(mfd, PANEL_ON, false);
+	mfd->resume_state = MIPI_RESUME_STATE;
+
+#if defined(RUMTIME_MIPI_CLK_CHANGE)
+	current_fps = mfd->panel_info.mipi.frame_rate;
+#endif
+	
+#if defined(AUTO_BRIGHTNESS_CABC_FUNCTION)
+	is_disp_on = 1;
+
+	if( is_cabc_on() == true )
+	{
+		mipi_samsung_disp_send_cmd(mfd, PANEL_CABC_ENABLE, false);
+		is_cabc_delayed = 0;
+		printk ( KERN_ERR "%s-PANEL_CABC_ENABLE(keystring)\n", __func__ );
+	}
+	else if( (is_cabc_on() != false) && ((is_cabc_delayed == 1) || (msd.mpd->siop_status == true)) )
+	{
+		mipi_samsung_disp_send_cmd(mfd, PANEL_CABC_ENABLE, false);
+		is_cabc_delayed = 0;
+		printk ( KERN_ERR "%s-PANEL_CABC_ENABLE(delayed)\n", __func__ );
+	}
+#endif
+	
+	printk(KERN_INFO "[lcd] mipi_samsung_disp_on_in_video_engine end %d\n", gpio_get_value(err_fg_gpio));
+	
+#if defined(CONFIG_ESD_ERR_FG_RECOVERY)
+		enable_irq(PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PMIC_GPIO_ERR_FG));
+#endif
+
+	return 0;
+}
+#endif
 static int mipi_samsung_disp_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
 	struct mipi_panel_info *mipi = NULL;
+	static int first_boot_on = 0;
 
 	printk(KERN_INFO "[lcd] mipi_samsung_disp_on start\n");
 
@@ -203,19 +350,53 @@ static int mipi_samsung_disp_on(struct platform_device *pdev)
 
 	mipi = &mfd->panel_info.mipi;
 
-	mipi_samsung_disp_send_cmd(mfd, PANEL_ENABLE_REG_ACCESS, false);
-	msd.mpd->manufacture_id = mipi_samsung_manufacture_id(mfd);
-	mipi_samsung_disp_send_cmd(mfd, PANEL_INIT, false);
-	mipi_samsung_disp_send_cmd(mfd, PANEL_DISABLE_REG_ACCESS, false);
+	if (system_rev == 0) {
+		if (!first_boot_on) {
+			execute_panel_init(mfd);
+			first_boot_on = 1;
+		}
+
+		if ((msd.mpd->manufacture_id & 0xFF) == 0x84 || \
+			(msd.mpd->manufacture_id & 0xFF) == 0x4)
+			mipi_samsung_disp_send_cmd(mfd,
+						PANEL_NEED_FLIP, false);
+	}
+#if !defined(CONFIG_MACH_JACTIVE_ATT) && !defined(CONFIG_MACH_JACTIVE_EUR)
 	mipi_samsung_disp_send_cmd(mfd, PANEL_ON, false);
+	mfd->resume_state = MIPI_RESUME_STATE;
+
+#if	defined(CONFIG_MDNIE_LITE_TUNING)
+	if (!first_boot_on)
+	{
+		mfd->resume_state = MIPI_RESUME_STATE;
+		first_boot_on = 1;
+	}
+#endif
+
+#if defined(RUMTIME_MIPI_CLK_CHANGE)
+	current_fps = mfd->panel_info.mipi.frame_rate;
+#endif
+
+#if defined(AUTO_BRIGHTNESS_CABC_FUNCTION)
+	is_disp_on = 1;
+
+	if( (is_cabc_delayed == 1) || (msd.mpd->siop_status == true) )
+	{
+		mipi_samsung_disp_send_cmd(mfd, PANEL_CABC_ENABLE, false);
+		is_cabc_delayed = 0;
+		printk ( KERN_ERR "%s-PANEL_CABC_ENABLE(delayed)\n", __func__ );
+	}
+#endif
+
+	printk(KERN_INFO "[lcd] mipi_samsung_disp_on end %d\n", gpio_get_value(err_fg_gpio));
 
 #if defined(CONFIG_ESD_ERR_FG_RECOVERY)
-		printk(KERN_INFO "[lcd] mipi_samsung_disp_on_in_video_engine end %d\n", gpio_get_value(err_fg_gpio));
-		enable_irq(PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PMIC_GPIO_ERR_FG));
+	enable_irq(PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PMIC_GPIO_ERR_FG));
 #endif
-	printk(KERN_INFO "[lcd] mipi_samsung_disp_on end\n" );
+#endif
 	return 0;
 }
+
 
 static int mipi_samsung_disp_off(struct platform_device *pdev)
 {
@@ -236,34 +417,48 @@ static int mipi_samsung_disp_off(struct platform_device *pdev)
 	mfd->resume_state = MIPI_SUSPEND_STATE;
 	mipi_samsung_disp_send_cmd(mfd, PANEL_OFF, false);
 
+#if defined(RUMTIME_MIPI_CLK_CHANGE)
+	if (mfd->panel_info.mipi.frame_rate != current_fps)
+		mipi_runtime_clk_change(mfd->panel_info.mipi.frame_rate);
+#endif
+
+#if defined(AUTO_BRIGHTNESS_CABC_FUNCTION)
+	is_disp_on = 0;
+#endif
+
 	return 0;
 }
 
 static void __devinit mipi_samsung_disp_shutdown(struct platform_device *pdev)
 {
 	static struct mipi_dsi_platform_data *mipi_dsi_pdata = NULL;
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
 	struct msm_fb_data_type *mfd = NULL;
-
+#endif
 	if (pdev->id != 0)
 		return;
-
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
 	mfd = platform_get_drvdata(msd.msm_pdev);
 	if (unlikely(!mfd))
 		return;
-
+#endif
 	mipi_dsi_pdata = pdev->dev.platform_data;
 	if (mipi_dsi_pdata == NULL) {
 		pr_err("LCD Power off failure: No Platform Data\n");
 		return;
 	}
-
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
 	mfd->resume_state = MIPI_SUSPEND_STATE;
 	mipi_samsung_disp_send_cmd(mfd, PANEL_OFF, false);
-
+#endif
 	if (mipi_dsi_pdata && mipi_dsi_pdata->active_reset)
 		mipi_dsi_pdata->active_reset(0); /* low */
 
 	usleep(2000); /*1ms delay(minimum) required between reset low and AVDD off*/
+
+#if defined(CONFIG_MACH_JACTIVE_EUR)
+	msleep ( 10 ); // need more delay for POWER OFF SIGNAL
+#endif
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->panel_power_save)
 		mipi_dsi_pdata->panel_power_save(0);
@@ -272,69 +467,12 @@ static void __devinit mipi_samsung_disp_shutdown(struct platform_device *pdev)
 		mipi_dsi_pdata->dsi_power_save(0);
 }
 
-#ifdef _USE_BACKLIGHT_IC_KTD3102
-spinlock_t bl_ctrl_lock;
-static int lcd_brightness = -1;
-#define DISP_BL_CONT_GPIO 7
-#define MAX_BRIGHTNESS_IN_BLU 32
-static void _ktd253_set_brightness(int level)
-{
-	int tune_level = 0;
-
-	spin_lock(&bl_ctrl_lock);
-	tune_level = level;
-
-	pr_debug("[KTD253] tune_level : %d, lcd_brightness : %d \n",tune_level,lcd_brightness);
-	if(tune_level != lcd_brightness)
-	{
-		if (!tune_level) {
-			gpio_set_value(DISP_BL_CONT_GPIO, 0);
-			mdelay(3);
-			lcd_brightness = tune_level;
-		} else {
-			int pulse;
-			if (unlikely(lcd_brightness < 0)) {
-				int val = gpio_get_value(DISP_BL_CONT_GPIO);
-				if (val) {
-					lcd_brightness = 0;
-				gpio_set_value(DISP_BL_CONT_GPIO, 0);
-				mdelay(3);
-					pr_info("LCD Baklight init in boot time on kernel\n");
-				}
-			}
-			if (!lcd_brightness) {
-				gpio_set_value(DISP_BL_CONT_GPIO, 1);
-				udelay(3);
-				lcd_brightness = 1;
-			}
-
-			pulse = (tune_level - lcd_brightness + MAX_BRIGHTNESS_IN_BLU)
-							% MAX_BRIGHTNESS_IN_BLU;
-
-			for (; pulse > 0; pulse--) {
-				gpio_set_value(DISP_BL_CONT_GPIO, 0);
-				udelay(3);
-				gpio_set_value(DISP_BL_CONT_GPIO, 1);
-				udelay(3);
-			}
-
-			lcd_brightness = tune_level;
-		}
-	}
-	mdelay(1);
-	spin_unlock(&bl_ctrl_lock);
-}
-#endif
-
 static void mipi_samsung_disp_backlight(struct msm_fb_data_type *mfd)
 {
-#ifdef _USE_BACKLIGHT_IC_KTD3102
-	_ktd253_set_brightness(msd.mpd->set_brightness_level(mfd->bl_level));
-#else
 	msd.mpd->backlight_control(mfd->bl_level);
 	mipi_samsung_disp_send_cmd(mfd, PANEL_BRIGHT_CTRL, true);
-#endif
 	pr_info("mipi_samsung_disp_backlight %d\n", mfd->bl_level);
+
 }
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
@@ -411,6 +549,7 @@ static ssize_t mipi_samsung_disp_set_power(struct device *dev,
 	if (power) {
 		mfd->fbi->fbops->fb_blank(FB_BLANK_UNBLANK, mfd->fbi);
 		mfd->fbi->fbops->fb_pan_display(&mfd->fbi->var, mfd->fbi);
+		mipi_samsung_disp_send_cmd(mfd, PANEL_LATE_ON, true);
 		mipi_samsung_disp_backlight(mfd);
 	} else {
 		mfd->fbi->fbops->fb_blank(FB_BLANK_POWERDOWN, mfd->fbi);
@@ -422,6 +561,50 @@ static ssize_t mipi_samsung_disp_set_power(struct device *dev,
 }
 #endif
 
+int mipi_samsung_cabc_onoff ( int enable )
+{
+	struct msm_fb_data_type *mfd = NULL;
+
+	mfd = platform_get_drvdata(msd.msm_pdev);
+
+	if (unlikely(!mfd))
+		return -ENODEV;
+	if (unlikely(mfd->key != MFD_KEY))
+		return -EINVAL;
+
+	if( is_disp_on == 1 )
+	{
+		if( enable )
+		{
+#if defined(CONFIG_MACH_JACTIVE_EUR) || defined (CONFIG_MACH_JACTIVE_ATT)
+			if( is_cabc_on() != false )
+			{
+#endif
+			mipi_samsung_disp_send_cmd(mfd, PANEL_CABC_ENABLE, false);
+			printk ( KERN_ERR "@@@@@%s-PANEL_CABC_ENABLE\n", __func__ );
+		}
+		else
+#if defined(CONFIG_MACH_JACTIVE_EUR) || defined (CONFIG_MACH_JACTIVE_ATT)
+				printk ( KERN_ERR "@@@@@%s-CABC KEYSTRING is OFF, so skip ENABLE\n", __func__ );
+		}
+		else
+		{
+			if( is_cabc_on() != true )
+#endif
+		{
+			mipi_samsung_disp_send_cmd(mfd, PANEL_CABC_DISABLE, false);
+			printk ( KERN_ERR "@@@@@%s-PANEL_CABC_DISABLE\n", __func__ );
+		}
+#if defined(CONFIG_MACH_JACTIVE_EUR) || defined (CONFIG_MACH_JACTIVE_ATT)
+			else
+				printk ( KERN_ERR "@@@@@%s-CABC KEYSTRING is ON, so skip DISABLE\n", __func__ );
+		}
+#endif
+	}
+
+	return 0;
+}
+
 static ssize_t mipi_samsung_disp_lcdtype_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -431,6 +614,74 @@ static ssize_t mipi_samsung_disp_lcdtype_show(struct device *dev,
 			msd.mpd->panel_name);
 	strlcat(buf, temp, 20);
 	return strnlen(buf, 20);
+}
+
+static ssize_t mipi_samsung_auto_brightness_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int rc;
+
+	rc = snprintf((char *)buf, sizeof(buf), "%d\n",
+			msd.dstat.auto_brightness);
+	pr_info("auot_brightness: %d\n", *buf);
+
+	return rc;
+}
+
+static ssize_t mipi_samsung_auto_brightness_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+#if defined(AUTO_BRIGHTNESS_CABC_FUNCTION)
+	struct msm_fb_data_type *mfd = NULL;
+
+	mfd = platform_get_drvdata(msd.msm_pdev);
+	if (unlikely(!mfd))
+		return -ENODEV;
+	if (unlikely(mfd->key != MFD_KEY))
+		return -EINVAL;
+
+	// 0, 5, 6     => CABC OFF
+	// 1, 2, 3, 4 => CABC ON
+	if (sysfs_streq(buf, "0"))
+		msd.dstat.auto_brightness = 0;
+	else if (sysfs_streq(buf, "1"))
+		msd.dstat.auto_brightness = 1;
+	else if (sysfs_streq(buf, "2"))
+		msd.dstat.auto_brightness = 2;
+	else if (sysfs_streq(buf, "3"))
+		msd.dstat.auto_brightness = 3;
+	else if (sysfs_streq(buf, "4"))
+		msd.dstat.auto_brightness = 4;
+	else if (sysfs_streq(buf, "5"))
+		msd.dstat.auto_brightness = 5;
+	else if (sysfs_streq(buf, "6"))
+		msd.dstat.auto_brightness = 6;
+	else
+		pr_info("%s: Invalid argument!!", __func__);
+
+	if( (msd.dstat.auto_brightness >= 1) && (msd.dstat.auto_brightness <= 4) )
+	{
+		if( is_disp_on == 1 )
+			mipi_samsung_cabc_onoff ( 1 );
+		else
+			is_cabc_delayed = 1;
+	}
+	else
+	{
+		if( msd.mpd->siop_status == false )
+			mipi_samsung_cabc_onoff ( 0 );
+	}
+
+#else
+	if (sysfs_streq(buf, "1"))
+		msd.dstat.auto_brightness = 1;
+	else if (sysfs_streq(buf, "0"))
+		msd.dstat.auto_brightness = 0;
+	else
+		pr_info("%s: Invalid argument!!", __func__);
+#endif
+
+	return size;
 }
 
 static ssize_t mipi_samsung_disp_backlight_show(struct device *dev,
@@ -462,7 +713,7 @@ static ssize_t mipi_samsung_disp_backlight_store(struct device *dev,
 		return -EINVAL;
 
 	mfd->bl_level = level;
-
+	
 	if (mfd->resume_state == MIPI_RESUME_STATE) {
 		mipi_samsung_disp_backlight(mfd);
 		pr_info("%s : level (%d)\n",__func__,level);
@@ -477,13 +728,122 @@ static struct lcd_ops mipi_samsung_disp_props = {
 	.set_power = NULL,
 };
 
+#if defined(RUMTIME_MIPI_CLK_CHANGE)
+static ssize_t mipi_samsung_fps_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int rc;
+
+	rc = snprintf((char *)buf, 20, "%d\n", current_fps);
+
+	return rc;
+}
+
+static ssize_t mipi_samsung_fps_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct msm_fb_data_type *mfd = NULL;
+	int goal_fps;
+	int level = atoi(buf);
+
+	mfd = platform_get_drvdata(msd.msm_pdev);
+	if (unlikely(!mfd))
+		return -ENODEV;
+	if (unlikely(mfd->key != MFD_KEY))
+		return -EINVAL;
+
+	if (mfd->panel_power_on == FALSE) {
+		pr_err("%s fps set error, panel power off 1", __func__);
+		return size;
+	}
+
+	if (level == 0)
+		goal_fps = 60;
+	else if (level == 1)
+		goal_fps = 42;
+	else if (level == 2)
+		goal_fps = 51;
+	else {
+		pr_info("%s fps set error : invalid level %d", __func__, level);
+		return size;
+	}
+
+	if (current_fps != goal_fps)
+		current_fps = goal_fps;
+	else
+		return size;
+
+	mutex_lock(&dsi_tx_mutex);
+
+	if (mfd->panel_power_on == FALSE) {
+		mutex_unlock(&dsi_tx_mutex);
+		pr_info("%s fps set error, panel power off 2", __func__);
+		return size;
+	} else {
+		mipi_runtime_clk_change(current_fps);
+		mutex_unlock(&dsi_tx_mutex);
+	}
+
+	pr_info("%s goal_fps : %d", __func__, goal_fps);
+
+	return size;
+}
+#endif
+
+static ssize_t mipi_samsung_disp_siop_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int rc;
+
+	rc = snprintf((char *)buf, sizeof(buf), "%d\n", msd.mpd->siop_status);
+	pr_info("siop status: %d\n", *buf);
+
+	return rc;
+}
+
+static ssize_t mipi_samsung_disp_siop_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	if (sysfs_streq(buf, "1"))
+	{
+		msd.mpd->siop_status = true;
+		mipi_samsung_cabc_onoff ( 1 );
+	}
+	else if (sysfs_streq(buf, "0"))
+	{
+		msd.mpd->siop_status = false;
+		if( msd.dstat.auto_brightness == false )
+			mipi_samsung_cabc_onoff ( 0 );
+	}
+	else {
+		pr_info("%s: Invalid argument!!", __func__);
+		return size;
+	}
+
+	pr_info("%s : auto_brightness (%d) siop_status (%d)",
+			__func__, msd.dstat.auto_brightness, msd.mpd->siop_status);
+
+	return size;
+}
+
 static DEVICE_ATTR(lcd_power, S_IRUGO | S_IWUSR,
 		mipi_samsung_disp_get_power,
 		mipi_samsung_disp_set_power);
 static DEVICE_ATTR(lcd_type, S_IRUGO, mipi_samsung_disp_lcdtype_show, NULL);
+static DEVICE_ATTR(auto_brightness, S_IRUGO | S_IWUSR | S_IWGRP,
+		mipi_samsung_auto_brightness_show,
+		mipi_samsung_auto_brightness_store);
 static DEVICE_ATTR(backlight, S_IRUGO | S_IWUSR | S_IWGRP,
 			mipi_samsung_disp_backlight_show,
 			mipi_samsung_disp_backlight_store);
+#if defined(RUMTIME_MIPI_CLK_CHANGE)
+static DEVICE_ATTR(fps_change, S_IRUGO | S_IWUSR | S_IWGRP,
+		mipi_samsung_fps_show,
+		mipi_samsung_fps_store);
+#endif
+static DEVICE_ATTR(siop_enable, S_IRUGO | S_IWUSR | S_IWGRP,
+		mipi_samsung_disp_siop_show,
+		mipi_samsung_disp_siop_store);
 
 #ifdef DDI_VIDEO_ENHANCE_TUNING
 #define MAX_FILE_NAME 128
@@ -495,6 +855,31 @@ static char tuning_file[MAX_FILE_NAME];
 static char mdni_tuning1[TUNE_FIRST_SIZE];
 static char mdni_tuning2[TUNE_SECOND_SIZE];
 
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
+static char level1_key_enable[] = {
+	0xF0,
+	0x5A, 0x5A,
+};
+
+static char level1_key_disable[] = {
+	0xF0,
+	0xA5, 0xA5,
+};
+
+static struct dsi_cmd_desc mdni_tune_cmd[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
+		sizeof(level1_key_enable), level1_key_enable},
+
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
+		sizeof(mdni_tuning1), mdni_tuning1},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
+		sizeof(mdni_tuning2), mdni_tuning2},
+
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
+		sizeof(level1_key_disable), level1_key_disable},
+};
+
+#else
 static char level1_key[] = {
 	0xF0,
 	0x5A, 0x5A,
@@ -516,7 +901,7 @@ static struct dsi_cmd_desc mdni_tune_cmd[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		sizeof(mdni_tuning2), mdni_tuning2},
 };
-
+#endif
 static char char_to_dec(char data1, char data2)
 {
 	char dec;
@@ -547,7 +932,6 @@ static char char_to_dec(char data1, char data2)
 
 	return dec;
 }
-
 static void sending_tune_cmd(char *src, int len)
 {
 	struct msm_fb_data_type *mfd = NULL;
@@ -662,6 +1046,7 @@ static void load_tuning_file(char *filename)
 	kfree(dp);
 }
 
+
 static ssize_t tuning_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
@@ -719,7 +1104,6 @@ static void err_fg_work_func(struct work_struct *work)
 	return;
 }
 #endif
-
 static int __devinit mipi_samsung_disp_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -731,15 +1115,21 @@ static int __devinit mipi_samsung_disp_probe(struct platform_device *pdev)
 
 	if (pdev->id == 0) {
 		msd.mipi_samsung_disp_pdata = pdev->dev.platform_data;
+
 		printk(KERN_INFO
 		"[lcd] pdev->id =%d,  pdev-name = %s\n", pdev->id, pdev->name);
+
 		printk(KERN_INFO "[lcd] mipi_samsung_disp_probe end since pdev-id is 0\n");
+
 		return 0;
 	}
 
 	printk(KERN_INFO "[lcd] msm_fb_add_device : %s\n", pdev->name);
+
 	msm_fb_added_dev = msm_fb_add_device(pdev);
+
 	mutex_init(&dsi_tx_mutex);
+
 #if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_LCD_CLASS_DEVICE)
 	msd.msm_pdev = msm_fb_added_dev;
 #endif
@@ -770,7 +1160,7 @@ static int __devinit mipi_samsung_disp_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	ret = request_threaded_irq(PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PMIC_GPIO_ERR_FG),
+	ret = request_threaded_irq(PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PMIC_GPIO_ERR_FG), 
 		NULL, err_fg_irq_handler,  IRQF_TRIGGER_RISING | IRQF_ONESHOT, "esd_detect", NULL);
 	if (ret) {
 		pr_err("%s : Failed to request_irq.:ret=%d", __func__, ret);
@@ -815,6 +1205,22 @@ static int __devinit mipi_samsung_disp_probe(struct platform_device *pdev)
 				dev_attr_backlight.attr.name);
 	}
 
+#if defined(RUMTIME_MIPI_CLK_CHANGE)
+	ret = sysfs_create_file(&lcd_device->dev.kobj,
+			&dev_attr_fps_change.attr);
+	if (ret) {
+		pr_info("sysfs create fail-%s\n",
+				dev_attr_fps_change.attr.name);
+	}
+#endif
+
+	ret = sysfs_create_file(&lcd_device->dev.kobj,
+					&dev_attr_siop_enable.attr);
+	if (ret) {
+		pr_info("sysfs create fail-%s\n",
+				dev_attr_siop_enable.attr.name);
+	}
+
 	printk(KERN_INFO "[lcd] backlight_device_register for panel start\n");
 
 	bd = backlight_device_register("panel", &lcd_device->dev,
@@ -823,6 +1229,13 @@ static int __devinit mipi_samsung_disp_probe(struct platform_device *pdev)
 		ret = PTR_ERR(bd);
 		pr_info("backlight : failed to register device\n");
 		return ret;
+	}
+
+	ret = sysfs_create_file(&bd->dev.kobj,
+			&dev_attr_auto_brightness.attr);
+	if (ret) {
+		pr_info("sysfs create fail-%s\n",
+				dev_attr_auto_brightness.attr.name);
 	}
 #endif
 
@@ -842,7 +1255,9 @@ static int __devinit mipi_samsung_disp_probe(struct platform_device *pdev)
 				dev_attr_tuning.attr.name);
 	}
 #endif
+
 	printk(KERN_INFO "[lcd] mipi_samsung_disp_probe end\n");
+
 	return 0;
 }
 
@@ -855,17 +1270,21 @@ static struct platform_driver this_driver = {
 };
 
 static struct msm_fb_panel_data samsung_panel_data = {
+#if defined(CONFIG_MACH_JACTIVE_ATT) || defined(CONFIG_MACH_JACTIVE_EUR)
+	.late_init = mipi_samsung_disp_on_in_video_engine,
+#endif
 	.on		= mipi_samsung_disp_on,
 	.off		= mipi_samsung_disp_off,
 	.set_backlight	= mipi_samsung_disp_backlight,
 };
+
+static int ch_used[3];
 
 int mipi_samsung_tft_device_register(struct msm_panel_info *pinfo,
 		u32 channel, u32 panel,
 		struct mipi_panel_data *mpd)
 {
 	struct platform_device *pdev = NULL;
-	static int ch_used[3];
 	int ret = 0;
 
 	printk(KERN_INFO "[lcd] mipi_samsung_device_register start\n");
@@ -881,16 +1300,13 @@ int mipi_samsung_tft_device_register(struct msm_panel_info *pinfo,
 		return -ENOMEM;
 
 	samsung_panel_data.panel_info = *pinfo;
-
 	msd.mpd = mpd;
 	if (!msd.mpd) {
 		printk(KERN_ERR
 			"%s: get mipi_panel_data failed!\n", __func__);
 		goto err_device_put;
 	}
-
 	mpd->msd = &msd;
-
 	ret = platform_device_add_data(pdev, &samsung_panel_data,
 			sizeof(samsung_panel_data));
 	if (ret) {
@@ -907,6 +1323,7 @@ int mipi_samsung_tft_device_register(struct msm_panel_info *pinfo,
 	}
 
 	printk(KERN_INFO "[lcd] mipi_samsung_device_register end\n");
+
 	return ret;
 
 err_device_put:
@@ -926,6 +1343,7 @@ static int __init lcd_attached_status(char *mode)
 	*	1 is lcd attached
 	*	0 is lcd detached
 	*/
+
 	if (strncmp(mode, "1", 1) == 0)
 		lcd_attached = 1;
 	else
@@ -947,4 +1365,3 @@ static int __init mipi_samsung_disp_init(void)
 	return platform_driver_register(&this_driver);
 }
 module_init(mipi_samsung_disp_init);
-

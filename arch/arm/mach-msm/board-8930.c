@@ -297,6 +297,8 @@ static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
 	msm8930_reserve_table[MEMTYPE_EBI1].size += msm8930_rtb_pdata.size;
+	pr_info("mem_map: rtb reserved with size 0x%x in pool\n",
+			msm8930_rtb_pdata.size);
 #endif
 }
 
@@ -329,6 +331,8 @@ static void __init reserve_pmem_memory(void)
 	reserve_memory_for(&android_pmem_audio_pdata);
 #endif /*CONFIG_MSM_MULTIMEDIA_USE_ION*/
 	msm8930_reserve_table[MEMTYPE_EBI1].size += msm_contig_mem_size;
+	pr_info("mem_map: contig_mem reserved with size 0x%x in pool\n",
+			msm_contig_mem_size);
 #endif /*CONFIG_ANDROID_PMEM*/
 }
 
@@ -518,6 +522,9 @@ static void __init msm8930_reserve_fixed_area(unsigned long fixed_area_size)
 
 	ret = memblock_remove(reserve_info->fixed_area_start,
 		reserve_info->fixed_area_size);
+	pr_info("mem_map: fixed_area reserved at 0x%lx with size 0x%lx\n",
+			reserve_info->fixed_area_start,
+			reserve_info->fixed_area_size);
 	BUG_ON(ret);
 #endif
 }
@@ -586,7 +593,7 @@ static void __init reserve_ion_memory(void)
 
 			if (fixed_position != NOT_FIXED)
 				fixed_size += heap->size;
-			else
+			else if (!use_cma)
 				reserve_mem_for_ion(MEMTYPE_EBI1, heap->size);
 
 			if (fixed_position == FIXED_LOW) {
@@ -628,6 +635,9 @@ static void __init reserve_ion_memory(void)
 		BUG_ON(!IS_ALIGNED(fixed_low_size + HOLE_SIZE, SECTION_SIZE));
 		ret = memblock_remove(fixed_low_start,
 				      fixed_low_size + HOLE_SIZE);
+		pr_info("mem_map: fixed_low_area reserved at 0x%lx with size \
+				0x%x\n", fixed_low_start,
+				fixed_low_size + HOLE_SIZE);
 		BUG_ON(ret);
 	}
 
@@ -638,6 +648,9 @@ static void __init reserve_ion_memory(void)
 	} else {
 		BUG_ON(!IS_ALIGNED(fixed_middle_size, SECTION_SIZE));
 		ret = memblock_remove(fixed_middle_start, fixed_middle_size);
+		pr_info("mem_map: fixed_middle_area reserved at 0x%lx with \
+				size 0x%x\n", fixed_middle_start,
+				fixed_middle_size);
 		BUG_ON(ret);
 	}
 
@@ -649,6 +662,9 @@ static void __init reserve_ion_memory(void)
 		/* This is the end of the fixed area so it's okay to round up */
 		fixed_high_size = ALIGN(fixed_high_size, SECTION_SIZE);
 		ret = memblock_remove(fixed_high_start, fixed_high_size);
+		pr_info("mem_map: fixed_high_area reserved at 0x%lx with size \
+				0x%x\n", fixed_high_start,
+				fixed_high_size);
 		BUG_ON(ret);
 	}
 
@@ -701,26 +717,6 @@ static void __init reserve_ion_memory(void)
 #endif
 }
 
-static void ion_adjust_secure_allocation(void){
-	int i;
-
-	for (i = 0; i < msm8960_ion_pdata.nr; i++) {
-		struct ion_platform_heap *heap =
-			&(msm8960_ion_pdata.heaps[i]);
-
-		if (heap->extra_data) {
-			switch ((int) heap->type) {
-			case ION_HEAP_TYPE_CP:
-				if (cpu_is_msm8960()) {
-					((struct ion_cp_heap_pdata *)
-						heap->extra_data)->no_nonsecure_alloc =
-						0;
-				}
-			}
-		}
-	}
-}
-
 static void __init reserve_mdp_memory(void)
 {
 	msm8930_mdp_writeback(msm8930_reserve_table);
@@ -734,6 +730,8 @@ static void __init reserve_cache_dump_memory(void)
 	total = msm8930_cache_dump_pdata.l1_size +
 		msm8930_cache_dump_pdata.l2_size;
 	msm8930_reserve_table[MEMTYPE_EBI1].size += total;
+	pr_info("mem_map: cache_dump reserved with size 0x%x in pool\n",
+			total);
 }
 #else
 static void __init reserve_cache_dump_memory(void) { }
@@ -1324,6 +1322,7 @@ static struct mdm_platform_data sglte_platform_data = {
 	.ramdump_timeout_ms = 600000,
 	.no_powerdown_after_ramdumps = 1,
 	.image_upgrade_supported = 1,
+	.subsys_name = "external_modem",
 };
 
 static struct platform_device *mdm_devices[] __initdata = {
@@ -1852,12 +1851,6 @@ fail_gpio_req:
 
 static struct isa1200_regulator isa1200_reg_data[] = {
 	{
-		.name = "vddp",
-		.min_uV = ISA_I2C_VTG_MIN_UV,
-		.max_uV = ISA_I2C_VTG_MAX_UV,
-		.load_uA = ISA_I2C_CURR_UA,
-	},
-	{
 		.name = "vcc_i2c",
 		.min_uV = ISA_I2C_VTG_MIN_UV,
 		.max_uV = ISA_I2C_VTG_MAX_UV,
@@ -2102,6 +2095,7 @@ static struct synaptics_rmi4_platform_data rmi4_platformdata = {
 	.regulator_en = true,
 	.i2c_pull_up = true,
 	.capacitance_button_map = &synaptic_rmi4_button_map,
+	.fw_image_name = "PR1237913.img",
 };
 
 static struct i2c_board_info rmi4_i2c_devices[] = {
@@ -2395,7 +2389,6 @@ static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 static struct platform_device *early_common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
-	&msm8960_device_uart_gsbi5,
 	&msm_device_uart_dm6,
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
@@ -2504,6 +2497,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_tsens_device,
 	&msm8930_cache_dump_device,
 	&msm8930_pc_cntr,
+	&msm8930_cpu_slp_status,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
@@ -2542,10 +2536,30 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_pcm_hostless,
 	&msm_multi_ch_pcm,
 	&msm_lowlatency_pcm,
+	&msm_fm_loopback,
 };
+
+#define GSBI_DUAL_MODE_CODE	0x60
+#define MSM_GSBI10_PHYS		0x1A200000
 
 static void __init msm8930_i2c_init(void)
 {
+	int minor_ver = SOCINFO_VERSION_MINOR(socinfo_get_platform_version());
+	int major_ver = SOCINFO_VERSION_MAJOR(socinfo_get_platform_version());
+	void __iomem *gsbi_mem;
+
+	if (machine_is_msm8930_evt() &&
+		(socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)) {
+		if (major_ver == 1 && minor_ver == 0) {
+			gsbi_mem = ioremap_nocache(MSM_GSBI10_PHYS, 4);
+			writel_relaxed(GSBI_DUAL_MODE_CODE, gsbi_mem);
+			/* Ensure protocol code is written before proceeding */
+			wmb();
+			iounmap(gsbi_mem);
+			msm8960_i2c_qup_gsbi10_pdata.use_gsbi_shared_mode = 1;
+		}
+	}
+
 	msm8960_device_qup_i2c_gsbi4.dev.platform_data =
 					&msm8960_i2c_qup_gsbi4_pdata;
 
@@ -2982,9 +2996,12 @@ static struct msm_serial_hs_platform_data msm_uart_dm9_pdata = {
 static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
 #endif
 
+
 static void __init msm8930_cdp_init(void)
 {
 	int i, reg_size = 0;
+	int minor_ver = SOCINFO_VERSION_MINOR(socinfo_get_platform_version());
+	int major_ver = SOCINFO_VERSION_MAJOR(socinfo_get_platform_version());
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		msm8930_pm8917_pdata_fixup();
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
@@ -3000,6 +3017,14 @@ static void __init msm8930_cdp_init(void)
 		BUG_ON(msm_rpm_init(&msm8930_rpm_data_pm8917));
 		BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data_pm8917));
 	}
+
+	/*
+	 * Configure LDO L17 as away on only for EVT1,
+	 * because it is the power source for a set of
+	 * MSM gpios on 8930 SGLTE EVT1.
+	 */
+	if (machine_is_msm8930_evt() && major_ver == 1 && minor_ver == 0)
+		configure_8930_sglte_regulator();
 
 	regulator_suppress_info_printing();
 	if (msm_xo_init())
@@ -3037,6 +3062,21 @@ static void __init msm8930_cdp_init(void)
 		msm_device_uart_dm9.dev.platform_data = &msm_uart_dm9_pdata;
 #endif
 		platform_device_register(&msm_device_uart_dm9);
+
+		/* For 8930 SGLTE serial console */
+		if (major_ver == 1) {
+			if (minor_ver == 0)
+				/* Add UART Serial for EVT1 device */
+				platform_device_register(
+					&msm8930_device_uart_gsbi10);
+			else if (minor_ver == 1)
+				/* Add UART Serial for EVT2 device */
+				platform_device_register(
+					&msm8930_device_uart_gsbi11);
+		}
+	} else {
+		/* For 8930 Standalone serial console */
+		platform_device_register(&msm8960_device_uart_gsbi5);
 	}
 
 	msm_otg_pdata.phy_init_seq = hsusb_phy_init_seq;
@@ -3098,8 +3138,17 @@ static void __init msm8930_cdp_init(void)
 	else
 		platform_add_devices(pmic_pm8917_devices,
 					ARRAY_SIZE(pmic_pm8917_devices));
-	if(machine_is_msm8930_evt())
-                qcom_wcnss_pdata.has_48mhz_xo = 0;
+
+	if (machine_is_msm8930_evt()) {
+	        /* It is QRD Device, clock should be set appropraitely */
+		if ((SOCINFO_VERSION_MAJOR(socinfo_get_platform_version()) == 1)
+		&& (SOCINFO_VERSION_MINOR(socinfo_get_platform_version()) == 1))
+			/* For evt2a, which supports 48 MHz */
+			qcom_wcnss_pdata.has_48mhz_xo = 1;
+		else
+			/* Assuming all other versions do not support 48MHz */
+			qcom_wcnss_pdata.has_48mhz_xo = 0;
+	}
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	if (machine_is_msm8930_evt() &&
 		(socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)) {
@@ -3168,7 +3217,6 @@ static void __init msm8930_cdp_init(void)
 
 	if (PLATFORM_IS_CHARM25())
 		platform_add_devices(mdm_devices, ARRAY_SIZE(mdm_devices));
-	ion_adjust_secure_allocation();
 }
 
 MACHINE_START(MSM8930_CDP, "QCT MSM8930 CDP")

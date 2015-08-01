@@ -56,16 +56,16 @@ static void bq24157_set_command(struct i2c_client *client,
 	u8 data = 0;
 	val = bq24157_i2c_read(client, reg, &data);
 	if (val >= 0) {
-//		dev_dbg(&client->dev, "%s : reg(0x%02x): 0x%02x(0x%02x)",
-//			__func__, reg, data, datum);
+		dev_dbg(&client->dev, "%s : reg(0x%02x): 0x%02x(0x%02x)",
+			__func__, reg, data, datum);
 		if (data != datum) {
 			data = datum;
 			if (bq24157_i2c_write(client, reg, &data) < 0)
-//				dev_err(&client->dev,
-//					"%s : error!\n", __func__);
+				dev_err(&client->dev,
+					"%s : error!\n", __func__);
 			val = bq24157_i2c_read(client, reg, &data);
-//			if (val >= 0)
-//				dev_dbg(&client->dev, " => 0x%02x\n", data);
+			if (val >= 0)
+				dev_dbg(&client->dev, " => 0x%02x\n", data);
 		}
 	}
 }
@@ -223,10 +223,8 @@ static void bq24157_charger_function_conrol(
 				struct i2c_client *client)
 {
 	struct sec_charger_info *charger = i2c_get_clientdata(client);
-#if 0 //montest
 	union power_supply_propval val;
 	int full_check_type;
-#endif 			
 	u8 data;
 
 	if (charger->charging_current < 0) {
@@ -285,7 +283,6 @@ static void bq24157_charger_function_conrol(
 		bq24157_i2c_read(client, BQ24157_CONTROL, &data);
 		/* Enable charging */
 		data &= 0xfb;
-#if 0 //montest
 		psy_do_property("battery", get,
 			POWER_SUPPLY_PROP_CHARGE_NOW, val);
 		if (val.intval == SEC_BATTERY_CHARGING_1ST)
@@ -300,22 +297,21 @@ static void bq24157_charger_function_conrol(
 			/* Enable Current Termination */
 			data |= 0x08;
 			break;
+#if !defined(CONFIG_MACH_COMANCHE)
 		case SEC_BATTERY_FULLCHARGED_ADC:
 		case SEC_BATTERY_FULLCHARGED_ADC_DUAL:
 		case SEC_BATTERY_FULLCHARGED_FG_CURRENT:
 		case SEC_BATTERY_FULLCHARGED_FG_CURRENT_DUAL:
+#else
+		default:
+#endif
 			break;
-		
 
 		}
-#endif 			
 		bq24157_set_command(client,
 			BQ24157_CONTROL, data);
 	}
 }
-
-
-
 
 static void bq24157_charger_otg_conrol(
 				struct i2c_client *client)
@@ -342,22 +338,7 @@ static void bq24157_charger_otg_conrol(
 }
 
 bool sec_hal_chg_init(struct i2c_client *client)
-{
-	u8 data=0;
-
-
-	bq24157_test_read(client);
-	/* Input current limit */
-//	bq24260S_i2c_read(client, BQ24260S_CONTROL, &data);
-
-	data = 0x3C; // input current limit 1950mA
-	bq24157_set_command(client,BQ24157_CONTROL, data);
-
-	data = 0xA8;  //4//4.34
-	bq24157_set_command(client,BQ24157_VOLTAGE, data);
-
-	data = 0x4A;   //700mA
-	bq24157_set_command(client,BQ24157_CURRENT, data);
+{
 	bq24157_test_read(client);
 	return true;
 }
@@ -395,8 +376,6 @@ bool sec_hal_chg_get_property(struct i2c_client *client,
 		dev_dbg(&client->dev,
 			"%s : set-current(%dmA), current now(%dmA)\n",
 			__func__, charger->charging_current, val->intval);
-		bq24157_test_read(client);
-		
 		break;
 	default:
 		return false;

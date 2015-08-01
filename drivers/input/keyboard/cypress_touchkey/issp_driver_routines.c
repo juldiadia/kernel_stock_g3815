@@ -39,7 +39,7 @@
 #include "issp_extern.h"
 #define _CYPRESS_TKEY_FW_H
 #include "cypress_tkey_fw.h"
-#include <linux/i2c/cypress_touchkey.h>
+#include <linux/i2c/cypress_touchkey_234.h>
 #define SECURITY_DATA	0xFF
 
 #define SCLK_PIN    0x20   /* p2_5 */

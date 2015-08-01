@@ -575,7 +575,7 @@ static void mpu6500_input_report_fifo_data(struct mpu6500_input_data *data)
 		if (((event >> 16) & 0xff) & INT_SRC_DISPLAY_ORIENT) {
 			u8 so_data = ((DMP_MASK_DIS_ORIEN & (event & 0xff)) >>
 				      DMP_DIS_ORIEN_SHIFT);
-			u8 so_event;
+			u8 so_event = 0;
 			printk(KERN_INFO "DISPLAY_ORIENTATION : %d\n", so_data);
 
 			if (so_data == 0) /* 0 degree */
@@ -1579,7 +1579,7 @@ static ssize_t mpu6500_input_gyro_self_test_show(struct device *dev,
 	struct mpu6500_input_data *data = input_get_drvdata(input_data);
 
 	int scaled_gyro_bias[3] = { 0 };	//absolute gyro bias scaled by 1000 times. (gyro_bias x 1000)
-	int scaled_gyro_rms[3] = { 0 };	//absolute gyro rms scaled by 1000 times. (gyro_bias x 1000)      
+	int scaled_gyro_rms[3] = { 0 };	//absolute gyro rms scaled by 1000 times. (gyro_bias x 1000)
 	int packet_count[3] = { 0 };
 	int result;
 
@@ -1844,6 +1844,8 @@ static ssize_t mpu6500_input_reactive_enable_show(struct device *dev,
 					struct device_attribute
 						*attr, char *buf)
 {
+	pr_info("%s: state =%d\n", __func__,
+		atomic_read(&gb_mpu_data->reactive_state));
 	return sprintf(buf, "%d\n",
 		atomic_read(&gb_mpu_data->reactive_state));
 }
@@ -2373,7 +2375,7 @@ static int __devinit mpu6500_input_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&data->gyro_work, mpu6500_work_func_gyro);
 #endif
 
-	wake_lock_init(&data->reactive_wake_lock, WAKE_LOCK_SUSPEND, 
+	wake_lock_init(&data->reactive_wake_lock, WAKE_LOCK_SUSPEND,
 		"reactive_wake_lock");
 
 	if (client->irq > 0) {
@@ -2460,8 +2462,6 @@ static int mpu6500_input_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mpu6500_input_data *data = i2c_get_clientdata(client);
 
-	pr_info("[SENSOR - %s] called \n", __func__);
-
 #ifdef CONFIG_INPUT_MPU6500_POLLING
 		if (atomic_read(&data->accel_enable))
 			cancel_delayed_work_sync(&data->accel_work);
@@ -2492,8 +2492,6 @@ static int mpu6500_input_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mpu6500_input_data *data = i2c_get_clientdata(client);
-
-	pr_info("[SENSOR - %s] called \n", __func__);
 
 	if (client == NULL)
 		return 0;

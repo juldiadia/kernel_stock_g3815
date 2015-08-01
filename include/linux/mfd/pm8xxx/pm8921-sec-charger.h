@@ -10,9 +10,12 @@
 
 #ifndef __PM8XXX_SEC_CHARGER_H
 #define __PM8XXX_SEC_CHARGER_H
-#if defined(CONFIG_MACH_MELIUS) || defined(CONFIG_MACH_KS02) || \
-	defined(CONFIG_CHARGER_MAX77XXX)
+#if defined(CONFIG_CHARGER_MAX77XXX)
+#if defined(CONFIG_SEC_PRODUCT_8930)
+#include <linux/battery/sec_battery_8930.h>
+#else
 #include <linux/battery/sec_battery.h> 
+#endif
 #endif
 
 /*******************************************
@@ -21,17 +24,58 @@
 #undef QUALCOMM_TEMPERATURE_CONTROL
 #undef QUALCOMM_POWERSUPPLY_PROPERTY
 
+/*******************************************
+** Other definition
+*******************************************/
+#if defined(CONFIG_BATTERY_MAX17040) || \
+	defined(CONFIG_BATTERY_MAX17042)
+#define RCOMP0_TEMP	20	/* 'C */
+
+#define FG_T_SOC	0
+#define FG_T_VCELL	1
+#define FG_T_PSOC	2
+#define FG_T_RCOMP	3
+#define FG_T_FSOC	4
+#define FG_RESET	5
+#endif
+
+#if !defined(CONFIG_SEC_PRODUCT_8930)
+enum cable_type_t {
+	CABLE_TYPE_NONE = 0,
+	CABLE_TYPE_USB,
+	CABLE_TYPE_AC,
+	CABLE_TYPE_MISC,
+	CABLE_TYPE_CARDOCK,
+	CABLE_TYPE_UARTOFF,
+	CABLE_TYPE_JIG,
+	CABLE_TYPE_UNKNOWN,
+	CABLE_TYPE_CDP,
+	CABLE_TYPE_SMART_DOCK,
+	CABLE_TYPE_CHARGING_CABLE,
+#ifdef CONFIG_WIRELESS_CHARGING
+	CABLE_TYPE_WPC = 10,
+#endif
+};
+#endif
+
 #define VUBS_IN_CURR_NONE	2
 #define VBUS_IN_CURR_USB	500
 #define BATT_IN_CURR_USB	475
-#define	VBUS_IN_CURR_TA		900
-#define	BATT_IN_CURR_TA		825
+#define	VBUS_IN_CURR_TA		1100
+#define	BATT_IN_CURR_TA		1025
 #ifdef CONFIG_WIRELESS_CHARGING
 #define VBUS_IN_CURR_WPC	700
 #define BATT_IN_CURR_WPC	675
 #endif
 
+#if defined(CONFIG_SEC_PRODUCT_8930)
+#ifdef CONFIG_PM8921_SEC_CHARGER
 #define TEMP_GPIO	PM8XXX_AMUX_MPP_3
+#else
+#define TEMP_GPIO	PM8XXX_AMUX_MPP_7
+#endif
+#endif
+
 #define TEMP_ADC_CHNNEL	ADC_MPP_1_AMUX6
 
 static const int temper_table[][2] = {
@@ -137,11 +181,6 @@ struct pm8921_irq {
 	int vcp;
 	int bat_temp_ok;
 };
-/*
-static char *supply_list[] = {
-	"battery",
-};
-*/
 
 #if !defined(CONFIG_MACH_MELIUS) && !defined(CONFIG_MACH_KS02) && \
 	!defined(CONFIG_CHARGER_MAX77XXX)
@@ -193,61 +232,10 @@ ssize_t sec_fg_store_attrs(struct device *dev,
 #define EVENT_LTE				(0x1 << 11)
 #endif
 
-/* moved to pm8921-sec-attrs.h file
-static struct device_attribute sec_fuelgauge_attrs[] = {
-	SEC_FUELGAUGE_ATTR(fg_curr_ua),
-};
-*/
-
 enum {
 	FG_CURR_UA = 0,
 };
 
-/* moved to pm8921-sec-attrs.h file
-static struct device_attribute sec_battery_attrs[] = {
-	SEC_BATTERY_ATTR(batt_reset_soc),
-	SEC_BATTERY_ATTR(batt_read_raw_soc),
-	SEC_BATTERY_ATTR(batt_read_adj_soc),
-	SEC_BATTERY_ATTR(batt_type),
-	SEC_BATTERY_ATTR(batt_vfocv),
-	SEC_BATTERY_ATTR(batt_vol_adc),
-	SEC_BATTERY_ATTR(batt_vol_adc_cal),
-	SEC_BATTERY_ATTR(batt_vol_aver),
-	SEC_BATTERY_ATTR(batt_vol_adc_aver),
-	SEC_BATTERY_ATTR(batt_temp_adc),
-	SEC_BATTERY_ATTR(batt_temp_aver),
-	SEC_BATTERY_ATTR(batt_temp_adc_aver),
-	SEC_BATTERY_ATTR(batt_vf_adc),
-
-	SEC_BATTERY_ATTR(batt_lp_charging),
-	SEC_BATTERY_ATTR(siop_activated),
-	SEC_BATTERY_ATTR(siop_level),
-	SEC_BATTERY_ATTR(batt_charging_source),
-	SEC_BATTERY_ATTR(fg_reg_dump),
-	SEC_BATTERY_ATTR(fg_reset_cap),
-	SEC_BATTERY_ATTR(fg_capacity),
-	SEC_BATTERY_ATTR(auth),
-	SEC_BATTERY_ATTR(chg_current_adc),
-	SEC_BATTERY_ATTR(wc_adc),
-	SEC_BATTERY_ATTR(wc_status),
-	SEC_BATTERY_ATTR(factory_mode),
-	SEC_BATTERY_ATTR(update),
-	SEC_BATTERY_ATTR(test_mode),
-
-	SEC_BATTERY_ATTR(talk_gsm),
-	SEC_BATTERY_ATTR(talk_wcdma),
-	SEC_BATTERY_ATTR(music),
-	SEC_BATTERY_ATTR(video),
-	SEC_BATTERY_ATTR(browser),
-	SEC_BATTERY_ATTR(hotspot),
-	SEC_BATTERY_ATTR(camera),
-	SEC_BATTERY_ATTR(data_call),
-	SEC_BATTERY_ATTR(wifi),
-	SEC_BATTERY_ATTR(lte),
-	SEC_BATTERY_ATTR(event),
-	SEC_BATTERY_ATTR(batt_slate_mode),
-};
-*/
 
 #if !defined(CONFIG_MACH_MELIUS) && !defined(CONFIG_MACH_KS02) && \
 	!defined(CONFIG_CHARGER_MAX77XXX)

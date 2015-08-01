@@ -44,4 +44,3 @@ void msm_gpiomux_read(unsigned gpio, struct gpiomux_setting *val)
 		val->dir = readl_relaxed(GPIO_IN_OUT(gpio)) & BIT_MASK(1) ?
 			GPIOMUX_OUT_HIGH : GPIOMUX_OUT_LOW;
 }
-

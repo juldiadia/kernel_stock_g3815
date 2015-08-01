@@ -1609,9 +1609,7 @@ static void clear_report_data(struct bt532_ts_info *info)
 			info->button[i] = ICON_BUTTON_UP;
 			input_report_key(info->input_dev, BUTTON_MAPPING_KEY[i], 0);
 			reported = true;
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 			dev_info(&client->dev, "Button up = %d\n", i);
-#endif
 		}
 	}
 
@@ -1744,9 +1742,7 @@ static irqreturn_t bt532_touch_irq_handler(int irq, void *data)
 									(BIT_O_ICON0_DOWN + i))) {
 				info->button[i] = ICON_BUTTON_DOWN;
 				input_report_key(info->input_dev, BUTTON_MAPPING_KEY[i], 1);
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 				dev_info(&client->dev, "Button down = %d\n", i);
-#endif
 			}
 		}
 
@@ -1755,9 +1751,7 @@ static irqreturn_t bt532_touch_irq_handler(int irq, void *data)
 									(BIT_O_ICON0_UP + i))) {
 				info->button[i] = ICON_BUTTON_UP;
 				input_report_key(info->input_dev, BUTTON_MAPPING_KEY[i], 0);
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 				dev_info(&client->dev, "Button up = %d\n", i);
-#endif
 			}
 		}
 
@@ -1801,7 +1795,7 @@ static irqreturn_t bt532_touch_irq_handler(int irq, void *data)
 			}
 
 			if (x > maxX || y > maxY) {
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
+#if defined(CONFIG_USE_INPUTLOCATION_FOR_ENG)
 				dev_err(&client->dev,
 							"Invalid coord %d : x=%d, y=%d\n", i, x, y);
 #endif
@@ -1852,7 +1846,7 @@ static irqreturn_t bt532_touch_irq_handler(int irq, void *data)
 			input_report_abs(info->input_dev, ABS_MT_POSITION_Y, y);
 
 			if (zinitix_bit_test(sub_status, SUB_BIT_DOWN)) {
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
+#if defined(CONFIG_USE_INPUTLOCATION_FOR_ENG)
 				dev_info(&client->dev, "Finger [%02d] x = %d, y = %d,"
 							" w = %d\n", i, x, y, w);
 #else

@@ -216,17 +216,21 @@ struct msm_otg_platform_data {
 	unsigned int mpm_otgsessvld_int;
 	bool mhl_enable;
 	bool disable_reset_on_disconnect;
+	bool enable_lpm_on_dev_suspend;
+	bool core_clk_always_on_workaround;
+	struct msm_bus_scale_pdata *bus_scale_table;
 #ifdef CONFIG_USB_HOST_NOTIFY
 	int otg_power_gpio;
 	int otg_test_gpio;
 	int ovp_ctrl_gpio;
+	int otg_power_irq;
 #endif
-	bool enable_lpm_on_dev_suspend;
-	bool core_clk_always_on_workaround;
-	struct msm_bus_scale_pdata *bus_scale_table;
+#if defined(CONFIG_SEC_PRODUCT_8960)
+    bool smb347s;
+#endif
 	const char *mhl_dev_name;
-#ifdef CONFIG_TSU6721_CDP_FIX
-	int (*get_usb_state)(int data);
+#ifdef CONFIG_USB_SWITCH_TSU6721
+        int (*get_usb_state)(int data);
 #endif
 };
 
@@ -352,11 +356,11 @@ struct msm_otg {
 	struct host_notify_dev ndev;
 	struct work_struct notify_work;
 	unsigned notify_state;
-	struct work_struct otg_power_work;
 	struct delayed_work late_power_work;
-	struct timer_list sm_work_timer;
-	int smartdock;
+	struct work_struct otg_power_work;
+	bool init_state;
 #endif
+	bool smartdock;
 	bool disable_peripheral;
 	struct msm_xo_voter *xo_handle;
 	uint32_t bus_perf_client;
@@ -485,8 +489,5 @@ static inline int msm_ep_unconfig(struct usb_ep *ep)
 {
 	return -ENODEV;
 }
-#endif
-#ifdef CONFIG_USB_SWITCH_TSU6721
-int msm_otg_get_usb_state(int data);
 #endif
 #endif

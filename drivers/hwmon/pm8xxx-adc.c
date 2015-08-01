@@ -465,12 +465,13 @@ static uint32_t pm8xxx_adc_read_adc_code(int32_t *data)
 	return 0;
 }
 
-#define CHG_CNTRL_2					0x212
+
+#define CHG_CNTRL_2				0x212
 #define EN_BATT_THERM_MASK1			0xEF
 #define EN_BATT_THERM_MASK2			0x10
 int pm8921_enable_batt_therm(u8 en)
 {
-	int rc;
+	int rc = 0;
 	u8 reg;
 	struct pm8xxx_adc *adc_pmic = pmic_adc;
 
@@ -495,9 +496,9 @@ int pm8921_enable_batt_therm(u8 en)
 			CHG_CNTRL_2, rc);
 		return rc;
 	}
-	return rc;
 
-}
+	return rc;
+} 
 
 static void pm8xxx_adc_btm_warm_scheduler_fn(struct work_struct *work)
 {
@@ -765,13 +766,12 @@ uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
 		adc_pmic->conv->amux_channel = channel %
 				PM8XXX_CHANNEL_MPP_SCALE3_IDX;
 	}
-#ifdef CONFIG_SAMSUNG_JACK
+
 	if (channel == ADC_MPP_1_AMUX6_SCALE_DEFAULT) {
 		mpp_scale = PREMUX_MPP_SCALE_1;
 		adc_pmic->conv->amux_channel =
-			 ADC_MPP_1_AMUX6 % PM8XXX_CHANNEL_MPP_SCALE1_IDX;
+		ADC_MPP_1_AMUX6 % PM8XXX_CHANNEL_MPP_SCALE1_IDX;
 	}
-#endif
 
 	adc_pmic->conv->amux_mpp_channel = mpp_scale;
 	adc_pmic->conv->amux_ip_rsv = adc_pmic->adc_channel[i].adc_rsv;
@@ -863,12 +863,14 @@ uint32_t pm8xxx_adc_mpp_config_read(uint32_t mpp_num,
 		pr_info("PM8xxx MPP base invalid with error %d\n", rc);
 		return rc;
 	}
+
 	if (mpp_num == PM8XXX_AMUX_MPP_8) {
 		rc = -EINVAL;
 		pr_info("PM8xxx MPP8 is already configured "
 			"to AMUX8. Use pm8xxx_adc_read() instead.\n");
 		return rc;
 	}
+
 	mutex_lock(&adc_pmic->mpp_adc_lock);
 
 	rc = pm8xxx_mpp_config(((mpp_num - 1) + adc_pmic->mpp_base),

@@ -19,11 +19,10 @@
 #ifndef _MDNIE_LITE_TUNING_H_
 #define _MDNIE_LITE_TUNING_H_
 
-#if defined (CONFIG_FB_MSM_MIPI_HIMAX_TFT_VIDEO_WVGA_PT) || defined(CONFIG_FB_MSM_MIPI_HX8389B_VIDEO_QHD_PT_PANEL) \
-	 || defined(CONFIG_FB_MSM_MIPI_HX8389B_TFT_VIDEO_QHD_PT_PANEL)
+#define LDI_COORDINATE_REG 0xA1
+#if defined(CONFIG_FB_MSM_MIPI_HX8389B_TFT_VIDEO_QHD_PT_PANEL)
 #define MDNIE_TUNE_FIRST_SIZE 113
-#elif defined(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_QHD_PT)\
-	|| defined(CONFIG_FB_MSM_MIPI_AMS367_OLED_VIDEO_WVGA_PT_PANEL)
+#else
 #define MDNIE_TUNE_FIRST_SIZE 108
 #endif
 #define MDNIE_TUNE_SECOND_SIZE 5
@@ -77,6 +76,9 @@ enum Lcd_mDNIe_UI {
 	mDNIe_BROWSER_MODE,
 	mDNIe_eBOOK_MODE,
 	mDNIE_BLINE_MODE,
+#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_OCTA_VIDEO_FULL_HD_PT_PANEL)
+	mDNIE_DARK_SCREEN_MODE,
+#endif
 #if defined(CONFIG_TDMB)
 	mDNIe_DMB_MODE = 20,
 	mDNIe_DMB_WARM_MODE,
@@ -98,7 +100,9 @@ enum Lcd_mDNIe_Negative {
 enum Background_Mode {
 	DYNAMIC_MODE = 0,
 	STANDARD_MODE,
+#if !defined(CONFIG_SUPPORT_DISPLAY_OCTA_TFT)
 	NATURAL_MODE,
+#endif
 	MOVIE_MODE,
 	AUTO_MODE,
 	MAX_BACKGROUND_MODE,
@@ -114,6 +118,9 @@ enum ACCESSIBILITY {
         ACCESSIBILITY_OFF,
         NEGATIVE,
         COLOR_BLIND,
+ #if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_OCTA_VIDEO_FULL_HD_PT_PANEL)
+        DARK_SCREEN,
+ #endif
         ACCESSIBILITY_MAX,
 };
 
@@ -125,11 +132,14 @@ struct mdnie_lite_tun_type {
 	enum Lcd_mDNIe_Negative negative;
 	enum ACCESSIBILITY blind;
 };
-#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_QHD_PT)
-void coordinate_tunning(int x, int y);
-#endif
+
 void mdnie_lite_tuning_init(void);
 void init_mdnie_class(void);
 void is_negative_on(void);
+#if defined(CONFIG_FB_MSM_MIPI_RENESAS_TFT_VIDEO_FULL_HD_PT_PANEL)
+int is_cabc_on ( void );
+#endif
+
+void coordinate_tunning(int x, int y);
 
 #endif /*_MDNIE_LITE_TUNING_H_*/

@@ -19,7 +19,6 @@ extern struct tsp_callbacks *charger_callbacks;
 struct tsp_callbacks {
 	void (*inform_charger)(struct tsp_callbacks *tsp_cb, bool mode);
 };
-
 struct mms_ts_platform_data {
 	int	max_x;
 	int	max_y;
@@ -37,18 +36,12 @@ struct mms_ts_platform_data {
 	void	(*register_cb)(struct tsp_callbacks *);
 	const char	*fw_name;
 	bool	use_touchkey;
-	bool	use_surface_touch;
 	const u8	*touchkey_keycode;
+	const u8	*config_fw_version;
 	int	check_module_type;
-	void (*tkey_led_vdd_on)(bool);
-	const char *tsp_ic_name;
 };
 extern struct class *sec_class;
-extern int touch_is_pressed;
-extern int system_rev;
-
 extern int poweroff_charging;
-/*
 extern unsigned char LCD_Get_Value(void);
-*/
+
 #endif /* _LINUX_MMS_TOUCH_H */

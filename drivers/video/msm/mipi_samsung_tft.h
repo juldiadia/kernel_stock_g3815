@@ -30,12 +30,30 @@
 #ifndef MIPI_SAMSUNG_OLED_H
 #define MIPI_SAMSUNG_OLED_H
 
+#define AUTO_BRIGHTNESS_CABC_FUNCTION
+
+//#include "smart_dimming.h"
+
 enum mipi_samsung_cmd_list {
+
+	PANEL_READY_TO_ON,
+	PANEL_READY_TO_OFF,
 	PANEL_ON,
 	PANEL_OFF,
-	PANEL_INIT,
-	PANEL_ENABLE_REG_ACCESS,
-	PANEL_DISABLE_REG_ACCESS,
+	PANEL_LATE_ON,
+	PANEL_EARLY_OFF,
+	PANEL_BRIGHT_CTRL,
+	PANEL_MTP_ENABLE,
+	PANEL_MTP_DISABLE,
+	PANEL_NEED_FLIP,
+#if defined(AUTO_BRIGHTNESS_CABC_FUNCTION)
+	PANEL_CABC_ENABLE,
+	PANEL_CABC_DISABLE,
+#endif
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_PREVENT_HSYNC_LEAKAGE)
+	PANEL_HSYNC_ON,
+	PANEL_HSYNC_OFF,
+#endif
 };
 
 enum {
@@ -47,6 +65,7 @@ struct cmd_set {
 	struct dsi_cmd_desc *cmd;
 	int size;
 };
+
 
 struct display_status {
 	unsigned char auto_brightness;
@@ -70,19 +89,33 @@ struct mipi_panel_data {
 	const char panel_name[20];
 	struct cmd_set on;
 	struct cmd_set off;
-	struct cmd_set init;
-	struct cmd_set en_access;
-	struct cmd_set dis_access;
+	struct cmd_set late_on;
+	struct cmd_set early_off;
+	struct cmd_set mtp_enable;
+	struct cmd_set mtp_disable;
+	struct cmd_set need_flip;
+	struct cmd_set brightness;
+#if defined(AUTO_BRIGHTNESS_CABC_FUNCTION)
+	struct cmd_set cabc_enable;
+	struct cmd_set cabc_disable;
+#endif
+#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_PREVENT_HSYNC_LEAKAGE)
+	struct cmd_set hsync_on;
+	struct cmd_set hsync_off;
+#endif
+
 	unsigned int manufacture_id;
 	struct mipi_samsung_driver_data *msd;
-	int (*set_brightness_level)(int bl_level);
+
 	int (*backlight_control)(int bl_level);
+
+	int siop_status;
 };
 
+int mipi_samsung_cabc_onoff ( int enable );
 int mipi_samsung_tft_device_register(struct msm_panel_info *pinfo,
 					u32 channel, u32 panel,
 					struct mipi_panel_data *mpd);
 
 extern struct mutex dsi_tx_mutex;
 #endif  /* MIPI_SAMSUNG_OLED_H */
-

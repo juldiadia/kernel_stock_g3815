@@ -69,35 +69,30 @@ static int __devinit pil_vidc_driver_probe(struct platform_device *pdev)
 	struct vidc_data *drv;
 	int ret;
 
-	if (pas_supported(PAS_VIDC) < 0) {
-		ret = -ENOSYS;
-		goto error;
-	}
+	if (pas_supported(PAS_VIDC) < 0)
+		return -ENOSYS;
 
 	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc) {
-		ret = -ENOMEM;
-		goto error;
-	}
+	if (!desc)
+		return -ENOMEM;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv) {
 		ret = -ENOMEM;
-		goto alloc_fail1;
+		goto err_desc_kfree;
 	}
-
 	platform_set_drvdata(pdev, drv);
 
 	drv->smmu_iface = devm_clk_get(&pdev->dev, "smmu_iface_clk");
 	if (IS_ERR(drv->smmu_iface)) {
 		ret = PTR_ERR(drv->smmu_iface);
-		goto alloc_fail2;
+		goto err_drv_kfree;
 	}
 
 	drv->core = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(drv->core)) {
 		ret = PTR_ERR(drv->core);
-		goto alloc_fail2;
+		goto err_drv_kfree;
 	}
 
 	desc->name = "vidc";
@@ -107,16 +102,14 @@ static int __devinit pil_vidc_driver_probe(struct platform_device *pdev)
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil)) {
 		ret = PTR_ERR(drv->pil);
-		goto alloc_fail2;
+		goto err_drv_kfree;
 	}
-
 	return 0;
 
-alloc_fail2:
+err_drv_kfree:
 	devm_kfree(&pdev->dev, drv);
-alloc_fail1:
+err_desc_kfree:
 	devm_kfree(&pdev->dev, desc);
-error:
 	return ret;
 }
 

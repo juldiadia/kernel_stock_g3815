@@ -1541,7 +1541,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 					WCD9XXX_INTERFACE_TYPE_I2C)
 					vtable = vport_i2s_check_table[dai_id];
 
-				if (wcd9xxx_tx_vport_validation(
+				if (wcd9xxx_tx_vport_validation_tapan(
 						vtable,
 						port_id,
 						tapan_p->dai)) {
@@ -3114,8 +3114,8 @@ static int tapan_set_channel_map(struct snd_soc_dai *dai,
 		 __func__, tx_num, rx_num, tapan->intf_type);
 
 	if (tapan->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
-		wcd9xxx_init_slimslave(core, core->slim->laddr,
-				       tx_num, tx_slot, rx_num, rx_slot);
+		wcd9xxx_init_slimslave(core, core->slim->laddr/*,
+				       tx_num, tx_slot, rx_num, rx_slot*/);
 	return 0;
 }
 
@@ -3625,7 +3625,7 @@ static int tapan_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	struct wcd9xxx *core;
 	struct snd_soc_codec *codec = w->codec;
 	struct tapan_priv *tapan_p = snd_soc_codec_get_drvdata(codec);
-	int ret = 0;
+	int ret = 0,j = 0;
 	struct wcd9xxx_codec_dai_data *dai;
 
 	core = dev_get_drvdata(codec->dev->parent);
@@ -3645,18 +3645,21 @@ static int tapan_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		(void) tapan_codec_enable_slim_chmask(dai, true);
-		ret = wcd9xxx_cfg_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
-					      dai->rate, dai->bit_width,
-					      &dai->grph);
+			ret = wcd9xxx_cfg_slim_sch_rx(core,
+					tapan_p->dai[j].ch_num,
+					tapan_p->dai[j].ch_tot,
+					tapan_p->dai[j].rate);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
-						dai->grph);
+		ret = wcd9xxx_close_slim_sch_rx(core,
+					tapan_p->dai[j].ch_num,
+					tapan_p->dai[j].ch_tot);
 		ret = tapan_codec_enable_slim_chmask(dai, false);
 		if (ret < 0) {
 			ret = wcd9xxx_disconnect_port(core,
-						      &dai->wcd9xxx_ch_list,
-						      dai->grph);
+						tapan_p->dai[j].ch_num,
+						tapan_p->dai[j].ch_tot,
+						1);
 			pr_debug("%s: Disconnect RX port, ret = %d\n",
 				 __func__, ret);
 		}
@@ -3672,7 +3675,7 @@ static int tapan_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	struct wcd9xxx *core;
 	struct snd_soc_codec *codec = w->codec;
 	struct tapan_priv *tapan_p = snd_soc_codec_get_drvdata(codec);
-	u32  ret = 0;
+	u32  ret = 0,j = 0;
 	struct wcd9xxx_codec_dai_data *dai;
 
 	core = dev_get_drvdata(codec->dev->parent);
@@ -3691,18 +3694,21 @@ static int tapan_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		(void) tapan_codec_enable_slim_chmask(dai, true);
-		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
-					      dai->rate, dai->bit_width,
-					      &dai->grph);
+		ret = wcd9xxx_cfg_slim_sch_tx(core,
+					tapan_p->dai[j].ch_num,
+					tapan_p->dai[j].ch_tot,
+					tapan_p->dai[j].rate);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
-						dai->grph);
+			wcd9xxx_close_slim_sch_tx(core,
+					tapan_p->dai[j].ch_num,
+					tapan_p->dai[j].ch_tot);
 		ret = tapan_codec_enable_slim_chmask(dai, false);
 		if (ret < 0) {
-			ret = wcd9xxx_disconnect_port(core,
-						      &dai->wcd9xxx_ch_list,
-						      dai->grph);
+				ret = wcd9xxx_disconnect_port(core,
+						tapan_p->dai[j].ch_num,
+						tapan_p->dai[j].ch_tot,
+						0);
 			pr_debug("%s: Disconnect RX port, ret = %d\n",
 				 __func__, ret);
 		}

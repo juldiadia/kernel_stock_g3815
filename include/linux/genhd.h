@@ -235,6 +235,10 @@ static inline int disk_max_parts(struct gendisk *disk)
 		return DISK_MAX_PARTS;
 	return disk->minors;
 }
+static inline bool disk_partitionable(struct gendisk *disk)
+{
+	return disk_max_parts(disk) > 1;
+}
 
 static inline bool disk_part_scan_enabled(struct gendisk *disk)
 {

@@ -67,12 +67,20 @@ struct voice_rec_route_state {
 	u16 dl_flag;
 };
 #ifdef CONFIG_SEC_DHA_SOL_MAL
+#ifdef CONFIG_MACH_M2
+struct voice_dha_data {
+	int dha_mode;
+	int dha_select;
+	short dha_params[12];
+};
+#else
 struct voice_dha_data {
 	short dha_mode;
 	short dha_select;
 	short dha_params[12];
 };
-#endif
+#endif //CONFIG_MACH_M2
+ #endif //CONFIG_SEC_DHA_SOL_MAL
 enum {
 	VOC_INIT = 0,
 	VOC_RUN,
@@ -419,10 +427,10 @@ struct vss_istream_cmd_start_record_t {
 	 */
 } __packed;
 
-#define VOICE_MODULE_DHA        0x10001020
+#define VOICE_MODULE_DHA		0x10001020
 #define VOICE_PARAM_DHA_DYNAMIC  0x10001022
 
-#define VOICEPROC_MODULE_TX          0x00010EF6
+#define VOICEPROC_MODULE_TX 		 0x00010EF6
 #define VOICE_PARAM_LOOPBACK_ENABLE  0x00010E18
 
 struct vss_istream_cmd_create_passive_control_session_t {
@@ -600,6 +608,25 @@ struct vss_icommon_cmd_set_loopback_enable_t {
 };
 
 #ifdef CONFIG_SEC_DHA_SOL_MAL
+#ifdef CONFIG_MACH_M2
+struct oem_dha_parm_send_t {
+	uint32_t payload_address;
+	uint32_t payload_size;
+	uint32_t module_id;
+	/* Unique ID of the module. */
+	uint32_t param_id;
+	/* Unique ID of the parameter. */
+	uint16_t param_size;
+	/* Size of the parameter in bytes: MOD_ENABLE_PARAM_LEN */
+	uint16_t reserved;
+	/* Reserved; set to 0. */
+	uint16_t eq_mode;
+	uint16_t dha_mode;
+	uint16_t select;
+	uint16_t dummy2;
+	int16_t param[12];
+} __packed;
+#else
 struct oem_dha_parm_send_t {
 	uint32_t payload_address;
 	uint32_t payload_size;
@@ -615,7 +642,7 @@ struct oem_dha_parm_send_t {
 	uint16_t dha_select;
 	uint16_t dha_params[12];
 } __packed;
-
+#endif //CONFIG_MACH_M2
 struct oem_dha_parm_send_cmd {
 	struct apr_hdr hdr;
 	struct oem_dha_parm_send_t dha_send;
@@ -688,6 +715,7 @@ struct cvs_start_record_cmd {
 	struct apr_hdr hdr;
 	struct vss_istream_cmd_start_record_t rec_mode;
 } __packed;
+
 struct cvs_set_loopback_enable_cmd {
 	struct apr_hdr hdr;
 	struct vss_icommon_cmd_set_loopback_enable_t vss_set_loopback;
@@ -701,6 +729,8 @@ struct cvs_set_loopback_enable_cmd {
 #define APRV2_IBASIC_CMD_DESTROY_SESSION		0x0001003C
 
 #define VSS_IVOCPROC_CMD_SET_DEVICE			0x000100C4
+
+#define VSS_IVOCPROC_CMD_SET_DEVICE_V2			0x000112C6
 
 #define VSS_IVOCPROC_CMD_SET_VP3_DATA			0x000110EB
 
@@ -756,6 +786,9 @@ struct cvs_set_loopback_enable_cmd {
 #define VOICE_CMD_SET_PARAM				0x00011006
 #define VOICE_CMD_GET_PARAM				0x00011007
 #define VOICE_EVT_GET_PARAM_ACK				0x00011008
+
+/* Default AFE port ID. Applicable to Tx and Rx. */
+#define VSS_IVOCPROC_PORT_ID_NONE			0xFFFF
 
 struct vss_ivocproc_cmd_create_full_control_session_t {
 	uint16_t direction;
@@ -826,6 +859,32 @@ struct vss_ivocproc_cmd_set_device_t {
 	*/
 } __packed;
 
+/* Internal EC */
+#define VSS_IVOCPROC_VOCPROC_MODE_EC_INT_MIXING 0x00010F7C
+
+/* External EC */
+#define VSS_IVOCPROC_VOCPROC_MODE_EC_EXT_MIXING 0x00010F7D
+
+struct vss_ivocproc_cmd_set_device_v2_t {
+	uint16_t tx_port_id;
+	/* Tx device port ID to which the vocproc connects. */
+	uint32_t tx_topology_id;
+	/* Tx path topology ID. */
+	uint16_t rx_port_id;
+	/* Rx device port ID to which the vocproc connects. */
+	uint32_t rx_topology_id;
+	/* Rx path topology ID. */
+	uint32_t vocproc_mode;
+	/* Vocproc mode. The supported values:
+	 * VSS_IVOCPROC_VOCPROC_MODE_EC_INT_MIXING - 0x00010F7C
+	 * VSS_IVOCPROC_VOCPROC_MODE_EC_EXT_MIXING - 0x00010F7D
+	 */
+	uint16_t ec_ref_port_id;
+	/* Port ID to which the vocproc connects for receiving
+	 * echo cancellation reference signal.
+	 */
+} __packed;
+
 struct vss_ivocproc_cmd_register_calibration_data_t {
 	uint32_t phys_addr;
 	/* Phsical address to be registered with vocproc. Calibration data
@@ -873,6 +932,11 @@ struct cvp_command {
 struct cvp_set_device_cmd {
 	struct apr_hdr hdr;
 	struct vss_ivocproc_cmd_set_device_t cvp_set_device;
+} __packed;
+
+struct cvp_set_device_cmd_v2 {
+	struct apr_hdr hdr;
+	struct vss_ivocproc_cmd_set_device_v2_t cvp_set_device_v2;
 } __packed;
 
 struct cvp_set_vp3_data_cmd {
@@ -1007,6 +1071,8 @@ struct common_data {
 	uint32_t default_mute_val;
 	uint32_t default_vol_val;
 	uint32_t default_sample_val;
+	bool ec_ref_ext;
+	uint16_t ec_port_id;
 
 	/* APR to MVM in the Q6 */
 	void *apr_q6_mvm;
@@ -1047,10 +1113,9 @@ enum {
 
 /* called  by alsa driver */
 #ifdef CONFIG_SEC_DHA_SOL_MAL
-int voice_sec_set_dha_data(uint16_t session_id, short mode,
-					short select, short *parameters);
+int voice_sec_set_dha_data(uint16_t session_id, int mode,
+					int select, short *parameters);
 #endif /* CONFIG_SEC_DHA_SOL_MAL*/
-
 int voc_set_pp_enable(uint16_t session_id, uint32_t module_id, uint32_t enable);
 int voc_get_pp_enable(uint16_t session_id, uint32_t module_id);
 int voc_set_widevoice_enable(uint16_t session_id, uint32_t wv_enable);
@@ -1075,7 +1140,6 @@ uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
 int voc_get_loopback_enable(void);
 void voc_set_loopback_enable(int loopback_enable);
 
-
 #define VOICE_SESSION_NAME "Voice session"
 #define VOIP_SESSION_NAME "VoIP session"
 #define VOLTE_SESSION_NAME "VoLTE session"
@@ -1090,4 +1154,6 @@ uint16_t voc_get_session_id(char *name);
 
 int voc_start_playback(uint32_t set);
 int voc_start_record(uint32_t port_id, uint32_t set);
+int voc_set_ext_ec_ref(uint16_t port_id, bool state);
+
 #endif

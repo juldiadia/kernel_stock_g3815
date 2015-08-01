@@ -1,3 +1,3 @@
-export PATH=$PATH:/home/xpaum/android/gcc-linaro-4.7/bin
+export PATH=$PATH:/home/xpaum/android/arm-cortex_a15-toolchain/bin
 
-make ARCH=arm CROSS_COMPILE=arm-eabi-
+make ARCH=arm CROSS_COMPILE=arm-gnueabi-

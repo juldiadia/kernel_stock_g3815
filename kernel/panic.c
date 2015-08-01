@@ -23,10 +23,10 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
-#include <linux/coresight.h>
-#if defined(CONFIG_SEC_DEBUG)
+#ifdef CONFIG_SEC_DEBUG
 #include <mach/sec_debug.h>
 #endif
+#include <linux/coresight.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -83,8 +83,9 @@ void panic(const char *fmt, ...)
 	va_list args;
 	long i, i_next = 0;
 	int state = 0;
-
+#if !defined(CONFIG_MACH_MELIUS) && !defined(CONFIG_SEC_PRODUCT_8960) && !defined(CONFIG_MACH_SERRANO) && !defined(CONFIG_MACH_GOLDEN) && !defined(CONFIG_MACH_LT02) && !defined(CONFIG_MACH_CANE)
 	coresight_abort();
+#endif
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
 	 * from deadlocking the first cpu that invokes the panic, since
@@ -106,6 +107,9 @@ void panic(const char *fmt, ...)
 	if (!spin_trylock(&panic_lock))
 		panic_smp_self_stop();
 
+#ifdef CONFIG_SEC_DEBUG
+	secdbg_sched_msg("!!panic!!");
+#endif
 	console_verbose();
 	bust_spinlocks(1);
 	va_start(args, fmt);
@@ -126,7 +130,7 @@ void panic(const char *fmt, ...)
 	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
 		dump_stack();
 #endif
-#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_SEC_DEBUG_SUBSYS)
+#ifdef CONFIG_SEC_DEBUG_SUBSYS
 	sec_debug_save_panic_info(buf,
 		(unsigned int)__builtin_return_address(0));
 #endif

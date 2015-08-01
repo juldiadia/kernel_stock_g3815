@@ -80,7 +80,7 @@ static int VibeOSKernelProcessData(void *data)
 	int nactuator_not_playing = 0;
 
 	for (i = 0; i < NUM_ACTUATORS; i++) {
-		struct actuator_samples_buffer *pcurrent_actuator_sample =
+		actuator_samples_buffer *pcurrent_actuator_sample =
 							&(g_samples_buffer[i]);
 
 		if (-1 == pcurrent_actuator_sample->nindex_playing_buffer) {

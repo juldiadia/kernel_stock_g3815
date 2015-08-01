@@ -746,6 +746,7 @@ static struct spi_driver imx175_spi_driver = {
 
 void imx175_eeprom_init(void)
 {
+pr_err("%s called \n",__func__);
 	spi_register_driver(&imx175_spi_driver);
 }
 

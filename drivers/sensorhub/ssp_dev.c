@@ -85,9 +85,7 @@ static void initialize_variable(struct ssp_data *data)
 	data->uIrqFailCnt = 0;
 	data->uMissSensorCnt = 0;
 
-	data->bCheckSuspend = false;
 	data->bSspShutdown = true;
-	data->bDebugEnabled = false;
 	data->bProximityRawEnabled = false;
 	data->bGeomagneticRawEnabled = false;
 	data->bMcuIRQTestSuccessed = false;
@@ -120,7 +118,9 @@ static void initialize_variable(struct ssp_data *data)
 	data->prs_device = NULL;
 	data->prox_device = NULL;
 	data->light_device = NULL;
+	data->ges_device = NULL;
 
+	data->step_count_total = 0;
 	initialize_function_pointer(data);
 }
 
@@ -145,12 +145,6 @@ int initialize_mcu(struct ssp_data *data)
 	iRet = set_sensor_position(data);
 	if (iRet < 0) {
 		pr_err("[SSP]: %s - set_sensor_position failed\n", __func__);
-		goto out;
-	}
-
-	iRet = get_fuserom_data(data);
-	if (iRet < 0) {
-		pr_err("[SSP]: %s - get_fuserom_data failed\n", __func__);
 		goto out;
 	}
 
@@ -258,10 +252,6 @@ static int ssp_probe(struct i2c_client *client,
 	data->set_mcu_reset = pdata->set_mcu_reset;
 	data->read_chg = pdata->read_chg;
 
-	data->set_prox_light_power = pdata->set_prox_light_power;
-	data->sensor_power_on_vdd = pdata->sensor_power_on_vdd;
-	data->set_prox_led_power = pdata->set_prox_led_power;
-
 	/* AP system_rev */
 	if (pdata->check_ap_rev)
 		data->ap_rev = pdata->check_ap_rev();
@@ -355,8 +345,6 @@ static int ssp_probe(struct i2c_client *client,
 	register_early_suspend(&data->early_suspend);
 #endif
 
-	initialize_magnetic(data);
-
 #ifdef CONFIG_SENSORS_SSP_SENSORHUB
 	/* init sensorhub device */
 	iRet = ssp_sensorhub_initialize(data);
@@ -432,8 +420,6 @@ static void ssp_shutdown(struct i2c_client *client)
 	free_irq(data->iIrq, data);
 	gpio_free(data->client->irq);
 
-	remove_magnetic(data);
-
 	remove_sysfs(data);
 	remove_event_symlink(data);
 	remove_input_dev(data);
@@ -442,14 +428,13 @@ static void ssp_shutdown(struct i2c_client *client)
 	ssp_sensorhub_remove(data);
 #endif
 
-	del_timer_sync(&data->debug_timer);
-	cancel_work_sync(&data->work_debug);
 	destroy_workqueue(data->debug_wq);
 	wake_lock_destroy(&data->ssp_wake_lock);
 #ifdef CONFIG_SENSORS_SSP_SHTC1
 	mutex_destroy(&data->cp_temp_adc_lock);
 #endif
 	toggle_mcu_reset(data);
+//	data->set_mcu_reset(0);
 exit:
 	kfree(data);
 }
@@ -471,8 +456,6 @@ static void ssp_early_suspend(struct early_suspend *handler)
 	if (atomic_read(&data->aSensorEnable) > 0)
 		ssp_sleep_mode(data);
 #endif
-
-	data->bCheckSuspend = true;
 }
 
 static void ssp_late_resume(struct early_suspend *handler)
@@ -482,8 +465,6 @@ static void ssp_late_resume(struct early_suspend *handler)
 
 	func_dbg();
 	enable_debug_timer(data);
-
-	data->bCheckSuspend = false;
 
 #ifdef CONFIG_SENSORS_SSP_SENSORHUB
 	/* give notice to user that AP goes to sleep */
@@ -504,10 +485,10 @@ static int ssp_suspend(struct device *dev)
 
 	func_dbg();
 
-	/* ssp_ap_suspend(data); */
+	if (SUCCESS != ssp_send_cmd(data, MSG2SSP_AP_STATUS_SUSPEND))
+		pr_err("[SSP]: %s MSG2SSP_AP_STATUS_SUSPEND failed\n",
+			__func__);
 
-	data->bCheckSuspend = true;
-	disable_irq(data->iIrq);
 	return 0;
 }
 
@@ -516,19 +497,18 @@ static int ssp_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct ssp_data *data = i2c_get_clientdata(client);
 
-	enable_irq(data->iIrq);
 	func_dbg();
 
-	data->bCheckSuspend = false;
-
-	/* ssp_ap_resume(data); */
+	if (SUCCESS != ssp_send_cmd(data, MSG2SSP_AP_STATUS_RESUME))
+		pr_err("[SSP]: %s MSG2SSP_AP_STATUS_RESUME failed\n",
+			__func__);
 
 	return 0;
 }
 
 static const struct dev_pm_ops ssp_pm_ops = {
-	.suspend = ssp_suspend,
-	.resume = ssp_resume
+	.suspend_late = ssp_suspend,
+	.resume_early = ssp_resume
 };
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 

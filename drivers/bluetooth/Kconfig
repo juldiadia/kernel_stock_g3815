@@ -238,8 +238,8 @@ config BT_MRVL_SDIO
 
 config MSM_BT_POWER
 	tristate "MSM Bluetooth Power Control"
-	depends on ARCH_MSM && RFKILL && (!BT_BCM4334)
-	default m
+	depends on ARCH_MSM && RFKILL
+	default n
 	help
 	  Provides a parameter to switch on/off power from PMIC
 	  to Bluetooth device.

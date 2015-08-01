@@ -11,11 +11,13 @@
  */
 
 #define DEBUG
-
+#if defined(CONFIG_SEC_PRODUCT_8930)
+#include <linux/battery/sec_charger_8930.h>
+#else
 #include <linux/battery/sec_charger.h>
+#endif
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
-#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 
 static int smb358_i2c_write(struct i2c_client *client,
 				int reg, u8 *buf)
@@ -421,35 +423,6 @@ static void smb358_enter_suspend(struct i2c_client *client)
 	data = (data | 0x4);
 	smb358_set_command(client, SMB358_COMMAND_A, data);
 }
-#if defined(CONFIG_MACH_GOLDEN_VZW)
-static void check_slow_charging_rate(struct i2c_client *client)
-{
-	struct sec_charger_info *charger = i2c_get_clientdata(client);
-	struct pm8xxx_adc_chan_result result;
-	int rc = -1, data = -1;
-
-	rc = pm8xxx_adc_mpp_config_read(
-		PM8XXX_AMUX_MPP_10, ADC_MPP_2_AMUX6, &result);
-	if (rc) {
-		pr_err("error reading mpp %d, rc = %d\n",
-			PM8XXX_AMUX_MPP_10, rc);
-		return;
-	}
-
-	/* use measurement, no need to scale */
-	data = (int)result.measurement;
-	dev_info(&client->dev, "%s: SMB358 charging current ADC(%d)\n",
-		__func__, data);
-
-	if (data > 30000) /* actual input current is higher than 300mA */
-		charger->aicl_on = false;
-	else {
-			charger->aicl_on = true; /* actual input current is under 300mA */
-			pr_info("%s: slow-charging mode(%d)\n",
-				__func__, data);
-	}
-}
-#endif
 static void smb358_charger_function_control(
 				struct i2c_client *client)
 {
@@ -481,7 +454,6 @@ static void smb358_charger_function_control(
 	}
 	else if (charger->cable_type ==
 		POWER_SUPPLY_TYPE_BATTERY) {
-		charger->aicl_on = false;
 #if defined(CONFIG_MACH_BISCOTTO)
 		if (charger->pdata->check_vbus_status()) {
 			/* Charger, Input current Disabled */
@@ -508,7 +480,7 @@ static void smb358_charger_function_control(
 		smb358_set_command(client, SMB358_STAT_TIMERS_CONTROL, 0x0F);
 		smb358_set_command(client, SMB358_PIN_ENABLE_CONTROL, 0x09);
 		smb358_set_command(client, SMB358_THERM_CONTROL_A, 0xF0);
-		smb358_set_command(client, SMB358_SYSOK_USB30_SELECTION, 0x08);
+		smb358_set_command(client, SMB358_SYSOK_USB30_SELECTION, 0x09);
 		smb358_set_command(client, SMB358_OTHER_CONTROL_A, 0x00);
 		smb358_set_command(client, SMB358_OTG_TLIM_THERM_CONTROL, 0xF6);
 		smb358_set_command(client, SMB358_LIMIT_CELL_TEMPERATURE_MONITOR, 0xA5);
@@ -533,6 +505,10 @@ static void smb358_charger_function_control(
 			if (chgcurrent == smb358_get_fast_charging_current_data(
 					charger->charging_current)) {
 				pr_info("[SMB358] Skip the Same charging current setting\n");
+#if defined(CONFIG_MACH_LT02_ATT)
+				smb358_set_command(client,
+					SMB358_THERM_CONTROL_A, 0xB0);
+#endif
 				goto control_skip;
 			}
 		}
@@ -542,10 +518,13 @@ static void smb358_charger_function_control(
                  * Charging Enable(bit 1) - Disabled(0, default)
                  * STAT Output(bit 0) - Enabled(0)
                 */
-
+#if defined(CONFIG_MACH_LT02)
 		smb358_set_command(client,
 			SMB358_COMMAND_A, 0xC2);
-
+#else
+		smb358_set_command(client,
+                        SMB358_COMMAND_A, 0xC0);
+#endif
                 /* [STEP - 2] ================================================
                  * USB 5/1(9/1.5) Mode(bit 1) - USB1/USB1.5(0), USB5/USB9(1)
                  * USB/HC Mode(bit 0) - USB5/1 or USB9/1.5 Mode(0)
@@ -766,7 +745,10 @@ static void smb358_charger_function_control(
 		 * Charging Enable(bit 1) - Enabled(1)
 		 * STAT Output(bit 0) - Enabled(0)
 		*/
-
+#if !defined(CONFIG_MACH_LT02)
+		smb358_set_command(client,
+			SMB358_COMMAND_A, 0xC2);
+#endif
 	}
 
 control_skip:
@@ -913,16 +895,8 @@ bool sec_hal_chg_get_property(struct i2c_client *client,
 		break;
 
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
-		if (charger->is_charging) {
-#if defined(CONFIG_MACH_GOLDEN_VZW)
-			check_slow_charging_rate(client);
-			if (charger->aicl_on) {
-				val->intval = POWER_SUPPLY_CHARGE_TYPE_SLOW;
-				pr_info("%s: slow-charging mode\n", __func__);
-			} else
-#endif
-				val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST;
-		}
+		if (charger->is_charging)
+			val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST;
 		else
 			val->intval = POWER_SUPPLY_CHARGE_TYPE_NONE;
 		break;
@@ -982,6 +956,13 @@ bool sec_hal_chg_get_property(struct i2c_client *client,
 		dev_dbg(&client->dev,
 			"%s : set-current(%dmA), current now(%dmA)\n",
 			__func__, charger->charging_current, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+		smb358_i2c_read(client, SMB358_INTERRUPT_STATUS_F, &data);
+		if (data & 0x01)
+			val->intval = 1;
+		else
+			val->intval = 0;
 		break;
 	default:
 		return false;

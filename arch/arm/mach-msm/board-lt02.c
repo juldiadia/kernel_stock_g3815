@@ -57,8 +57,8 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 
-#if defined(CONFIG_SENSORS_K3DH)
-#include <linux/k3dh.h>
+#if defined(CONFIG_SENSORS_K2DH)
+#include <linux/k2dh.h>
 #endif
 
 #include <asm/mach-types.h>
@@ -1511,7 +1511,7 @@ enum {
 static void sensor_power_on_vdd(int, int);
 #endif
 
-#if defined(CONFIG_SENSORS_K3DH)
+#if defined(CONFIG_SENSORS_K2DH)
 static int acceleromter_get_position(void)
 {
 #if defined(CONFIG_SENSOR_LT02_CTC)
@@ -1528,7 +1528,6 @@ static struct accel_platform_data_k2dh accel_pdata_k2dh = {
 	.axis_adjust = true,
 };
 #endif
-
 
 #if !defined(CONFIG_SENSOR_LT02_CTC)
 #if defined(CONFIG_INPUT_YAS_SENSORS)
@@ -1730,7 +1729,7 @@ void sensor_gpio_init(void){
 #if defined(CONFIG_INPUT_YAS_SENSORS)
 static struct i2c_board_info sns_i2c_board_info[]  = {
 	{
-		I2C_BOARD_INFO("k3dh", 0x19),
+		I2C_BOARD_INFO("k2dh", 0x19),
 		.platform_data = &accel_pdata_k2dh,
 	},
 	{
@@ -1750,7 +1749,7 @@ static struct platform_device yas532_orient_device = {
 };
 #endif
 
-#if defined(CONFIG_INPUT_YAS_SENSORS) || defined(CONFIG_SENSORS_K3DH)
+#if defined(CONFIG_INPUT_YAS_SENSORS) || defined(CONFIG_SENSORS_K2DH)
 static int __init sensor_device_init(void)
 {
 	sensor_power_on_vdd(SNS_PWR_KEEP, SNS_PWR_ON);
@@ -3603,7 +3602,7 @@ static struct msm_bus_scale_pdata usb_bus_scale_pdata = {
 static int hsusb_phy_init_seq[] = {
 	0x44, 0x80, /* set VBUS valid threshold
 			and disconnect valid threshold */
-#if defined(CONFIG_MACH_LT02_SPR) || defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_SEA)
+#if defined(CONFIG_MACH_LT02_SPR) || defined(CONFIG_MACH_LT02_ATT) || defined(CONFIG_MACH_LT02_SEA) || defined(CONFIG_MACH_LT02_TMO)
 	0x7F, 0x81, /* update DC voltage level */
 #else
 	0x5F, 0x81, /* update DC voltage level */
@@ -3880,8 +3879,6 @@ static struct i2c_board_info sii_device_info[] __initdata = {
 };
 #endif /*CONFIG_FB_MSM_HDMI_MHL_8334*/
 
-#ifdef MSM8930_PHASE_2
-
 #ifdef CONFIG_KEYBOARD_GPIO
 static struct gpio_keys_button gpio_keys_button[] = {
 	{
@@ -3919,13 +3916,14 @@ static struct gpio_keys_platform_data gpio_keys_platform_data = {
 };
 
 static struct platform_device msm8960_gpio_keys_device = {
-	.name	= "sec_keys",
+	.name	= "gpio-keys",
 	.id	= -1,
 	.dev	= {
 		.platform_data	= &gpio_keys_platform_data,
 	}
 };
 #endif
+#ifdef MSM8930_PHASE_2
 #ifdef CONFIG_2MIC_ES305
 static int a2220_hw_init(void)
 {
@@ -4355,7 +4353,7 @@ static struct platform_device msm_tsens_device = {
 static struct msm_thermal_data msm_thermal_pdata = {
 	.sensor_id = 9,
 	.poll_ms = 250,
-	.limit_temp_degC = 60,
+	.limit_temp_degC = 70,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 };
@@ -4520,25 +4518,25 @@ static struct sec_jack_buttons_zone jack_buttons_zones[] = {
 static struct sec_jack_zone jack_zones[] = {
 	[0] = {
 		.adc_high	= 3,
-		.delay_ms	= 10,
+		.delay_us	= 10,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_3POLE,
 	},
 	[1] = {
 		.adc_high	= 630,
-		.delay_ms	= 10,
+		.delay_us	= 10,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_3POLE,
 	},
 	[2] = {
 		.adc_high	= 1720,
-		.delay_ms	= 10,
+		.delay_us	= 10,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_4POLE,
 	},
 	[3] = {
 		.adc_high	= 9999,
-		.delay_ms	= 10,
+		.delay_us	= 10,
 		.check_count	= 10,
 		.jack_type	= SEC_HEADSET_4POLE,
 	},
@@ -4576,7 +4574,7 @@ static int get_sec_gnd_jack_state(void)
 	return status^1;
 }
 #endif
-
+/*
 static int get_sec_det_jack_state(void)
 {
 	int status = 0;
@@ -4596,8 +4594,8 @@ static int get_sec_send_key_state(void)
 
 	return status^1;
 }
-
-/* extern void msm8930_enable_codec_internal_micbias(bool state); */
+*/
+extern void msm8930_enable_ear_micbias(bool state);
 
 static void set_sec_micbias_state(bool state)
 {
@@ -4631,6 +4629,31 @@ static int sec_jack_get_adc_value(void)
 	return retVal;
 }
 
+static struct sec_jack_platform_data sec_jack_data = {
+	//.get_det_jack_state	= get_sec_det_jack_state,
+	//.get_send_key_state	= get_sec_send_key_state,
+	.set_micbias_state	= set_sec_micbias_state,
+	.get_adc_value		= sec_jack_get_adc_value,
+	.zones			= jack_zones,
+	.num_zones		= ARRAY_SIZE(jack_zones),
+	.buttons_zones		= jack_buttons_zones,
+	.num_buttons_zones	= ARRAY_SIZE(jack_buttons_zones),
+	.det_gpio		= GPIO_EAR_DET,
+	.send_end_gpio		= GPIO_SHORT_SENDEND,
+#if defined(CONFIG_SAMSUNG_JACK_GNDLDET)
+	.get_gnd_jack_state	= get_sec_gnd_jack_state,
+#endif
+};
+
+static struct platform_device sec_device_jack = {
+	.name           = "sec_jack",
+	.id             = -1,
+	.dev            = {
+		.platform_data  = &sec_jack_data,
+	},
+};
+#endif /* SAMSUNG_JACK */
+
 int lcd_id_get_adc_value(void)
 {
 	int rc = 0;
@@ -4654,31 +4677,6 @@ int lcd_id_get_adc_value(void)
 
 	return data;
 }
-
-static struct sec_jack_platform_data sec_jack_data = {
-	.get_det_jack_state	= get_sec_det_jack_state,
-	.get_send_key_state	= get_sec_send_key_state,
-	.set_micbias_state	= set_sec_micbias_state,
-	.get_adc_value		= sec_jack_get_adc_value,
-	.zones			= jack_zones,
-	.num_zones		= ARRAY_SIZE(jack_zones),
-	.buttons_zones		= jack_buttons_zones,
-	.num_buttons_zones	= ARRAY_SIZE(jack_buttons_zones),
-	.det_int		= MSM_GPIO_TO_INT(GPIO_EAR_DET),
-	.send_int		= MSM_GPIO_TO_INT(GPIO_SHORT_SENDEND),
-#if defined(CONFIG_SAMSUNG_JACK_GNDLDET)
-	.get_gnd_jack_state	= get_sec_gnd_jack_state,
-#endif
-};
-
-static struct platform_device sec_device_jack = {
-	.name           = "sec_jack",
-	.id             = -1,
-	.dev            = {
-		.platform_data  = &sec_jack_data,
-	},
-};
-#endif /* SAMSUNG_JACK */
 
 #if defined(CONFIG_MSM_VIBRATOR)
 static struct regulator *vreg_msm_vibrator;
@@ -5342,7 +5340,7 @@ static struct i2c_registry msm8930_i2c_devices[] __initdata = {
 };
 
 #if !defined(CONFIG_SENSOR_LT02_CTC)
-#if defined(CONFIG_SENSORS_K3DH) || defined(CONFIG_INPUT_YAS_SENSORS)
+#if defined(CONFIG_SENSORS_K2DH) || defined(CONFIG_INPUT_YAS_SENSORS)
 static struct i2c_registry sns_i2c_devices[] __initdata = {
 	{
 		MSM_SNS_I2C_BUS_ID,
@@ -5373,7 +5371,7 @@ static void __init register_i2c_devices(void)
 						msm8930_i2c_devices[i].len);
 	}
 #if !defined(CONFIG_SENSOR_LT02_CTC)
-#ifdef CONFIG_SENSORS_K3DH
+#ifdef CONFIG_SENSORS_K2DH
 	for (i = 0; i < ARRAY_SIZE(sns_i2c_devices); ++i) {
 		i2c_register_board_info(sns_i2c_devices[i].bus,
 				sns_i2c_devices[i].info,
@@ -5684,7 +5682,9 @@ void __init msm8930_lt02_init(void)
 	if (PLATFORM_IS_CHARM25())
 		platform_add_devices(mdm_devices, ARRAY_SIZE(mdm_devices));
 #if defined(CONFIG_KEYBOARD_CYPRESS_TOUCH) || defined(CONFIG_KEYBOARD_TC360_TOUCHKEY)
+#if !defined(CONFIG_MACH_LT02)	
 	input_touchkey_init();
+#endif
 #endif
 
 #ifdef CONFIG_MFD_MAX77693

@@ -327,14 +327,14 @@ int alarm_set_alarm(char* alarm_data)
 	struct rtc_wkalrm alm;
 	int ret;
 	char buf_ptr[BOOTALM_BIT_TOTAL+1];
-	struct rtc_time     rtc_tm;
-	unsigned long       rtc_sec;
-	unsigned long       rtc_alarm_time;
-	struct timespec     rtc_delta;
-	struct timespec     wall_time;
-	ktime_t 			wall_ktm;
-	struct rtc_time 	wall_tm;
-	
+	struct rtc_time rtc_tm;
+	unsigned long rtc_sec;
+	unsigned long rtc_alarm_time;
+	struct timespec rtc_delta;
+	struct timespec wall_time;
+	ktime_t wall_ktm;
+	struct rtc_time wall_tm;
+
 	if (!alarm_rtc_dev) {
 		pr_alarm(ERROR,
 			"alarm_set_alarm: no RTC, time will be lost on reboot\n");
@@ -359,7 +359,7 @@ int alarm_set_alarm(char* alarm_data)
 
 	alm.enabled = (*buf_ptr == '1');
 
-	pr_info("[SAPA] %s : %s => tm(%d %04d-%02d-%02d %02d:%02d:%02d)\n",
+	pr_info("%s : %s => tm(%d %04d-%02d-%02d %02d:%02d:%02d)\n",
 			__func__, buf_ptr, alm.enabled,
 			alm.time.tm_year, alm.time.tm_mon, alm.time.tm_mday,
 			alm.time.tm_hour, alm.time.tm_min, alm.time.tm_sec);
@@ -373,7 +373,7 @@ int alarm_set_alarm(char* alarm_data)
 		/* read current time */
 		rtc_read_time(alarm_rtc_dev, &rtc_tm);
 		rtc_tm_to_time(&rtc_tm, &rtc_sec);
-		pr_info("[SAPA] rtc  %4d-%02d-%02d %02d:%02d:%02d -> %lu\n",
+		pr_info("%s: rtc  %4d-%02d-%02d %02d:%02d:%02d -> %lu\n", __func__,
 			rtc_tm.tm_year, rtc_tm.tm_mon, rtc_tm.tm_mday,
 			rtc_tm.tm_hour, rtc_tm.tm_min, rtc_tm.tm_sec, rtc_sec);
 
@@ -381,7 +381,7 @@ int alarm_set_alarm(char* alarm_data)
 		getnstimeofday(&wall_time);
 		wall_ktm = timespec_to_ktime(wall_time);
 		wall_tm = rtc_ktime_to_tm(wall_ktm);
-		pr_info("[SAPA] wall %4d-%02d-%02d %02d:%02d:%02d -> %lu\n",
+		pr_info("%s: wall %4d-%02d-%02d %02d:%02d:%02d -> %lu\n", __func__,
 			wall_tm.tm_year, wall_tm.tm_mon, wall_tm.tm_mday,
 			wall_tm.tm_hour, wall_tm.tm_min, wall_tm.tm_sec, wall_time.tv_sec);
 
@@ -396,13 +396,9 @@ int alarm_set_alarm(char* alarm_data)
 		/* convert to RTC time with user requested SAPA time and offset */
 		rtc_alarm_time -= rtc_delta.tv_sec;
 		rtc_time_to_tm(rtc_alarm_time, &alm.time);
-		pr_info("[SAPA] arlm %4d-%02d-%02d %02d:%02d:%02d -> %lu\n",
-			alm.time.tm_year, alm.time.tm_mon, alm.time.tm_mday,
-			alm.time.tm_hour, alm.time.tm_min, alm.time.tm_sec, rtc_alarm_time);
-
 	}
 
-	ret = rtc_set_bootalarm(alarm_rtc_dev, &alm); 
+	ret = rtc_set_bootalarm(alarm_rtc_dev, &alm);
 	if (ret < 0) {
 		pr_alarm(ERROR, "alarm_set_alarm: "
 			"Failed to set ALARM, time will be lost on reboot\n");

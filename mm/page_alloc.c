@@ -57,6 +57,7 @@
 #include <linux/ftrace_event.h>
 #include <linux/memcontrol.h>
 #include <linux/prefetch.h>
+#include <linux/mm_inline.h>
 #include <linux/migrate.h>
 #include <linux/page-debug-flags.h>
 
@@ -112,62 +113,6 @@ unsigned long total_unmovable_pages __read_mostly;
 int percpu_pagelist_fraction;
 gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
 
-#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_BASED_MEMUSAGE
-
-#define LMK_STATISTICAL_CYCLE	60
-#define SAMPLING_TIME	2
-
-static int default_interval=2*HZ;
-
-static unsigned long old_jiffies=0;
-static unsigned long begin_slowpath_jiffies=0;
-static unsigned long delta_jiffies=0;
-
-static int array_index = 0;
-static unsigned long alloc_sum=0;
-unsigned long alloc_sum_array[LMK_STATISTICAL_CYCLE/SAMPLING_TIME];
-
-EXPORT_SYMBOL(alloc_sum_array);
-
-static void gather_sample_pagealloc(void)
-{
-	int i;
-	unsigned long mysum=0;
-	
-	if(!old_jiffies)
-		old_jiffies = jiffies;	
-	else if(jiffies - old_jiffies >= default_interval) {
-		delta_jiffies = jiffies - old_jiffies ;
-		old_jiffies = jiffies;	
-		alloc_sum_array[array_index++] =alloc_sum;
-		alloc_sum = 0;
-		default_interval = SAMPLING_TIME*HZ;
-		
-		if(array_index >=LMK_STATISTICAL_CYCLE/SAMPLING_TIME) {
-			array_index = 0;
-			for(i=0;i<LMK_STATISTICAL_CYCLE/SAMPLING_TIME;i++)
-				 mysum += alloc_sum_array[i];
-		    printk("DMK:############alloc %dM in 60HZ\n", (int)(mysum >>10));
-		}
-	
-	}
-}
-
-
-static void add_pagealloc_count(bool quickalloc, unsigned int order)
-{
-	if(!quickalloc) {
-		if(jiffies - begin_slowpath_jiffies <=1) //get from freelist success in short time
-			alloc_sum += (1<<order)*4;//(Kb)
-		else if(jiffies - begin_slowpath_jiffies >1) {
-			default_interval += (jiffies - begin_slowpath_jiffies);
-			printk("update default_interval to %d\n", default_interval);
-		}
-	} else {
-		alloc_sum += (1<<order)*4;//(Kb)
-	}
-}
-#endif
 #ifdef CONFIG_PM_SLEEP
 /*
  * The following functions are used by the suspend/hibernate code to temporarily
@@ -232,7 +177,7 @@ int sysctl_lowmem_reserve_ratio[MAX_NR_ZONES-1] = {
 #ifdef CONFIG_HIGHMEM
 	 64,
 #endif
-	 64,
+	 32,
 };
 
 EXPORT_SYMBOL(totalram_pages);
@@ -703,7 +648,6 @@ static void free_pcppages_bulk(struct zone *zone, int count,
 	int mt = 0;
 
 	spin_lock(&zone->lock);
-	zone->all_unreclaimable = 0;
 	zone->pages_scanned = 0;
 
 	while (to_free) {
@@ -749,7 +693,6 @@ static void free_one_page(struct zone *zone, struct page *page, int order,
 				int migratetype)
 {
 	spin_lock(&zone->lock);
-	zone->all_unreclaimable = 0;
 	zone->pages_scanned = 0;
 
 	__free_one_page(page, zone, order, migratetype);
@@ -1717,6 +1660,7 @@ static bool __zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 	long min = mark;
 	long lowmem_reserve = z->lowmem_reserve[classzone_idx];
 	int o;
+	long free_cma = 0;
 
 	free_pages -= (1 << order) - 1;
 	if (alloc_flags & ALLOC_HIGH)
@@ -1726,9 +1670,10 @@ static bool __zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 #ifdef CONFIG_CMA
 	/* If allocation can't use CMA areas don't use free CMA pages */
 	if (!(alloc_flags & ALLOC_CMA))
-		free_pages -= zone_page_state(z, NR_FREE_CMA_PAGES);
+		free_cma = zone_page_state(z, NR_FREE_CMA_PAGES);
 #endif
-	if (free_pages <= min + lowmem_reserve)
+
+	if (free_pages - free_cma <= min + lowmem_reserve)
 		return false;
 	for (o = 0; o < order; o++) {
 		/* At the next order, this order's pages become unavailable */
@@ -2416,7 +2361,9 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned long did_some_progress;
 	bool sync_migration = false;
 	bool deferred_compaction = false;
+#ifdef CONFIG_SEC_OOM_KILLER
 	unsigned long oom_invoke_timeout = jiffies + HZ/4;
+#endif
 
 	/*
 	 * In the slowpath, we sanity check order to avoid ever trying to
@@ -2526,7 +2473,12 @@ rebalance:
 	 * If we failed to make any progress reclaiming, then we are
 	 * running out of options and have to consider going OOM
 	 */
-	if (!did_some_progress || time_after(jiffies, oom_invoke_timeout)) {
+#ifdef CONFIG_SEC_OOM_KILLER
+#define SHOULD_CONSIDER_OOM !did_some_progress || time_after(jiffies, oom_invoke_timeout)
+#else
+#define SHOULD_CONSIDER_OOM !did_some_progress
+#endif
+	if (SHOULD_CONSIDER_OOM) {
 		if ((gfp_mask & __GFP_FS) && !(gfp_mask & __GFP_NORETRY)) {
 			if (oom_killer_disabled)
 				goto nopage;
@@ -2534,10 +2486,12 @@ rebalance:
 			if ((current->flags & PF_DUMPCORE) &&
 			    !(gfp_mask & __GFP_NOFAIL))
 				goto nopage;
-
+#ifdef CONFIG_SEC_OOM_KILLER
 			if (did_some_progress)
 				pr_info("time's up : calling "
 					"__alloc_pages_may_oom(o:%d, gfp:0x%x)\n", order, gfp_mask);
+
+#endif
 
 			page = __alloc_pages_may_oom(gfp_mask, order,
 					zonelist, high_zoneidx,
@@ -2564,10 +2518,13 @@ rebalance:
 					goto nopage;
 			}
 
+#ifdef CONFIG_SEC_OOM_KILLER
 			oom_invoke_timeout = jiffies + HZ/4;
+#endif
 			goto restart;
 		}
 	}
+
 
 	/* Check if we should retry the allocation */
 	pages_reclaimed += did_some_progress;
@@ -2649,28 +2606,13 @@ retry_cpuset:
 		alloc_flags |= ALLOC_CMA;
 #endif
 	/* First allocation attempt */
-#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_BASED_MEMUSAGE
-	gather_sample_pagealloc();
-#endif
 	page = get_page_from_freelist(gfp_mask|__GFP_HARDWALL, nodemask, order,
 			zonelist, high_zoneidx, alloc_flags,
 			preferred_zone, migratetype);
 	if (unlikely(!page))
-#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_BASED_MEMUSAGE
-	{
-		begin_slowpath_jiffies = jiffies;
 		page = __alloc_pages_slowpath(gfp_mask, order,
 				zonelist, high_zoneidx, nodemask,
 				preferred_zone, migratetype);
-		add_pagealloc_count(false,order);
-	} else {
-		add_pagealloc_count(true,order);
-	}		
-#else
-		page = __alloc_pages_slowpath(gfp_mask, order,
-				zonelist, high_zoneidx, nodemask,
-				preferred_zone, migratetype);
-#endif
 
 	trace_mm_page_alloc(page, order, gfp_mask, migratetype);
 
@@ -3055,7 +2997,7 @@ void show_free_areas(unsigned int filter)
 			K(zone_page_state(zone, NR_FREE_CMA_PAGES)),
 			K(zone_page_state(zone, NR_WRITEBACK_TEMP)),
 			zone->pages_scanned,
-			(zone->all_unreclaimable ? "yes" : "no")
+			(!zone_reclaimable(zone) ? "yes" : "no")
 			);
 		printk("lowmem_reserve[]:");
 		for (i = 0; i < MAX_NR_ZONES; i++)
@@ -5326,6 +5268,9 @@ void setup_per_zone_wmarks(void)
  */
 static void __meminit calculate_zone_inactive_ratio(struct zone *zone)
 {
+#ifdef CONFIG_FIX_INACTIVE_RATIO
+	zone->inactive_ratio = 1;
+#else
 	unsigned int gb, ratio;
 
 	/* Zone size in gigabytes */
@@ -5336,6 +5281,7 @@ static void __meminit calculate_zone_inactive_ratio(struct zone *zone)
 		ratio = 1;
 
 	zone->inactive_ratio = ratio;
+#endif
 }
 
 static void __meminit setup_per_zone_inactive_ratio(void)
@@ -5997,6 +5943,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 		ret = -EBUSY;
 		goto done;
 	}
+
 
 	/* Grab isolated pages from freelists. */
 	outer_end = isolate_freepages_range(outer_start, end);

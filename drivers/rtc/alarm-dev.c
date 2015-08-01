@@ -168,7 +168,7 @@ from_old_alarm_set:
 
 #ifdef CONFIG_RTC_AUTO_PWRON
 	case ANDROID_ALARM_SET_ALARM:
-		pr_info("[SAPA] %s\n", __func__);
+		printk("%s [RTC] \n",__func__);
 		if (copy_from_user(bootalarm_data, (void __user *)arg, 14)) {
 			rv = -EFAULT;
 			goto err1;

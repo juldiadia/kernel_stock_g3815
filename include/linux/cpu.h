@@ -145,6 +145,7 @@ static inline void unregister_cpu_notifier(struct notifier_block *nb)
 int cpu_up(unsigned int cpu);
 void notify_cpu_starting(unsigned int cpu);
 extern void cpu_maps_update_begin(void);
+int cpu_maps_is_updating(void);
 extern void cpu_maps_update_done(void);
 
 #else	/* CONFIG_SMP */
@@ -164,6 +165,11 @@ static inline void cpu_maps_update_begin(void)
 {
 }
 
+static inline int cpu_maps_is_updating(void)
+{
+	return 0;
+}
+
 static inline void cpu_maps_update_done(void)
 {
 }
@@ -181,7 +187,6 @@ extern void put_online_cpus(void);
 #define unregister_hotcpu_notifier(nb)	unregister_cpu_notifier(nb)
 int cpu_down(unsigned int cpu);
 
-#ifndef CONFIG_SEC_DVFS_DUAL
 #ifdef CONFIG_ARCH_CPU_PROBE_RELEASE
 extern void cpu_hotplug_driver_lock(void);
 extern void cpu_hotplug_driver_unlock(void);
@@ -193,10 +198,6 @@ static inline void cpu_hotplug_driver_lock(void)
 static inline void cpu_hotplug_driver_unlock(void)
 {
 }
-#endif
-#else
-extern void cpu_hotplug_driver_lock(void);
-extern void cpu_hotplug_driver_unlock(void);
 #endif
 
 #else		/* CONFIG_HOTPLUG_CPU */
