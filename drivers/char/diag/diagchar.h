@@ -93,7 +93,6 @@
 extern int diag_max_reg;
 extern int diag_threshold_reg;
 
-
 #define APPEND_DEBUG(ch) \
 do {							\
 	diag_debug_buf[diag_debug_buf_idx] = ch; \
