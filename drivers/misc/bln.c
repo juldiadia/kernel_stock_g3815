@@ -221,7 +221,7 @@ static ssize_t notification_led_status_write(struct device *dev,
 	unsigned int data;
 
 	if (sscanf(buf, "%u\n", &data) == 1) {
-		if (data == 1 || data == 7) //Patch for modified liblight
+		if (data >= 1) //Patch for original liblight
 			enable_led_notification();
 		else if (data == 0)
 			disable_led_notification();
